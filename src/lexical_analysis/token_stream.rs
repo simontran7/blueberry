@@ -1,13 +1,13 @@
 use core::fmt;
 
 #[derive(Default)]
-pub(super) struct TokenStream {
+pub(crate) struct TokenStream {
     kinds: Vec<TokenKind>,
     widths: Vec<TextWidth>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum TokenKind {
+pub(crate) enum TokenKind {
     // literals
     Identifier,
     Integer,
@@ -24,7 +24,7 @@ pub(super) enum TokenKind {
     GreaterEqual,
     EqualEqual,
     NotEqual,
-    
+
     // punctuators
     Comma,
     Colon,
@@ -53,6 +53,7 @@ pub(super) enum TokenKind {
 
     // trivia
     Whitespace,
+    InlineComment,
 
     // special
     Eof,
@@ -60,29 +61,29 @@ pub(super) enum TokenKind {
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct TextWidth(u32);
+pub(crate) struct TextWidth(u32);
 
 impl TokenStream {
-    pub(super) fn add(&mut self, kind: TokenKind, width: TextWidth) {
+    pub(crate) fn add(&mut self, kind: TokenKind, width: TextWidth) {
         self.kinds.push(kind);
         self.widths.push(width);
     }
 
-    fn count(&self) -> usize {
+    pub(crate) fn count(&self) -> usize {
         self.kinds.len()
     }
 
-    pub(super) fn kinds(&self) -> impl Iterator<Item = TokenKind> {
+    pub(crate) fn kinds(&self) -> impl Iterator<Item = TokenKind> {
         self.kinds.iter().copied()
     }
 
-    pub(super) fn widths(&self) -> impl Iterator<Item = TextWidth> {
+    pub(crate) fn widths(&self) -> impl Iterator<Item = TextWidth> {
         self.widths.iter().copied()
     }
 }
 
 impl TokenKind {
-    pub(super) fn classify(lexeme: &str) -> Self {
+    pub(crate) fn classify(lexeme: &str) -> Self {
         match lexeme {
             "let" => Self::Let,
             "func" => Self::Func,
@@ -102,13 +103,17 @@ impl TokenKind {
         }
     }
 
-    pub(super) fn has_lexeme(&self) -> bool {
+    pub(crate) fn has_lexeme(self) -> bool {
         matches!(self, TokenKind::Identifier | TokenKind::Integer)
+    }
+
+    pub(crate) fn is_trivia(self) -> bool {
+        matches!(self, TokenKind::Whitespace | TokenKind::InlineComment)
     }
 }
 
 impl TextWidth {
-    pub(super) fn new(width: usize) -> Self {
+    pub(crate) fn new(width: usize) -> Self {
         TextWidth(width as u32)
     }
 }
@@ -156,6 +161,7 @@ impl fmt::Display for TokenKind {
             Self::Continue => "continue",
 
             Self::Whitespace => "whitespace",
+            Self::InlineComment => "inline comment",
 
             Self::Eof => "end of file",
             Self::Error => "error token",

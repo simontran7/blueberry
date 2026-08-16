@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug main.crw",
+            "name": "Debug test",
             "type": "lldb",
             "request": "launch",
             "sourceLanguages": [

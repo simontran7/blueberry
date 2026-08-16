@@ -1,9 +1,9 @@
-use std::str::{CharIndices};
 use std::iter::Peekable;
+use std::str::CharIndices;
 
-use super::token_stream::TokenStream;
-use super::token_stream::TokenKind;
 use super::token_stream::TextWidth;
+use super::token_stream::TokenKind;
+use super::token_stream::TokenStream;
 
 pub(super) struct Tokenizer<'src> {
     source: &'src str,
@@ -48,7 +48,14 @@ impl<'src> Tokenizer<'src> {
             ',' => TokenKind::Comma,
             '+' => TokenKind::Plus,
             '*' => TokenKind::Star,
-            '/' => TokenKind::Slash,
+            '/' => {
+                if self.peek() == '/' {
+                    self.eat_inline_comment();
+                    TokenKind::InlineComment
+                } else {
+                    TokenKind::Slash
+                }
+            },
             '-' => {
                 if self.peek() == '>' {
                     self.advance();
@@ -114,6 +121,10 @@ impl<'src> Tokenizer<'src> {
         self.advance_while(|c| c.is_whitespace())
     }
 
+    fn eat_inline_comment(&mut self) {
+        self.advance_while(|c| c != '\n');
+    }
+
     fn eat_integer(&mut self) {
         self.advance_while(|c| c.is_ascii_hexdigit() || c == '_');
     }
@@ -155,9 +166,9 @@ impl<'src> Tokenizer<'src> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use super::*;
     use super::super::token_stream_dumper::TokenDumper;
+    use super::*;
+    use std::fs;
 
     #[test]
     fn test_tokenizer_output() {
