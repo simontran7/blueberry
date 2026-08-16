@@ -1,0 +1,12 @@
+[package]
+name = "crawfish"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ariadne = "0.4"
+soup = { git = "https://github.com/simontran7/soup" }
+
+[dev-dependencies]
+insta = { version = "1.48.0", features = ["glob"] }
+
