@@ -1,7 +1,7 @@
 use core::fmt;
 
 #[derive(Default)]
-pub struct TokenStream {
+pub(super) struct TokenStream {
     kinds: Vec<TokenKind>,
     widths: Vec<TextWidth>,
 }
@@ -63,13 +63,6 @@ pub(super) enum TokenKind {
 pub(super) struct TextWidth(u32);
 
 impl TokenStream {
-    fn new() -> Self {
-        TokenStream {
-            kinds: Vec::new(),
-            widths: Vec::new(),
-        }
-    }
-
     pub(super) fn add(&mut self, kind: TokenKind, width: TextWidth) {
         self.kinds.push(kind);
         self.widths.push(width);
@@ -79,12 +72,12 @@ impl TokenStream {
         self.kinds.len()
     }
 
-    fn kinds(&self) -> impl Iterator<Item = &TokenKind> {
-        self.kinds.iter()
+    pub(super) fn kinds(&self) -> impl Iterator<Item = TokenKind> {
+        self.kinds.iter().copied()
     }
 
-    fn widths(&self) -> impl Iterator<Item = &TextWidth> {
-        self.widths.iter()
+    pub(super) fn widths(&self) -> impl Iterator<Item = TextWidth> {
+        self.widths.iter().copied()
     }
 }
 
@@ -108,20 +101,15 @@ impl TokenKind {
             _ => Self::Identifier,
         }
     }
+
+    pub(super) fn has_lexeme(&self) -> bool {
+        matches!(self, TokenKind::Identifier | TokenKind::Integer)
+    }
 }
 
 impl TextWidth {
     pub(super) fn new(width: usize) -> Self {
         TextWidth(width as u32)
-    }
-}
-
-impl fmt::Display for TokenStream {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (kind, width) in self.kinds().zip(self.widths()) {
-            write!(f, "kind: {kind}, width: {width}").unwrap()
-        }
-        Ok(())
     }
 }
 
@@ -176,8 +164,8 @@ impl fmt::Display for TokenKind {
     }
 }
 
-impl fmt::Display for TextWidth {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+impl From<TextWidth> for usize {
+    fn from(value: TextWidth) -> Self {
+        value.0 as usize
     }
 }

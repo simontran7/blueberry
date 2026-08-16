@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug main.crw",
+            "type": "lldb",
+            "request": "launch",
+            "sourceLanguages": [
+                "rust"
+            ],
+            "cargo": {
+                "args": [
+                    "build"
+                ]
+            },
+            "program": "${workspaceFolder}/target/debug/crawfish",
+            // "args": [
+            //     "compile",
+            //     "main.crw"
+            // ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_BACKTRACE": "1"
+            },
+            "stopOnEntry": false
+        }
+    ]
+}

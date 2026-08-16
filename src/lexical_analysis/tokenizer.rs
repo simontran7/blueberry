@@ -1,23 +1,26 @@
 use std::str::{CharIndices};
+use std::iter::Peekable;
 
 use super::token_stream::TokenStream;
 use super::token_stream::TokenKind;
 use super::token_stream::TextWidth;
 
-pub struct Tokenizer<'src> {
-    cursor: CharIndices<'src>,
+pub(super) struct Tokenizer<'src> {
+    source: &'src str,
+    cursor: Peekable<CharIndices<'src>>,
 }
 
 impl<'src> Tokenizer<'src> {
     const EOF: char = '\0';
 
-    pub fn new(source: &'src str) -> Self {
+    pub(super) fn new(source: &'src str) -> Self {
         Tokenizer {
-            cursor: source.char_indices(),
+            source,
+            cursor: source.char_indices().peekable(),
         }
     }
 
-    pub fn tokenize(&mut self) -> TokenStream {
+    pub(super) fn tokenize(&mut self) -> TokenStream {
         let mut tokens = TokenStream::default();
 
         loop {
@@ -33,59 +36,28 @@ impl<'src> Tokenizer<'src> {
 
     fn tokenize_one(&mut self) -> (TokenKind, TextWidth) {
         let start = self.position();
-        let kind = match self.peek() {
-            ';' => {
-                self.advance();
-                TokenKind::Semicolon
-            }
-            '(' => {
-                self.advance();
-                TokenKind::OpenParen
-            },
-            ')' => {
-                self.advance();
-                TokenKind::CloseParen
-            },
-            '{' => {
-                self.advance();
-                TokenKind::OpenBrace
-            }
-            '}' => {
-                self.advance();
-                TokenKind::CloseBrace
-            }
-            ':' => {
-                self.advance();
-                TokenKind::Colon
-            }
-            ',' => {
-                self.advance();
-                TokenKind::Comma
-            }
-            '+' => {
-                self.advance();
-                TokenKind::Plus
-            }
-            '*' => {
-                self.advance();
-                TokenKind::Star
-            }
-            '/' => {
-                self.advance();
-                TokenKind::Slash
-            }
+        let first = self.peek();
+        self.advance();
+        let kind = match first {
+            ';' => TokenKind::Semicolon,
+            '(' => TokenKind::OpenParen,
+            ')' => TokenKind::CloseParen,
+            '{' => TokenKind::OpenBrace,
+            '}' => TokenKind::CloseBrace,
+            ':' => TokenKind::Colon,
+            ',' => TokenKind::Comma,
+            '+' => TokenKind::Plus,
+            '*' => TokenKind::Star,
+            '/' => TokenKind::Slash,
             '-' => {
-                self.advance();
                 if self.peek() == '>' {
                     self.advance();
                     TokenKind::ThinArrow
                 } else {
-                    self.advance();
                     TokenKind::Minus
                 }
             }
             '!' => {
-                self.advance();
                 if self.peek() == '=' {
                     self.advance();
                     TokenKind::NotEqual
@@ -94,48 +66,42 @@ impl<'src> Tokenizer<'src> {
                 }
             }
             '=' => {
-                self.advance();
                 if self.peek() == '=' {
                     self.advance();
                     TokenKind::EqualEqual
                 } else {
-                    self.advance();
                     TokenKind::Equal
                 }
             }
             '<' => {
-                self.advance();
                 if self.peek() == '=' {
                     self.advance();
                     TokenKind::LessEqual
                 } else {
-                    self.advance();
                     TokenKind::LessThan
                 }
-            },
+            }
             '>' => {
-                self.advance();
                 if self.peek() == '=' {
                     self.advance();
                     TokenKind::GreaterEqual
                 } else {
-                    self.advance();
                     TokenKind::GreaterThan
                 }
             }
             c if c.is_alphabetic() || c == '_' => {
                 self.eat_lexeme();
-                let lexeme = &self.cursor.as_str()[start..self.position()];
+                let lexeme = &self.source[start..self.position()];
                 TokenKind::classify(lexeme)
             }
             '0'..='9' => {
                 self.eat_integer();
                 TokenKind::Integer
-            }, 
+            }
             c if c.is_whitespace() => {
                 self.eat_whitespace();
                 TokenKind::Whitespace
-            },
+            }
             Self::EOF => TokenKind::Eof,
             _ => TokenKind::Error,
         };
@@ -157,23 +123,26 @@ impl<'src> Tokenizer<'src> {
     }
 
     fn peek(&mut self) -> char {
-        if let Some((_, chararacter)) = self.cursor.nth(self.cursor.offset()) {
-            chararacter
+        if let Some((_, character)) = self.cursor.peek() {
+            *character
         } else {
             Self::EOF
         }
     }
 
-    fn at_eof(&self) -> bool {
-        self.cursor.offset() == self.cursor.as_str().len()
+    fn at_eof(&mut self) -> bool {
+        self.position() == self.source.len()
     }
 
-    fn position(&self) -> usize {
-        self.cursor.offset()
+    fn position(&mut self) -> usize {
+        if let Some((position, _)) = self.cursor.peek() {
+            *position
+        } else {
+            self.source.len()
+        }
     }
 
     fn advance(&mut self) {
-        assert!(!self.at_eof());
         self.cursor.next();
     }
 
@@ -188,6 +157,7 @@ impl<'src> Tokenizer<'src> {
 mod tests {
     use std::fs;
     use super::*;
+    use super::super::token_stream_dumper::TokenDumper;
 
     #[test]
     fn test_tokenizer_output() {
@@ -195,7 +165,7 @@ mod tests {
             let input = fs::read_to_string(path).unwrap();
             let mut tokenizer = Tokenizer::new(&input);
             let tokens = tokenizer.tokenize();
-            insta::assert_snapshot!(tokens);
+            insta::assert_snapshot!(TokenDumper::new(&input, tokens).dump());
         })
     }
 }

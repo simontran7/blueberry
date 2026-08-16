@@ -1,0 +1,19 @@
+---
+source: src/lexical_analysis/tokenizer.rs
+expression: "TokenDumper::new(&input, tokens).dump()"
+input_file: src/lexical_analysis/snapshot_inputs/simple.crw
+---
+--------------------------------
+Index    Kind            Span           
+--------------------------------
+#0       `let`           [0, 3)         
+#1       `whitespace`    [3, 4)         
+#2       `x`             [4, 5)         
+#3       `:`             [5, 6)         
+#4       `whitespace`    [6, 7)         
+#5       `i32`           [7, 10)        
+#6       `whitespace`    [10, 11)       
+#7       `=`             [11, 12)       
+#8       `whitespace`    [12, 13)       
+#9       `4`             [13, 14)       
+#10      `;`             [14, 15)
