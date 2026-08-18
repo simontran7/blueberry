@@ -111,7 +111,7 @@ impl Parser {
 
     fn advance_with_error(&mut self, diagnostic: ParserDiagnostic) {
         let marker = self.open();
-        self.flag_diagnostic(diagnostic);
+        self.record_diagnostic(diagnostic);
         self.advance();
         self.close(marker, SyntaxKind::Error);
     }
@@ -129,14 +129,14 @@ impl Parser {
         if self.eat(kind) {
             return;
         }
-        self.flag_diagnostic(ParserDiagnostic::UnexpectedToken {
+        self.record_diagnostic(ParserDiagnostic::UnexpectedToken {
             span: None,
             expected: kind.to_string(),
             found: self.cursor.peek().to_string(),
         });
     }
 
-    fn flag_diagnostic(&mut self, diagnostic: ParserDiagnostic) {
+    fn record_diagnostic(&mut self, diagnostic: ParserDiagnostic) {
         let index = self.diagnostics.len();
         self.diagnostics.push(diagnostic);
         self.events.push(Event::AddDiagnostic { index });
