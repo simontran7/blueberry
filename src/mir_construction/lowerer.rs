@@ -361,6 +361,23 @@ impl<'a> MirLowerer<'a> {
         tail_id.and_then(|tail_id| self.lower_expression(tail_id))
     }
 
+    // If with else:
+    //             [condition block]
+    //     cond. branch /        \
+    //                 /          \
+    //         [then block]   [else block]
+    //             \               /
+    //         jump \             / jump
+    //             [merge block]
+    // 
+    // If without else:
+    //                 [condition block]
+    //        cond. branch /        \
+    //                    /          \
+    //           [then block]        /  cond. branch
+    //                \             /
+    //            jump \           /
+    //                 [merge block]
     fn lower_if_expression(
         &mut self,
         condition_id: ExpressionId,
@@ -435,6 +452,13 @@ impl<'a> MirLowerer<'a> {
         block_parameter_id
     }
 
+    //             [lhs block]
+    // cond. branch /        \
+    //             /          \
+    //      [rhs block]       /  cond. branch
+    //           \           /
+    //       jump \         /
+    //           [merge block]
     fn lower_short_circuiting_expression(
         &mut self,
         operator: BinOp,
@@ -488,6 +512,18 @@ impl<'a> MirLowerer<'a> {
         Some(block_parameter_id)
     }
 
+
+
+    // [pre-loop block]
+    //                |
+    //              jump
+    //                v
+    //         [body block] <---------+
+    //           |          \         |
+    //      (break; N times)  \    back-edge
+    //           |              \     |
+    //           v                +---+
+    //      [exit block]
     fn lower_loop(&mut self, body_id: ExpressionId, type_id: TypeId) -> Option<ValueId> {
         let body_block_id = self.cfg.create_block();
         let exit_block_id = self.cfg.create_block();
