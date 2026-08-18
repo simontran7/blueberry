@@ -1,9 +1,18 @@
-use std::path::Path;
-use std::fs;
+use std::collections::HashSet;
+
+use crawfish::cli::arg_parser::Command;
+use crawfish::cli::driver;
 
 fn main() {
-    // let path = Path::new("main.crw");
-    // let input = fs::read_to_string(path).unwrap();
-    // let mut tokenizer = Tokenizer::new(&input);
-    // let tokens = tokenizer.tokenize();
+    match Command::parse() {
+        Command::Build(args) => {
+            driver::build(args.path, &args.emit.into_iter().collect::<HashSet<_>>());
+        }
+        Command::Run(args) => {
+            driver::run(args.path, &args.emit.into_iter().collect::<HashSet<_>>());
+        }
+        Command::Check(args) => {
+            driver::check(args.path, &args.emit.into_iter().collect::<HashSet<_>>());
+        }
+    }
 }

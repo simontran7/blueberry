@@ -1,11 +1,11 @@
 use std::iter::Peekable;
 use std::str::CharIndices;
 
-use super::token_stream::TextWidth;
 use super::token_stream::TokenKind;
 use super::token_stream::TokenStream;
+use crate::common::text_width::TextWidth;
 
-pub(super) struct Tokenizer<'src> {
+pub(crate) struct Tokenizer<'src> {
     source: &'src str,
     cursor: Peekable<CharIndices<'src>>,
 }
@@ -13,14 +13,14 @@ pub(super) struct Tokenizer<'src> {
 impl<'src> Tokenizer<'src> {
     const EOF: char = '\0';
 
-    pub(super) fn new(source: &'src str) -> Self {
+    pub(crate) fn new(source: &'src str) -> Self {
         Tokenizer {
             source,
             cursor: source.char_indices().peekable(),
         }
     }
 
-    pub(super) fn tokenize(&mut self) -> TokenStream {
+    pub(crate) fn tokenize(&mut self) -> TokenStream {
         let mut tokens = TokenStream::default();
 
         loop {
@@ -55,7 +55,7 @@ impl<'src> Tokenizer<'src> {
                 } else {
                     TokenKind::Slash
                 }
-            },
+            }
             '-' => {
                 if self.peek() == '>' {
                     self.advance();

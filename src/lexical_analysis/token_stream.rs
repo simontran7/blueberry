@@ -1,3 +1,4 @@
+use crate::common::text_width::TextWidth;
 use core::fmt;
 
 #[derive(Default)]
@@ -60,9 +61,6 @@ pub(crate) enum TokenKind {
     Error,
 }
 
-#[derive(Clone, Copy)]
-pub(crate) struct TextWidth(u32);
-
 impl TokenStream {
     pub(crate) fn add(&mut self, kind: TokenKind, width: TextWidth) {
         self.kinds.push(kind);
@@ -73,12 +71,27 @@ impl TokenStream {
         self.kinds.len()
     }
 
+    pub(crate) fn kind_at(&self, index: usize) -> Option<TokenKind> {
+        self.kinds.get(index).copied()
+    }
+
+    pub(crate) fn width_at(&self, index: usize) -> Option<TextWidth> {
+        self.widths.get(index).copied()
+    }
+
     pub(crate) fn kinds(&self) -> impl Iterator<Item = TokenKind> {
         self.kinds.iter().copied()
     }
 
     pub(crate) fn widths(&self) -> impl Iterator<Item = TextWidth> {
         self.widths.iter().copied()
+    }
+
+    pub(crate) fn next_significant(&self, mut index: usize) -> usize {
+        while self.kind_at(index).is_some_and(TokenKind::is_trivia) {
+            index += 1;
+        }
+        index
     }
 }
 
@@ -109,12 +122,6 @@ impl TokenKind {
 
     pub(crate) fn is_trivia(self) -> bool {
         matches!(self, TokenKind::Whitespace | TokenKind::InlineComment)
-    }
-}
-
-impl TextWidth {
-    pub(crate) fn new(width: usize) -> Self {
-        TextWidth(width as u32)
     }
 }
 
@@ -167,11 +174,5 @@ impl fmt::Display for TokenKind {
             Self::Error => "error token",
         };
         write!(f, "{}", output)
-    }
-}
-
-impl From<TextWidth> for usize {
-    fn from(value: TextWidth) -> Self {
-        value.0 as usize
     }
 }
