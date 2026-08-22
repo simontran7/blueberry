@@ -5,14 +5,14 @@ use crawfish::cli::driver;
 
 fn main() {
     match Command::parse() {
-        Command::Build(args) => {
-            driver::build(args.path, &args.emit.into_iter().collect::<HashSet<_>>());
+        Command::Build(flags) => {
+            driver::build(flags.path, &flags.emit.into_iter().collect::<HashSet<_>>());
         }
-        Command::Run(args) => {
-            driver::run(args.path, &args.emit.into_iter().collect::<HashSet<_>>());
+        Command::Run(flags) => {
+            driver::run(flags.path, &flags.emit.into_iter().collect::<HashSet<_>>());
         }
-        Command::Check(args) => {
-            driver::check(args.path, &args.emit.into_iter().collect::<HashSet<_>>());
+        Command::Check(flags) => {
+            driver::check(flags.path, &flags.emit.into_iter().collect::<HashSet<_>>());
         }
     }
 }
