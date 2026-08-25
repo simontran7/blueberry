@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt::{self, Write};
 
-use soup::handle_map::Handle;
+use handlemap::handle_map::Handle;
 
 use crate::common::context::CompilerContext;
 use crate::middle_end::mir::{BlockId, Function, InstructionId, InstructionRef, Mir, ValueId};

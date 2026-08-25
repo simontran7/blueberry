@@ -1,9 +1,9 @@
-use soup::handle_map::{Handle, HandleMap};
+use handlemap::handle_map::{Handle, HandleMap};
 
 use crate::common::types::TypeId;
 
-soup::handle_impl!(pub(crate) TypeVarId);
-soup::handle_impl!(pub(crate) IntVarId);
+handlemap::handle_impl!(pub(crate) TypeVarId);
+handlemap::handle_impl!(pub(crate) IntVarId);
 
 pub(crate) struct UnificationTable {
     type_var_parent: HandleMap<TypeVarId, TypeVarId>,

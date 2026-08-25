@@ -97,10 +97,10 @@ name = "crawfish"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "handlemap",
  "inkwell",
  "insta",
  "smol_str",
- "soup",
 ]
 
 [[package]]
@@ -154,6 +154,11 @@ dependencies = [
  "regex-automata",
  "regex-syntax",
 ]
+
+[[package]]
+name = "handlemap"
+version = "0.1.0"
+source = "git+https://github.com/simontran7/handlemap#1b210ba60f456b5b56948b8e99da106dcb548afe"
 
 [[package]]
 name = "inkwell"
@@ -359,11 +364,6 @@ dependencies = [
  "borsh",
  "serde_core",
 ]
-
-[[package]]
-name = "soup"
-version = "0.1.0"
-source = "git+https://github.com/simontran7/soup#c690aca43754bef384f06286cc6e68021b04bb07"
 
 [[package]]
 name = "syn"

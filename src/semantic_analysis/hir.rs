@@ -1,7 +1,7 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use soup::handle_map::HandleMap;
+use handlemap::handle_map::HandleMap;
 
 use crate::common::span::Span;
 use crate::common::string_interner::Symbol;
@@ -149,9 +149,9 @@ impl LoopSource {
 }
 
 // Opaque, 4-byte handles into the tables in `Hir`.
-soup::handle_impl!(pub(crate) DefinitionId);
-soup::handle_impl!(pub(crate) StatementId);
-soup::handle_impl!(pub(crate) ExpressionId);
+handlemap::handle_impl!(pub(crate) DefinitionId);
+handlemap::handle_impl!(pub(crate) StatementId);
+handlemap::handle_impl!(pub(crate) ExpressionId);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct DefinitionIdSpan {
@@ -532,7 +532,7 @@ impl<T, const KIND: u8> TypedBindingId<T, KIND> {
     }
 }
 
-impl<T, const KIND: u8> soup::handle_map::Handle for TypedBindingId<T, KIND> {
+impl<T, const KIND: u8> handlemap::handle_map::Handle for TypedBindingId<T, KIND> {
     fn new(index: usize) -> Self {
         Self(index as u32, PhantomData)
     }

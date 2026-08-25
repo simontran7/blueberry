@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use soup::handle_map::{Handle, SideHandleMap};
+use handlemap::handle_map::{Handle, SideHandleMap};
 
 use crate::common::string_interner::Symbol;
 use crate::common::types::TypeId;

@@ -1,7 +1,7 @@
 use std::slice;
 
-use soup::handle_map::HandleMap;
-use soup::handle_map::SideHandleMap;
+use handlemap::handle_map::HandleMap;
+use handlemap::handle_map::SideHandleMap;
 
 use crate::common::string_interner::Symbol;
 use crate::common::types::TypeId;
@@ -115,11 +115,11 @@ pub(crate) struct Signature {
 }
 
 // Opaque, 4-byte handles into the tables above.
-soup::handle_impl!(pub(crate) BlockId);
-soup::handle_impl!(pub(crate) InstructionId);
-soup::handle_impl!(pub(crate) FunctionReferenceId);
-soup::handle_impl!(pub(crate) SignatureId);
-soup::handle_impl!(pub(crate) ValueId);
+handlemap::handle_impl!(pub(crate) BlockId);
+handlemap::handle_impl!(pub(crate) InstructionId);
+handlemap::handle_impl!(pub(crate) FunctionReferenceId);
+handlemap::handle_impl!(pub(crate) SignatureId);
+handlemap::handle_impl!(pub(crate) ValueId);
 
 pub(crate) struct BlockView<'a> {
     block_id: BlockId,

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use soup::handle_map::Handle;
+use handlemap::handle_map::Handle;
 
 /// A 4-byte handle to a growable, mutable list of `H`s living in a [`HandleListSubAllocator`].
 /// Used wherever MIR needs a variable-length run of handles of the same type (e.g., block
@@ -316,7 +316,7 @@ impl SizeClass {
 mod tests {
     use super::*;
 
-    soup::handle_impl!(pub(crate) TestId);
+    handlemap::handle_impl!(pub(crate) TestId);
 
     fn ids(values: &[u32]) -> Vec<TestId> {
         values.iter().map(|&v| TestId::new(v as usize)).collect()
