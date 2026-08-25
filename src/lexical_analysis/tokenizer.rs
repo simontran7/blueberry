@@ -21,7 +21,7 @@ impl<'src> Tokenizer<'src> {
     }
 
     pub(crate) fn tokenize(&mut self) -> TokenStream {
-        let mut tokens = TokenStream::default();
+        let mut tokens = TokenStream::new();
 
         loop {
             let (kind, width) = self.tokenize_one();

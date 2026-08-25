@@ -7,7 +7,7 @@
 > [!CAUTION]
 > The compiler can't compile crawfish programs yet.
 
-## Installation (Building from Source)
+## Installation
 
 ### Dependencies
 
@@ -21,12 +21,18 @@
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-2. Install `llvm-config-22` and `libpolly-22-dev`
+2. Install LLVM 22
+  - On Debian/Ubuntu:
 ```sh
 wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh
 sudo ./llvm.sh 22
 sudo apt install libpolly-22-dev
+```
+  - On macOS:
+```sh
+brew install llvm@22
+echo 'export LLVM_SYS_221_PREFIX="$(brew --prefix llvm@22)"' >> ~/.zshrc
 ```
 
 3. Git clone the repository
@@ -53,7 +59,7 @@ export PATH=$PATH:<path to the crawfish compiler executable>
 
 Run `crawfish --help` to see available commands and options.
 
-## ARCHITECTURE
+## Architecture
 
 ```mermaid
 flowchart TD

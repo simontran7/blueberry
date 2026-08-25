@@ -147,7 +147,7 @@ impl TokenCursor {
     const MAX_FUEL: usize = 256;
 
     fn new(source: TokenStream) -> Self {
-        let initial_index = source.next_significant(0);
+        let initial_index = source.next_non_trivia(0);
         Self {
             source,
             index: initial_index,
@@ -178,7 +178,7 @@ impl TokenCursor {
         self.fuel.set(self.fuel.get() - 1);
         let mut index = self.index;
         for _ in 0..n {
-            index = self.source.next_significant(index + 1);
+            index = self.source.next_non_trivia(index + 1);
         }
         self.source.kind_at(index).unwrap_or(TokenKind::Eof)
     }
@@ -186,7 +186,7 @@ impl TokenCursor {
     fn bump(&mut self) {
         assert!(!self.at_eof());
         self.fuel.set(Self::MAX_FUEL);
-        self.index = self.source.next_significant(self.index + 1);
+        self.index = self.source.next_non_trivia(self.index + 1);
     }
 }
 

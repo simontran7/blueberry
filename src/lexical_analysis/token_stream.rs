@@ -1,7 +1,6 @@
 use crate::common::text_width::TextWidth;
 use core::fmt;
 
-#[derive(Default)]
 pub(crate) struct TokenStream {
     kinds: Vec<TokenKind>,
     widths: Vec<TextWidth>,
@@ -62,6 +61,13 @@ pub(crate) enum TokenKind {
 }
 
 impl TokenStream {
+    pub(crate) fn new() -> Self {
+        Self {
+            kinds: Vec::new(),
+            widths: Vec::new(),
+        }
+    }
+
     pub(crate) fn add(&mut self, kind: TokenKind, width: TextWidth) {
         self.kinds.push(kind);
         self.widths.push(width);
@@ -87,7 +93,7 @@ impl TokenStream {
         self.widths.iter().copied()
     }
 
-    pub(crate) fn next_significant(&self, mut index: usize) -> usize {
+    pub(crate) fn next_non_trivia(&self, mut index: usize) -> usize {
         while self.kind_at(index).is_some_and(TokenKind::is_trivia) {
             index += 1;
         }
