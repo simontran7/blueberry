@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use crawfish::cli::arg_parser::Command;
-use crawfish::cli::driver;
+use blueberry::cli::arg_parser::Command;
+use blueberry::cli::driver;
 
 fn main() {
     match Command::parse() {

@@ -47,7 +47,7 @@ This is where [Braun et al.'s algorithm](https://link.springer.com/chapter/10.10
 > [!NOTE]
 > It is necessary to *recursively* remove trivial phi nodes as other phi nodes elsewhere may hold the now-deleted trivial phi node as one of their operands. Once that operand is rewritten to the common value $v$, those phis' operand lists change too, which can newly make *them* trivial so the check has to cascade to every user of the removed phi, and not *just* the phi itself. However, this code doesn't do that, but only **aliases** trivial block parameters, then rewrites them once, in a single batch at the end of construction (`flush_aliases()`). 
 
-Consider the following crawfish source program:
+Consider the following blueberry source program:
 
 ```
 let x = ...;

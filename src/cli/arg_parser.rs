@@ -35,7 +35,7 @@ impl Command {
                 print_usage_error(&format!("expected `--flag=value`, found `{argument}`"));
             };
             match name {
-                "--path" => path = Some(parse_crw_path(value)),
+                "--path" => path = Some(parse_bb_path(value)),
                 "--emit" => emit.extend(value.split(',').map(parse_emit_kind)),
                 other => print_usage_error(&format!("unknown flag `{other}`")),
             }
@@ -52,13 +52,13 @@ impl Command {
     }
 }
 
-fn parse_crw_path(s: &str) -> PathBuf {
+fn parse_bb_path(s: &str) -> PathBuf {
     let path = PathBuf::from(s);
     if !path.is_file() {
         print_usage_error(&format!("invalid file path: {s}"));
     }
-    if path.extension().and_then(|e| e.to_str()) != Some("crw") {
-        print_usage_error("invalid file extension (only `.crw` files are accepted)");
+    if path.extension().and_then(|e| e.to_str()) != Some("bb") {
+        print_usage_error("invalid file extension (only `.bb` files are accepted)");
     }
     path
 }

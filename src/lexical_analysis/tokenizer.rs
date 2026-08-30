@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_tokenizer_output() {
-        insta::glob!("snapshot_inputs/**/*.crw", |path| {
+        insta::glob!("snapshot_inputs/**/*.bb", |path| {
             let input = fs::read_to_string(path).unwrap();
             let mut tokenizer = Tokenizer::new(&input);
             let tokens = tokenizer.tokenize();

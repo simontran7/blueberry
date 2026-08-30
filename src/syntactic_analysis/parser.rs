@@ -621,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_parser_output() {
-        insta::glob!("snapshot_inputs/**/*.crw", |path| {
+        insta::glob!("snapshot_inputs/**/*.bb", |path| {
             let input = fs::read_to_string(path).unwrap();
             let tokens = Tokenizer::new(&input).tokenize();
 
