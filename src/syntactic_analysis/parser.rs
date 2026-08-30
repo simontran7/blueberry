@@ -5,7 +5,7 @@ use crate::lexical_analysis::token_stream::TokenStream;
 use crate::syntactic_analysis::cst::{SyntaxKind};
 use crate::syntactic_analysis::parser_diagnostic::ParserDiagnostic;
 
-struct Parser<'a> {
+pub(crate) struct Parser<'a> {
     cursor: TokenStreamCursor<'a>,
     events: Vec<Event>,
     diagnostics: Vec<ParserDiagnostic>,
@@ -603,7 +603,7 @@ mod tests {
             let (cst, diagnostics) =
                 CstBuilder::new(&input, &tokens, events, diagnostics).build();
 
-            let mut dump = CstDumper::dump(&cst);
+            let mut dump = CstDumper::new(&cst).dump();
             if !diagnostics.is_empty() {
                 dump.push_str("\n--- diagnostics ---\n");
                 for diagnostic in &diagnostics {

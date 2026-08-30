@@ -4,172 +4,461 @@ assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/if.crw
 ---
-File@0..229
-  FunctionDefinition@0..170
-    Func@0..4 "func"
-    Whitespace@4..5 " "
-    Identifier@5..6 "f"
-    ParameterList@6..9
-      OpenParen@6..7 "("
-      CloseParen@7..8 ")"
-      Whitespace@8..9 " "
-    Block@9..170
-      OpenBrace@9..10 "{"
-      Whitespace@10..15 "\n    "
-      ExpressionStatement@15..127
-        IfExpression@15..127
-          If@15..17 "if"
-          Whitespace@17..18 " "
-          BinaryOperation@18..24
-            Variable@18..20
-              Identifier@18..19 "a"
-              Whitespace@19..20 " "
-            LessThan@20..21 "<"
-            Whitespace@21..22 " "
-            Variable@22..24
-              Identifier@22..23 "b"
-              Whitespace@23..24 " "
-          Block@24..51
-            OpenBrace@24..25 "{"
-            Whitespace@25..34 "\n        "
-            ReturnExpression@34..49
-              Return@34..40 "return"
-              Whitespace@40..41 " "
-              UnaryOperation@41..43
-                Minus@41..42 "-"
-                Variable@42..43
-                  Identifier@42..43 "a"
-              Semicolon@43..44 ";"
-              Whitespace@44..49 "\n    "
-            CloseBrace@49..50 "}"
-            Whitespace@50..51 " "
-          Else@51..55 "else"
-          Whitespace@55..56 " "
-          IfExpression@56..127
-            If@56..58 "if"
-            Whitespace@58..59 " "
-            BinaryOperation@59..66
-              Variable@59..61
-                Identifier@59..60 "a"
-                Whitespace@60..61 " "
-              EqualEqual@61..63 "=="
-              Whitespace@63..64 " "
-              Variable@64..66
-                Identifier@64..65 "b"
-                Whitespace@65..66 " "
-            Block@66..92
-              OpenBrace@66..67 "{"
-              Whitespace@67..76 "\n        "
-              ReturnExpression@76..90
-                Return@76..82 "return"
-                Whitespace@82..83 " "
-                IntegerLiteral@83..84
-                  Integer@83..84 "0"
-                Semicolon@84..85 ";"
-                Whitespace@85..90 "\n    "
-              CloseBrace@90..91 "}"
-              Whitespace@91..92 " "
-            Else@92..96 "else"
-            Whitespace@96..97 " "
-            Block@97..127
-              OpenBrace@97..98 "{"
-              Whitespace@98..107 "\n        "
-              ReturnExpression@107..121
-                Return@107..113 "return"
-                Whitespace@113..114 " "
-                Variable@114..115
-                  Identifier@114..115 "b"
-                Semicolon@115..116 ";"
-                Whitespace@116..121 "\n    "
-              CloseBrace@121..122 "}"
-              Whitespace@122..127 "\n    "
-      LetStatement@127..167
-        Let@127..130 "let"
-        Whitespace@130..131 " "
-        Identifier@131..132 "x"
-        Colon@132..133 ":"
-        Whitespace@133..134 " "
-        TypeExpression@134..138
-          Identifier@134..137 "I32"
-          Whitespace@137..138 " "
-        Equal@138..139 "="
-        Whitespace@139..140 " "
-        IfExpression@140..165
-          If@140..142 "if"
-          Whitespace@142..143 " "
-          BinaryOperation@143..149
-            Variable@143..145
-              Identifier@143..144 "a"
-              Whitespace@144..145 " "
-            GreaterThan@145..146 ">"
-            Whitespace@146..147 " "
-            Variable@147..149
-              Identifier@147..148 "b"
-              Whitespace@148..149 " "
-          Block@149..155
-            OpenBrace@149..150 "{"
-            Whitespace@150..151 " "
-            ExpressionStatement@151..153
-              Variable@151..153
-                Identifier@151..152 "a"
-                Whitespace@152..153 " "
-            CloseBrace@153..154 "}"
-            Whitespace@154..155 " "
-          Else@155..159 "else"
-          Whitespace@159..160 " "
-          Block@160..165
-            OpenBrace@160..161 "{"
-            Whitespace@161..162 " "
-            ExpressionStatement@162..164
-              Variable@162..164
-                Identifier@162..163 "b"
-                Whitespace@163..164 " "
-            CloseBrace@164..165 "}"
-        Semicolon@165..166 ";"
-        Whitespace@166..167 "\n"
-      CloseBrace@167..168 "}"
-      Whitespace@168..170 "\n\n"
-  FunctionDefinition@170..229
-    Func@170..174 "func"
-    Whitespace@174..175 " "
-    Identifier@175..176 "g"
-    ParameterList@176..179
-      OpenParen@176..177 "("
-      CloseParen@177..178 ")"
-      Whitespace@178..179 " "
-    Block@179..229
-      OpenBrace@179..180 "{"
-      Whitespace@180..185 "\n    "
-      ExpressionStatement@185..225
-        IfExpression@185..225
-          If@185..187 "if"
-          Whitespace@187..188 " "
-          BinaryOperation@188..194
-            Variable@188..190
-              Identifier@188..189 "x"
-              Whitespace@189..190 " "
-            LessThan@190..191 "<"
-            Whitespace@191..192 " "
-            IntegerLiteral@192..194
-              Integer@192..193 "0"
-              Whitespace@193..194 " "
-          Block@194..225
-            OpenBrace@194..195 "{"
-            Whitespace@195..204 "\n        "
-            ReturnExpression@204..219
-              Return@204..210 "return"
-              Whitespace@210..211 " "
-              UnaryOperation@211..213
-                Minus@211..212 "-"
-                Variable@212..213
-                  Identifier@212..213 "x"
-              Semicolon@213..214 ";"
-              Whitespace@214..219 "\n    "
-            CloseBrace@219..220 "}"
-            Whitespace@220..225 "\n    "
-      ExpressionStatement@225..227
-        Variable@225..227
-          Identifier@225..226 "x"
-          Whitespace@226..227 "\n"
-      CloseBrace@227..228 "}"
-      Whitespace@228..229 "\n"
+File
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [0, 4)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [4, 5)
+│ ├─Identifier
+│ │   Lexeme: "f"
+│ │   Span: [5, 6)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [6, 7)
+│ │ ├─CloseParen
+│ │ │   Lexeme: ")"
+│ │ │   Span: [7, 8)
+│ │ └─Whitespace
+│ │     Lexeme: " "
+│ │     Span: [8, 9)
+│ │ Span: [6, 9)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [9, 10)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [10, 15)
+│   ├─ExpressionStatement
+│   │ └─IfExpression
+│   │   ├─If
+│   │   │   Lexeme: "if"
+│   │   │   Span: [15, 17)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [17, 18)
+│   │   ├─BinaryOperation
+│   │   │ ├─Variable
+│   │   │ │ ├─Identifier
+│   │   │ │ │   Lexeme: "a"
+│   │   │ │ │   Span: [18, 19)
+│   │   │ │ └─Whitespace
+│   │   │ │     Lexeme: " "
+│   │   │ │     Span: [19, 20)
+│   │   │ │ Span: [18, 20)
+│   │   │ ├─LessThan
+│   │   │ │   Lexeme: "<"
+│   │   │ │   Span: [20, 21)
+│   │   │ ├─Whitespace
+│   │   │ │   Lexeme: " "
+│   │   │ │   Span: [21, 22)
+│   │   │ └─Variable
+│   │   │   ├─Identifier
+│   │   │   │   Lexeme: "b"
+│   │   │   │   Span: [22, 23)
+│   │   │   └─Whitespace
+│   │   │       Lexeme: " "
+│   │   │       Span: [23, 24)
+│   │   │   Span: [22, 24)
+│   │   │ Span: [18, 24)
+│   │   ├─Block
+│   │   │ ├─OpenBrace
+│   │   │ │   Lexeme: "{"
+│   │   │ │   Span: [24, 25)
+│   │   │ ├─Whitespace
+│   │   │ │   Lexeme: "\n        "
+│   │   │ │   Span: [25, 34)
+│   │   │ ├─ReturnExpression
+│   │   │ │ ├─Return
+│   │   │ │ │   Lexeme: "return"
+│   │   │ │ │   Span: [34, 40)
+│   │   │ │ ├─Whitespace
+│   │   │ │ │   Lexeme: " "
+│   │   │ │ │   Span: [40, 41)
+│   │   │ │ ├─UnaryOperation
+│   │   │ │ │ ├─Minus
+│   │   │ │ │ │   Lexeme: "-"
+│   │   │ │ │ │   Span: [41, 42)
+│   │   │ │ │ └─Variable
+│   │   │ │ │   └─Identifier
+│   │   │ │ │       Lexeme: "a"
+│   │   │ │ │       Span: [42, 43)
+│   │   │ │ │   Span: [42, 43)
+│   │   │ │ │ Span: [41, 43)
+│   │   │ │ ├─Semicolon
+│   │   │ │ │   Lexeme: ";"
+│   │   │ │ │   Span: [43, 44)
+│   │   │ │ └─Whitespace
+│   │   │ │     Lexeme: "\n    "
+│   │   │ │     Span: [44, 49)
+│   │   │ │ Span: [34, 49)
+│   │   │ ├─CloseBrace
+│   │   │ │   Lexeme: "}"
+│   │   │ │   Span: [49, 50)
+│   │   │ └─Whitespace
+│   │   │     Lexeme: " "
+│   │   │     Span: [50, 51)
+│   │   │ Span: [24, 51)
+│   │   ├─Else
+│   │   │   Lexeme: "else"
+│   │   │   Span: [51, 55)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [55, 56)
+│   │   └─IfExpression
+│   │     ├─If
+│   │     │   Lexeme: "if"
+│   │     │   Span: [56, 58)
+│   │     ├─Whitespace
+│   │     │   Lexeme: " "
+│   │     │   Span: [58, 59)
+│   │     ├─BinaryOperation
+│   │     │ ├─Variable
+│   │     │ │ ├─Identifier
+│   │     │ │ │   Lexeme: "a"
+│   │     │ │ │   Span: [59, 60)
+│   │     │ │ └─Whitespace
+│   │     │ │     Lexeme: " "
+│   │     │ │     Span: [60, 61)
+│   │     │ │ Span: [59, 61)
+│   │     │ ├─EqualEqual
+│   │     │ │   Lexeme: "=="
+│   │     │ │   Span: [61, 63)
+│   │     │ ├─Whitespace
+│   │     │ │   Lexeme: " "
+│   │     │ │   Span: [63, 64)
+│   │     │ └─Variable
+│   │     │   ├─Identifier
+│   │     │   │   Lexeme: "b"
+│   │     │   │   Span: [64, 65)
+│   │     │   └─Whitespace
+│   │     │       Lexeme: " "
+│   │     │       Span: [65, 66)
+│   │     │   Span: [64, 66)
+│   │     │ Span: [59, 66)
+│   │     ├─Block
+│   │     │ ├─OpenBrace
+│   │     │ │   Lexeme: "{"
+│   │     │ │   Span: [66, 67)
+│   │     │ ├─Whitespace
+│   │     │ │   Lexeme: "\n        "
+│   │     │ │   Span: [67, 76)
+│   │     │ ├─ReturnExpression
+│   │     │ │ ├─Return
+│   │     │ │ │   Lexeme: "return"
+│   │     │ │ │   Span: [76, 82)
+│   │     │ │ ├─Whitespace
+│   │     │ │ │   Lexeme: " "
+│   │     │ │ │   Span: [82, 83)
+│   │     │ │ ├─IntegerLiteral
+│   │     │ │ │ └─Integer
+│   │     │ │ │     Lexeme: "0"
+│   │     │ │ │     Span: [83, 84)
+│   │     │ │ │ Span: [83, 84)
+│   │     │ │ ├─Semicolon
+│   │     │ │ │   Lexeme: ";"
+│   │     │ │ │   Span: [84, 85)
+│   │     │ │ └─Whitespace
+│   │     │ │     Lexeme: "\n    "
+│   │     │ │     Span: [85, 90)
+│   │     │ │ Span: [76, 90)
+│   │     │ ├─CloseBrace
+│   │     │ │   Lexeme: "}"
+│   │     │ │   Span: [90, 91)
+│   │     │ └─Whitespace
+│   │     │     Lexeme: " "
+│   │     │     Span: [91, 92)
+│   │     │ Span: [66, 92)
+│   │     ├─Else
+│   │     │   Lexeme: "else"
+│   │     │   Span: [92, 96)
+│   │     ├─Whitespace
+│   │     │   Lexeme: " "
+│   │     │   Span: [96, 97)
+│   │     └─Block
+│   │       ├─OpenBrace
+│   │       │   Lexeme: "{"
+│   │       │   Span: [97, 98)
+│   │       ├─Whitespace
+│   │       │   Lexeme: "\n        "
+│   │       │   Span: [98, 107)
+│   │       ├─ReturnExpression
+│   │       │ ├─Return
+│   │       │ │   Lexeme: "return"
+│   │       │ │   Span: [107, 113)
+│   │       │ ├─Whitespace
+│   │       │ │   Lexeme: " "
+│   │       │ │   Span: [113, 114)
+│   │       │ ├─Variable
+│   │       │ │ └─Identifier
+│   │       │ │     Lexeme: "b"
+│   │       │ │     Span: [114, 115)
+│   │       │ │ Span: [114, 115)
+│   │       │ ├─Semicolon
+│   │       │ │   Lexeme: ";"
+│   │       │ │   Span: [115, 116)
+│   │       │ └─Whitespace
+│   │       │     Lexeme: "\n    "
+│   │       │     Span: [116, 121)
+│   │       │ Span: [107, 121)
+│   │       ├─CloseBrace
+│   │       │   Lexeme: "}"
+│   │       │   Span: [121, 122)
+│   │       └─Whitespace
+│   │           Lexeme: "\n    "
+│   │           Span: [122, 127)
+│   │       Span: [97, 127)
+│   │     Span: [56, 127)
+│   │   Span: [15, 127)
+│   │ Span: [15, 127)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [127, 130)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [130, 131)
+│   │ ├─Identifier
+│   │ │   Lexeme: "x"
+│   │ │   Span: [131, 132)
+│   │ ├─Colon
+│   │ │   Lexeme: ":"
+│   │ │   Span: [132, 133)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [133, 134)
+│   │ ├─TypeExpression
+│   │ │ ├─Identifier
+│   │ │ │   Lexeme: "I32"
+│   │ │ │   Span: [134, 137)
+│   │ │ └─Whitespace
+│   │ │     Lexeme: " "
+│   │ │     Span: [137, 138)
+│   │ │ Span: [134, 138)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [138, 139)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [139, 140)
+│   │ ├─IfExpression
+│   │ │ ├─If
+│   │ │ │   Lexeme: "if"
+│   │ │ │   Span: [140, 142)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [142, 143)
+│   │ │ ├─BinaryOperation
+│   │ │ │ ├─Variable
+│   │ │ │ │ ├─Identifier
+│   │ │ │ │ │   Lexeme: "a"
+│   │ │ │ │ │   Span: [143, 144)
+│   │ │ │ │ └─Whitespace
+│   │ │ │ │     Lexeme: " "
+│   │ │ │ │     Span: [144, 145)
+│   │ │ │ │ Span: [143, 145)
+│   │ │ │ ├─GreaterThan
+│   │ │ │ │   Lexeme: ">"
+│   │ │ │ │   Span: [145, 146)
+│   │ │ │ ├─Whitespace
+│   │ │ │ │   Lexeme: " "
+│   │ │ │ │   Span: [146, 147)
+│   │ │ │ └─Variable
+│   │ │ │   ├─Identifier
+│   │ │ │   │   Lexeme: "b"
+│   │ │ │   │   Span: [147, 148)
+│   │ │ │   └─Whitespace
+│   │ │ │       Lexeme: " "
+│   │ │ │       Span: [148, 149)
+│   │ │ │   Span: [147, 149)
+│   │ │ │ Span: [143, 149)
+│   │ │ ├─Block
+│   │ │ │ ├─OpenBrace
+│   │ │ │ │   Lexeme: "{"
+│   │ │ │ │   Span: [149, 150)
+│   │ │ │ ├─Whitespace
+│   │ │ │ │   Lexeme: " "
+│   │ │ │ │   Span: [150, 151)
+│   │ │ │ ├─ExpressionStatement
+│   │ │ │ │ └─Variable
+│   │ │ │ │   ├─Identifier
+│   │ │ │ │   │   Lexeme: "a"
+│   │ │ │ │   │   Span: [151, 152)
+│   │ │ │ │   └─Whitespace
+│   │ │ │ │       Lexeme: " "
+│   │ │ │ │       Span: [152, 153)
+│   │ │ │ │   Span: [151, 153)
+│   │ │ │ │ Span: [151, 153)
+│   │ │ │ ├─CloseBrace
+│   │ │ │ │   Lexeme: "}"
+│   │ │ │ │   Span: [153, 154)
+│   │ │ │ └─Whitespace
+│   │ │ │     Lexeme: " "
+│   │ │ │     Span: [154, 155)
+│   │ │ │ Span: [149, 155)
+│   │ │ ├─Else
+│   │ │ │   Lexeme: "else"
+│   │ │ │   Span: [155, 159)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [159, 160)
+│   │ │ └─Block
+│   │ │   ├─OpenBrace
+│   │ │   │   Lexeme: "{"
+│   │ │   │   Span: [160, 161)
+│   │ │   ├─Whitespace
+│   │ │   │   Lexeme: " "
+│   │ │   │   Span: [161, 162)
+│   │ │   ├─ExpressionStatement
+│   │ │   │ └─Variable
+│   │ │   │   ├─Identifier
+│   │ │   │   │   Lexeme: "b"
+│   │ │   │   │   Span: [162, 163)
+│   │ │   │   └─Whitespace
+│   │ │   │       Lexeme: " "
+│   │ │   │       Span: [163, 164)
+│   │ │   │   Span: [162, 164)
+│   │ │   │ Span: [162, 164)
+│   │ │   └─CloseBrace
+│   │ │       Lexeme: "}"
+│   │ │       Span: [164, 165)
+│   │ │   Span: [160, 165)
+│   │ │ Span: [140, 165)
+│   │ ├─Semicolon
+│   │ │   Lexeme: ";"
+│   │ │   Span: [165, 166)
+│   │ └─Whitespace
+│   │     Lexeme: "\n"
+│   │     Span: [166, 167)
+│   │ Span: [127, 167)
+│   ├─CloseBrace
+│   │   Lexeme: "}"
+│   │   Span: [167, 168)
+│   └─Whitespace
+│       Lexeme: "\n\n"
+│       Span: [168, 170)
+│   Span: [9, 170)
+│ Span: [0, 170)
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [170, 174)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [174, 175)
+  ├─Identifier
+  │   Lexeme: "g"
+  │   Span: [175, 176)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [176, 177)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [177, 178)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [178, 179)
+  │ Span: [176, 179)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [179, 180)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [180, 185)
+    ├─ExpressionStatement
+    │ └─IfExpression
+    │   ├─If
+    │   │   Lexeme: "if"
+    │   │   Span: [185, 187)
+    │   ├─Whitespace
+    │   │   Lexeme: " "
+    │   │   Span: [187, 188)
+    │   ├─BinaryOperation
+    │   │ ├─Variable
+    │   │ │ ├─Identifier
+    │   │ │ │   Lexeme: "x"
+    │   │ │ │   Span: [188, 189)
+    │   │ │ └─Whitespace
+    │   │ │     Lexeme: " "
+    │   │ │     Span: [189, 190)
+    │   │ │ Span: [188, 190)
+    │   │ ├─LessThan
+    │   │ │   Lexeme: "<"
+    │   │ │   Span: [190, 191)
+    │   │ ├─Whitespace
+    │   │ │   Lexeme: " "
+    │   │ │   Span: [191, 192)
+    │   │ └─IntegerLiteral
+    │   │   ├─Integer
+    │   │   │   Lexeme: "0"
+    │   │   │   Span: [192, 193)
+    │   │   └─Whitespace
+    │   │       Lexeme: " "
+    │   │       Span: [193, 194)
+    │   │   Span: [192, 194)
+    │   │ Span: [188, 194)
+    │   └─Block
+    │     ├─OpenBrace
+    │     │   Lexeme: "{"
+    │     │   Span: [194, 195)
+    │     ├─Whitespace
+    │     │   Lexeme: "\n        "
+    │     │   Span: [195, 204)
+    │     ├─ReturnExpression
+    │     │ ├─Return
+    │     │ │   Lexeme: "return"
+    │     │ │   Span: [204, 210)
+    │     │ ├─Whitespace
+    │     │ │   Lexeme: " "
+    │     │ │   Span: [210, 211)
+    │     │ ├─UnaryOperation
+    │     │ │ ├─Minus
+    │     │ │ │   Lexeme: "-"
+    │     │ │ │   Span: [211, 212)
+    │     │ │ └─Variable
+    │     │ │   └─Identifier
+    │     │ │       Lexeme: "x"
+    │     │ │       Span: [212, 213)
+    │     │ │   Span: [212, 213)
+    │     │ │ Span: [211, 213)
+    │     │ ├─Semicolon
+    │     │ │   Lexeme: ";"
+    │     │ │   Span: [213, 214)
+    │     │ └─Whitespace
+    │     │     Lexeme: "\n    "
+    │     │     Span: [214, 219)
+    │     │ Span: [204, 219)
+    │     ├─CloseBrace
+    │     │   Lexeme: "}"
+    │     │   Span: [219, 220)
+    │     └─Whitespace
+    │         Lexeme: "\n    "
+    │         Span: [220, 225)
+    │     Span: [194, 225)
+    │   Span: [185, 225)
+    │ Span: [185, 225)
+    ├─ExpressionStatement
+    │ └─Variable
+    │   ├─Identifier
+    │   │   Lexeme: "x"
+    │   │   Span: [225, 226)
+    │   └─Whitespace
+    │       Lexeme: "\n"
+    │       Span: [226, 227)
+    │   Span: [225, 227)
+    │ Span: [225, 227)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [227, 228)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [228, 229)
+    Span: [179, 229)
+  Span: [170, 229)
+Span: [0, 229)

@@ -4,27 +4,67 @@ assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/boolean_literal.crw
 ---
-File@0..34
-  FunctionDefinition@0..34
-    Func@0..4 "func"
-    Whitespace@4..5 " "
-    Identifier@5..6 "f"
-    ParameterList@6..9
-      OpenParen@6..7 "("
-      CloseParen@7..8 ")"
-      Whitespace@8..9 " "
-    Block@9..34
-      OpenBrace@9..10 "{"
-      Whitespace@10..15 "\n    "
-      ExpressionStatement@15..25
-        BooleanLiteral@15..19
-          True@15..19 "true"
-        Semicolon@19..20 ";"
-        Whitespace@20..25 "\n    "
-      ExpressionStatement@25..32
-        BooleanLiteral@25..30
-          False@25..30 "false"
-        Semicolon@30..31 ";"
-        Whitespace@31..32 "\n"
-      CloseBrace@32..33 "}"
-      Whitespace@33..34 "\n"
+File
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [0, 4)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [4, 5)
+  ├─Identifier
+  │   Lexeme: "f"
+  │   Span: [5, 6)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [6, 7)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [7, 8)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [8, 9)
+  │ Span: [6, 9)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [9, 10)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [10, 15)
+    ├─ExpressionStatement
+    │ ├─BooleanLiteral
+    │ │ └─True
+    │ │     Lexeme: "true"
+    │ │     Span: [15, 19)
+    │ │ Span: [15, 19)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [19, 20)
+    │ └─Whitespace
+    │     Lexeme: "\n    "
+    │     Span: [20, 25)
+    │ Span: [15, 25)
+    ├─ExpressionStatement
+    │ ├─BooleanLiteral
+    │ │ └─False
+    │ │     Lexeme: "false"
+    │ │     Span: [25, 30)
+    │ │ Span: [25, 30)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [30, 31)
+    │ └─Whitespace
+    │     Lexeme: "\n"
+    │     Span: [31, 32)
+    │ Span: [25, 32)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [32, 33)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [33, 34)
+    Span: [9, 34)
+  Span: [0, 34)
+Span: [0, 34)

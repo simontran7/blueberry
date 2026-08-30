@@ -4,60 +4,157 @@ assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/parameters.crw
 ---
-File@0..58
-  FunctionDefinition@0..58
-    Func@0..4 "func"
-    Whitespace@4..5 " "
-    Identifier@5..8 "add"
-    ParameterList@8..33
-      OpenParen@8..9 "("
-      Parameter@9..17
-        Identifier@9..10 "x"
-        Colon@10..11 ":"
-        Whitespace@11..12 " "
-        TypeExpression@12..15
-          Identifier@12..15 "I32"
-        Comma@15..16 ","
-        Whitespace@16..17 " "
-      Parameter@17..25
-        Identifier@17..18 "y"
-        Colon@18..19 ":"
-        Whitespace@19..20 " "
-        TypeExpression@20..23
-          Identifier@20..23 "I32"
-        Comma@23..24 ","
-        Whitespace@24..25 " "
-      Parameter@25..31
-        Identifier@25..26 "z"
-        Colon@26..27 ":"
-        Whitespace@27..28 " "
-        TypeExpression@28..31
-          Identifier@28..31 "I32"
-      CloseParen@31..32 ")"
-      Whitespace@32..33 " "
-    ThinArrow@33..35 "->"
-    Whitespace@35..36 " "
-    TypeExpression@36..40
-      Identifier@36..39 "I32"
-      Whitespace@39..40 " "
-    Block@40..58
-      OpenBrace@40..41 "{"
-      Whitespace@41..46 "\n    "
-      ExpressionStatement@46..56
-        BinaryOperation@46..56
-          BinaryOperation@46..52
-            Variable@46..48
-              Identifier@46..47 "x"
-              Whitespace@47..48 " "
-            Plus@48..49 "+"
-            Whitespace@49..50 " "
-            Variable@50..52
-              Identifier@50..51 "y"
-              Whitespace@51..52 " "
-          Plus@52..53 "+"
-          Whitespace@53..54 " "
-          Variable@54..56
-            Identifier@54..55 "z"
-            Whitespace@55..56 "\n"
-      CloseBrace@56..57 "}"
-      Whitespace@57..58 "\n"
+File
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [0, 4)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [4, 5)
+  ├─Identifier
+  │   Lexeme: "add"
+  │   Span: [5, 8)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [8, 9)
+  │ ├─Parameter
+  │ │ ├─Identifier
+  │ │ │   Lexeme: "x"
+  │ │ │   Span: [9, 10)
+  │ │ ├─Colon
+  │ │ │   Lexeme: ":"
+  │ │ │   Span: [10, 11)
+  │ │ ├─Whitespace
+  │ │ │   Lexeme: " "
+  │ │ │   Span: [11, 12)
+  │ │ ├─TypeExpression
+  │ │ │ └─Identifier
+  │ │ │     Lexeme: "I32"
+  │ │ │     Span: [12, 15)
+  │ │ │ Span: [12, 15)
+  │ │ ├─Comma
+  │ │ │   Lexeme: ","
+  │ │ │   Span: [15, 16)
+  │ │ └─Whitespace
+  │ │     Lexeme: " "
+  │ │     Span: [16, 17)
+  │ │ Span: [9, 17)
+  │ ├─Parameter
+  │ │ ├─Identifier
+  │ │ │   Lexeme: "y"
+  │ │ │   Span: [17, 18)
+  │ │ ├─Colon
+  │ │ │   Lexeme: ":"
+  │ │ │   Span: [18, 19)
+  │ │ ├─Whitespace
+  │ │ │   Lexeme: " "
+  │ │ │   Span: [19, 20)
+  │ │ ├─TypeExpression
+  │ │ │ └─Identifier
+  │ │ │     Lexeme: "I32"
+  │ │ │     Span: [20, 23)
+  │ │ │ Span: [20, 23)
+  │ │ ├─Comma
+  │ │ │   Lexeme: ","
+  │ │ │   Span: [23, 24)
+  │ │ └─Whitespace
+  │ │     Lexeme: " "
+  │ │     Span: [24, 25)
+  │ │ Span: [17, 25)
+  │ ├─Parameter
+  │ │ ├─Identifier
+  │ │ │   Lexeme: "z"
+  │ │ │   Span: [25, 26)
+  │ │ ├─Colon
+  │ │ │   Lexeme: ":"
+  │ │ │   Span: [26, 27)
+  │ │ ├─Whitespace
+  │ │ │   Lexeme: " "
+  │ │ │   Span: [27, 28)
+  │ │ └─TypeExpression
+  │ │   └─Identifier
+  │ │       Lexeme: "I32"
+  │ │       Span: [28, 31)
+  │ │   Span: [28, 31)
+  │ │ Span: [25, 31)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [31, 32)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [32, 33)
+  │ Span: [8, 33)
+  ├─ThinArrow
+  │   Lexeme: "->"
+  │   Span: [33, 35)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [35, 36)
+  ├─TypeExpression
+  │ ├─Identifier
+  │ │   Lexeme: "I32"
+  │ │   Span: [36, 39)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [39, 40)
+  │ Span: [36, 40)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [40, 41)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [41, 46)
+    ├─ExpressionStatement
+    │ └─BinaryOperation
+    │   ├─BinaryOperation
+    │   │ ├─Variable
+    │   │ │ ├─Identifier
+    │   │ │ │   Lexeme: "x"
+    │   │ │ │   Span: [46, 47)
+    │   │ │ └─Whitespace
+    │   │ │     Lexeme: " "
+    │   │ │     Span: [47, 48)
+    │   │ │ Span: [46, 48)
+    │   │ ├─Plus
+    │   │ │   Lexeme: "+"
+    │   │ │   Span: [48, 49)
+    │   │ ├─Whitespace
+    │   │ │   Lexeme: " "
+    │   │ │   Span: [49, 50)
+    │   │ └─Variable
+    │   │   ├─Identifier
+    │   │   │   Lexeme: "y"
+    │   │   │   Span: [50, 51)
+    │   │   └─Whitespace
+    │   │       Lexeme: " "
+    │   │       Span: [51, 52)
+    │   │   Span: [50, 52)
+    │   │ Span: [46, 52)
+    │   ├─Plus
+    │   │   Lexeme: "+"
+    │   │   Span: [52, 53)
+    │   ├─Whitespace
+    │   │   Lexeme: " "
+    │   │   Span: [53, 54)
+    │   └─Variable
+    │     ├─Identifier
+    │     │   Lexeme: "z"
+    │     │   Span: [54, 55)
+    │     └─Whitespace
+    │         Lexeme: "\n"
+    │         Span: [55, 56)
+    │     Span: [54, 56)
+    │   Span: [46, 56)
+    │ Span: [46, 56)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [56, 57)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [57, 58)
+    Span: [40, 58)
+  Span: [0, 58)
+Span: [0, 58)

@@ -4,84 +4,221 @@ assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/error_recovery.crw
 ---
-File@0..95
-  FunctionDefinition@0..36
-    Func@0..4 "func"
-    Whitespace@4..5 " "
-    Identifier@5..6 "f"
-    ParameterList@6..9
-      OpenParen@6..7 "("
-      CloseParen@7..8 ")"
-      Whitespace@8..9 " "
-    Block@9..36
-      OpenBrace@9..10 "{"
-      Whitespace@10..15 "\n    "
-      Error@15..16
-        CloseParen@15..16 ")"
-      Error@16..22
-        Semicolon@16..17 ";"
-        Whitespace@17..22 "\n    "
-      LetStatement@22..33
-        Let@22..25 "let"
-        Whitespace@25..26 " "
-        Identifier@26..27 "x"
-        Whitespace@27..28 " "
-        Equal@28..29 "="
-        Whitespace@29..30 " "
-        IntegerLiteral@30..31
-          Integer@30..31 "1"
-        Semicolon@31..32 ";"
-        Whitespace@32..33 "\n"
-      CloseBrace@33..34 "}"
-      Whitespace@34..36 "\n\n"
-  FunctionDefinition@36..95
-    Func@36..40 "func"
-    Whitespace@40..41 " "
-    Identifier@41..44 "fib"
-    ParameterList@44..53
-      OpenParen@44..45 "("
-      Parameter@45..51
-        Identifier@45..46 "n"
-        Colon@46..47 ":"
-        Whitespace@47..48 " "
-        TypeExpression@48..51
-          Identifier@48..51 "i32"
-      CloseParen@51..52 ")"
-      Whitespace@52..53 " "
-    ThinArrow@53..55 "->"
-    Whitespace@55..56 " "
-    TypeExpression@56..60
-      Identifier@56..59 "i32"
-      Whitespace@59..60 " "
-    Block@60..95
-      OpenBrace@60..61 "{"
-      Whitespace@61..66 "\n    "
-      LetStatement@66..82
-        Let@66..69 "let"
-        Whitespace@69..70 " "
-        Identifier@70..71 "x"
-        Whitespace@71..72 " "
-        Equal@72..73 "="
-        Whitespace@73..74 " "
-        BinaryOperation@74..82
-          IntegerLiteral@74..76
-            Integer@74..75 "1"
-            Whitespace@75..76 " "
-          Plus@76..77 "+"
-          Whitespace@77..82 "\n    "
-      LetStatement@82..93
-        Let@82..85 "let"
-        Whitespace@85..86 " "
-        Identifier@86..87 "y"
-        Whitespace@87..88 " "
-        Equal@88..89 "="
-        Whitespace@89..90 " "
-        IntegerLiteral@90..91
-          Integer@90..91 "2"
-        Semicolon@91..92 ";"
-        Whitespace@92..93 "\n"
-      CloseBrace@93..94 "}"
-      Whitespace@94..95 "\n"
+File
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [0, 4)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [4, 5)
+│ ├─Identifier
+│ │   Lexeme: "f"
+│ │   Span: [5, 6)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [6, 7)
+│ │ ├─CloseParen
+│ │ │   Lexeme: ")"
+│ │ │   Span: [7, 8)
+│ │ └─Whitespace
+│ │     Lexeme: " "
+│ │     Span: [8, 9)
+│ │ Span: [6, 9)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [9, 10)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [10, 15)
+│   ├─Error
+│   │ └─CloseParen
+│   │     Lexeme: ")"
+│   │     Span: [15, 16)
+│   │ Span: [15, 16)
+│   ├─Error
+│   │ ├─Semicolon
+│   │ │   Lexeme: ";"
+│   │ │   Span: [16, 17)
+│   │ └─Whitespace
+│   │     Lexeme: "\n    "
+│   │     Span: [17, 22)
+│   │ Span: [16, 22)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [22, 25)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [25, 26)
+│   │ ├─Identifier
+│   │ │   Lexeme: "x"
+│   │ │   Span: [26, 27)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [27, 28)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [28, 29)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [29, 30)
+│   │ ├─IntegerLiteral
+│   │ │ └─Integer
+│   │ │     Lexeme: "1"
+│   │ │     Span: [30, 31)
+│   │ │ Span: [30, 31)
+│   │ ├─Semicolon
+│   │ │   Lexeme: ";"
+│   │ │   Span: [31, 32)
+│   │ └─Whitespace
+│   │     Lexeme: "\n"
+│   │     Span: [32, 33)
+│   │ Span: [22, 33)
+│   ├─CloseBrace
+│   │   Lexeme: "}"
+│   │   Span: [33, 34)
+│   └─Whitespace
+│       Lexeme: "\n\n"
+│       Span: [34, 36)
+│   Span: [9, 36)
+│ Span: [0, 36)
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [36, 40)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [40, 41)
+  ├─Identifier
+  │   Lexeme: "fib"
+  │   Span: [41, 44)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [44, 45)
+  │ ├─Parameter
+  │ │ ├─Identifier
+  │ │ │   Lexeme: "n"
+  │ │ │   Span: [45, 46)
+  │ │ ├─Colon
+  │ │ │   Lexeme: ":"
+  │ │ │   Span: [46, 47)
+  │ │ ├─Whitespace
+  │ │ │   Lexeme: " "
+  │ │ │   Span: [47, 48)
+  │ │ └─TypeExpression
+  │ │   └─Identifier
+  │ │       Lexeme: "i32"
+  │ │       Span: [48, 51)
+  │ │   Span: [48, 51)
+  │ │ Span: [45, 51)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [51, 52)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [52, 53)
+  │ Span: [44, 53)
+  ├─ThinArrow
+  │   Lexeme: "->"
+  │   Span: [53, 55)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [55, 56)
+  ├─TypeExpression
+  │ ├─Identifier
+  │ │   Lexeme: "i32"
+  │ │   Span: [56, 59)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [59, 60)
+  │ Span: [56, 60)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [60, 61)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [61, 66)
+    ├─LetStatement
+    │ ├─Let
+    │ │   Lexeme: "let"
+    │ │   Span: [66, 69)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [69, 70)
+    │ ├─Identifier
+    │ │   Lexeme: "x"
+    │ │   Span: [70, 71)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [71, 72)
+    │ ├─Equal
+    │ │   Lexeme: "="
+    │ │   Span: [72, 73)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [73, 74)
+    │ └─BinaryOperation
+    │   ├─IntegerLiteral
+    │   │ ├─Integer
+    │   │ │   Lexeme: "1"
+    │   │ │   Span: [74, 75)
+    │   │ └─Whitespace
+    │   │     Lexeme: " "
+    │   │     Span: [75, 76)
+    │   │ Span: [74, 76)
+    │   ├─Plus
+    │   │   Lexeme: "+"
+    │   │   Span: [76, 77)
+    │   └─Whitespace
+    │       Lexeme: "\n    "
+    │       Span: [77, 82)
+    │   Span: [74, 82)
+    │ Span: [66, 82)
+    ├─LetStatement
+    │ ├─Let
+    │ │   Lexeme: "let"
+    │ │   Span: [82, 85)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [85, 86)
+    │ ├─Identifier
+    │ │   Lexeme: "y"
+    │ │   Span: [86, 87)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [87, 88)
+    │ ├─Equal
+    │ │   Lexeme: "="
+    │ │   Span: [88, 89)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [89, 90)
+    │ ├─IntegerLiteral
+    │ │ └─Integer
+    │ │     Lexeme: "2"
+    │ │     Span: [90, 91)
+    │ │ Span: [90, 91)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [91, 92)
+    │ └─Whitespace
+    │     Lexeme: "\n"
+    │     Span: [92, 93)
+    │ Span: [82, 93)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [93, 94)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [94, 95)
+    Span: [60, 95)
+  Span: [36, 95)
+Span: [0, 95)
 
 --- diagnostics ---
 UnexpectedToken { span: Some(15..16), expected: "statement", found: ")" }

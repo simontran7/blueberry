@@ -4,68 +4,180 @@ assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/loop.crw
 ---
-File@0..93
-  FunctionDefinition@0..37
-    Func@0..4 "func"
-    Whitespace@4..5 " "
-    Identifier@5..9 "main"
-    ParameterList@9..12
-      OpenParen@9..10 "("
-      CloseParen@10..11 ")"
-      Whitespace@11..12 " "
-    Block@12..37
-      OpenBrace@12..13 "{"
-      Whitespace@13..18 "\n    "
-      ExpressionStatement@18..30
-        InfiniteLoop@18..30
-          Loop@18..22 "loop"
-          Whitespace@22..23 " "
-          Block@23..30
-            OpenBrace@23..24 "{"
-            CloseBrace@24..25 "}"
-            Whitespace@25..30 "\n    "
-      ExpressionStatement@30..34
-        UnaryOperation@30..32
-          Minus@30..31 "-"
-          IntegerLiteral@31..32
-            Integer@31..32 "1"
-        Semicolon@32..33 ";"
-        Whitespace@33..34 "\n"
-      CloseBrace@34..35 "}"
-      Whitespace@35..37 "\n\n"
-  FunctionDefinition@37..93
-    Func@37..41 "func"
-    Whitespace@41..42 " "
-    Identifier@42..43 "g"
-    ParameterList@43..46
-      OpenParen@43..44 "("
-      CloseParen@44..45 ")"
-      Whitespace@45..46 " "
-    Block@46..93
-      OpenBrace@46..47 "{"
-      Whitespace@47..52 "\n    "
-      LetStatement@52..91
-        Let@52..55 "let"
-        Whitespace@55..56 " "
-        Identifier@56..57 "x"
-        Whitespace@57..58 " "
-        Equal@58..59 "="
-        Whitespace@59..60 " "
-        InfiniteLoop@60..89
-          Loop@60..64 "loop"
-          Whitespace@64..65 " "
-          Block@65..89
-            OpenBrace@65..66 "{"
-            Whitespace@66..75 "\n        "
-            BreakExpression@75..88
-              Break@75..80 "break"
-              Whitespace@80..81 " "
-              IntegerLiteral@81..82
-                Integer@81..82 "5"
-              Semicolon@82..83 ";"
-              Whitespace@83..88 "\n    "
-            CloseBrace@88..89 "}"
-        Semicolon@89..90 ";"
-        Whitespace@90..91 "\n"
-      CloseBrace@91..92 "}"
-      Whitespace@92..93 "\n"
+File
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [0, 4)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [4, 5)
+│ ├─Identifier
+│ │   Lexeme: "main"
+│ │   Span: [5, 9)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [9, 10)
+│ │ ├─CloseParen
+│ │ │   Lexeme: ")"
+│ │ │   Span: [10, 11)
+│ │ └─Whitespace
+│ │     Lexeme: " "
+│ │     Span: [11, 12)
+│ │ Span: [9, 12)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [12, 13)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [13, 18)
+│   ├─ExpressionStatement
+│   │ └─InfiniteLoop
+│   │   ├─Loop
+│   │   │   Lexeme: "loop"
+│   │   │   Span: [18, 22)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [22, 23)
+│   │   └─Block
+│   │     ├─OpenBrace
+│   │     │   Lexeme: "{"
+│   │     │   Span: [23, 24)
+│   │     ├─CloseBrace
+│   │     │   Lexeme: "}"
+│   │     │   Span: [24, 25)
+│   │     └─Whitespace
+│   │         Lexeme: "\n    "
+│   │         Span: [25, 30)
+│   │     Span: [23, 30)
+│   │   Span: [18, 30)
+│   │ Span: [18, 30)
+│   ├─ExpressionStatement
+│   │ ├─UnaryOperation
+│   │ │ ├─Minus
+│   │ │ │   Lexeme: "-"
+│   │ │ │   Span: [30, 31)
+│   │ │ └─IntegerLiteral
+│   │ │   └─Integer
+│   │ │       Lexeme: "1"
+│   │ │       Span: [31, 32)
+│   │ │   Span: [31, 32)
+│   │ │ Span: [30, 32)
+│   │ ├─Semicolon
+│   │ │   Lexeme: ";"
+│   │ │   Span: [32, 33)
+│   │ └─Whitespace
+│   │     Lexeme: "\n"
+│   │     Span: [33, 34)
+│   │ Span: [30, 34)
+│   ├─CloseBrace
+│   │   Lexeme: "}"
+│   │   Span: [34, 35)
+│   └─Whitespace
+│       Lexeme: "\n\n"
+│       Span: [35, 37)
+│   Span: [12, 37)
+│ Span: [0, 37)
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [37, 41)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [41, 42)
+  ├─Identifier
+  │   Lexeme: "g"
+  │   Span: [42, 43)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [43, 44)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [44, 45)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [45, 46)
+  │ Span: [43, 46)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [46, 47)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [47, 52)
+    ├─LetStatement
+    │ ├─Let
+    │ │   Lexeme: "let"
+    │ │   Span: [52, 55)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [55, 56)
+    │ ├─Identifier
+    │ │   Lexeme: "x"
+    │ │   Span: [56, 57)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [57, 58)
+    │ ├─Equal
+    │ │   Lexeme: "="
+    │ │   Span: [58, 59)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [59, 60)
+    │ ├─InfiniteLoop
+    │ │ ├─Loop
+    │ │ │   Lexeme: "loop"
+    │ │ │   Span: [60, 64)
+    │ │ ├─Whitespace
+    │ │ │   Lexeme: " "
+    │ │ │   Span: [64, 65)
+    │ │ └─Block
+    │ │   ├─OpenBrace
+    │ │   │   Lexeme: "{"
+    │ │   │   Span: [65, 66)
+    │ │   ├─Whitespace
+    │ │   │   Lexeme: "\n        "
+    │ │   │   Span: [66, 75)
+    │ │   ├─BreakExpression
+    │ │   │ ├─Break
+    │ │   │ │   Lexeme: "break"
+    │ │   │ │   Span: [75, 80)
+    │ │   │ ├─Whitespace
+    │ │   │ │   Lexeme: " "
+    │ │   │ │   Span: [80, 81)
+    │ │   │ ├─IntegerLiteral
+    │ │   │ │ └─Integer
+    │ │   │ │     Lexeme: "5"
+    │ │   │ │     Span: [81, 82)
+    │ │   │ │ Span: [81, 82)
+    │ │   │ ├─Semicolon
+    │ │   │ │   Lexeme: ";"
+    │ │   │ │   Span: [82, 83)
+    │ │   │ └─Whitespace
+    │ │   │     Lexeme: "\n    "
+    │ │   │     Span: [83, 88)
+    │ │   │ Span: [75, 88)
+    │ │   └─CloseBrace
+    │ │       Lexeme: "}"
+    │ │       Span: [88, 89)
+    │ │   Span: [65, 89)
+    │ │ Span: [60, 89)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [89, 90)
+    │ └─Whitespace
+    │     Lexeme: "\n"
+    │     Span: [90, 91)
+    │ Span: [52, 91)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [91, 92)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [92, 93)
+    Span: [46, 93)
+  Span: [37, 93)
+Span: [0, 93)

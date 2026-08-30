@@ -4,71 +4,178 @@ assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/calls.crw
 ---
-File@0..57
-  FunctionDefinition@0..57
-    Func@0..4 "func"
-    Whitespace@4..5 " "
-    Identifier@5..9 "main"
-    ParameterList@9..12
-      OpenParen@9..10 "("
-      CloseParen@10..11 ")"
-      Whitespace@11..12 " "
-    Block@12..57
-      OpenBrace@12..13 "{"
-      Whitespace@13..18 "\n    "
-      ExpressionStatement@18..38
-        BinaryOperation@18..32
-          UnaryOperation@18..23
-            Minus@18..19 "-"
-            Call@19..23
-              Variable@19..20
-                Identifier@19..20 "f"
-              ArgumentList@20..23
-                OpenParen@20..21 "("
-                CloseParen@21..22 ")"
-                Whitespace@22..23 " "
-          Plus@23..24 "+"
-          Whitespace@24..25 " "
-          Call@25..32
-            Variable@25..26
-              Identifier@25..26 "g"
-            ArgumentList@26..32
-              OpenParen@26..27 "("
-              Argument@27..30
-                Variable@27..28
-                  Identifier@27..28 "x"
-                Comma@28..29 ","
-                Whitespace@29..30 " "
-              Argument@30..31
-                Variable@30..31
-                  Identifier@30..31 "y"
-              CloseParen@31..32 ")"
-        Semicolon@32..33 ";"
-        Whitespace@33..38 "\n    "
-      ExpressionStatement@38..49
-        Call@38..43
-          Call@38..41
-            Variable@38..39
-              Identifier@38..39 "h"
-            ArgumentList@39..41
-              OpenParen@39..40 "("
-              CloseParen@40..41 ")"
-          ArgumentList@41..43
-            OpenParen@41..42 "("
-            CloseParen@42..43 ")"
-        Semicolon@43..44 ";"
-        Whitespace@44..49 "\n    "
-      ExpressionStatement@49..55
-        Call@49..53
-          Variable@49..50
-            Identifier@49..50 "k"
-          ArgumentList@50..53
-            OpenParen@50..51 "("
-            Argument@51..52
-              Variable@51..52
-                Identifier@51..52 "x"
-            CloseParen@52..53 ")"
-        Semicolon@53..54 ";"
-        Whitespace@54..55 "\n"
-      CloseBrace@55..56 "}"
-      Whitespace@56..57 "\n"
+File
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [0, 4)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [4, 5)
+  ├─Identifier
+  │   Lexeme: "main"
+  │   Span: [5, 9)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [9, 10)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [10, 11)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [11, 12)
+  │ Span: [9, 12)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [12, 13)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [13, 18)
+    ├─ExpressionStatement
+    │ ├─BinaryOperation
+    │ │ ├─UnaryOperation
+    │ │ │ ├─Minus
+    │ │ │ │   Lexeme: "-"
+    │ │ │ │   Span: [18, 19)
+    │ │ │ └─Call
+    │ │ │   ├─Variable
+    │ │ │   │ └─Identifier
+    │ │ │   │     Lexeme: "f"
+    │ │ │   │     Span: [19, 20)
+    │ │ │   │ Span: [19, 20)
+    │ │ │   └─ArgumentList
+    │ │ │     ├─OpenParen
+    │ │ │     │   Lexeme: "("
+    │ │ │     │   Span: [20, 21)
+    │ │ │     ├─CloseParen
+    │ │ │     │   Lexeme: ")"
+    │ │ │     │   Span: [21, 22)
+    │ │ │     └─Whitespace
+    │ │ │         Lexeme: " "
+    │ │ │         Span: [22, 23)
+    │ │ │     Span: [20, 23)
+    │ │ │   Span: [19, 23)
+    │ │ │ Span: [18, 23)
+    │ │ ├─Plus
+    │ │ │   Lexeme: "+"
+    │ │ │   Span: [23, 24)
+    │ │ ├─Whitespace
+    │ │ │   Lexeme: " "
+    │ │ │   Span: [24, 25)
+    │ │ └─Call
+    │ │   ├─Variable
+    │ │   │ └─Identifier
+    │ │   │     Lexeme: "g"
+    │ │   │     Span: [25, 26)
+    │ │   │ Span: [25, 26)
+    │ │   └─ArgumentList
+    │ │     ├─OpenParen
+    │ │     │   Lexeme: "("
+    │ │     │   Span: [26, 27)
+    │ │     ├─Argument
+    │ │     │ ├─Variable
+    │ │     │ │ └─Identifier
+    │ │     │ │     Lexeme: "x"
+    │ │     │ │     Span: [27, 28)
+    │ │     │ │ Span: [27, 28)
+    │ │     │ ├─Comma
+    │ │     │ │   Lexeme: ","
+    │ │     │ │   Span: [28, 29)
+    │ │     │ └─Whitespace
+    │ │     │     Lexeme: " "
+    │ │     │     Span: [29, 30)
+    │ │     │ Span: [27, 30)
+    │ │     ├─Argument
+    │ │     │ └─Variable
+    │ │     │   └─Identifier
+    │ │     │       Lexeme: "y"
+    │ │     │       Span: [30, 31)
+    │ │     │   Span: [30, 31)
+    │ │     │ Span: [30, 31)
+    │ │     └─CloseParen
+    │ │         Lexeme: ")"
+    │ │         Span: [31, 32)
+    │ │     Span: [26, 32)
+    │ │   Span: [25, 32)
+    │ │ Span: [18, 32)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [32, 33)
+    │ └─Whitespace
+    │     Lexeme: "\n    "
+    │     Span: [33, 38)
+    │ Span: [18, 38)
+    ├─ExpressionStatement
+    │ ├─Call
+    │ │ ├─Call
+    │ │ │ ├─Variable
+    │ │ │ │ └─Identifier
+    │ │ │ │     Lexeme: "h"
+    │ │ │ │     Span: [38, 39)
+    │ │ │ │ Span: [38, 39)
+    │ │ │ └─ArgumentList
+    │ │ │   ├─OpenParen
+    │ │ │   │   Lexeme: "("
+    │ │ │   │   Span: [39, 40)
+    │ │ │   └─CloseParen
+    │ │ │       Lexeme: ")"
+    │ │ │       Span: [40, 41)
+    │ │ │   Span: [39, 41)
+    │ │ │ Span: [38, 41)
+    │ │ └─ArgumentList
+    │ │   ├─OpenParen
+    │ │   │   Lexeme: "("
+    │ │   │   Span: [41, 42)
+    │ │   └─CloseParen
+    │ │       Lexeme: ")"
+    │ │       Span: [42, 43)
+    │ │   Span: [41, 43)
+    │ │ Span: [38, 43)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [43, 44)
+    │ └─Whitespace
+    │     Lexeme: "\n    "
+    │     Span: [44, 49)
+    │ Span: [38, 49)
+    ├─ExpressionStatement
+    │ ├─Call
+    │ │ ├─Variable
+    │ │ │ └─Identifier
+    │ │ │     Lexeme: "k"
+    │ │ │     Span: [49, 50)
+    │ │ │ Span: [49, 50)
+    │ │ └─ArgumentList
+    │ │   ├─OpenParen
+    │ │   │   Lexeme: "("
+    │ │   │   Span: [50, 51)
+    │ │   ├─Argument
+    │ │   │ └─Variable
+    │ │   │   └─Identifier
+    │ │   │       Lexeme: "x"
+    │ │   │       Span: [51, 52)
+    │ │   │   Span: [51, 52)
+    │ │   │ Span: [51, 52)
+    │ │   └─CloseParen
+    │ │       Lexeme: ")"
+    │ │       Span: [52, 53)
+    │ │   Span: [50, 53)
+    │ │ Span: [49, 53)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [53, 54)
+    │ └─Whitespace
+    │     Lexeme: "\n"
+    │     Span: [54, 55)
+    │ Span: [49, 55)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [55, 56)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [56, 57)
+    Span: [12, 57)
+  Span: [0, 57)
+Span: [0, 57)

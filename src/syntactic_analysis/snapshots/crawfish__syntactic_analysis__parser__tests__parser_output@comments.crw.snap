@@ -4,32 +4,82 @@ assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/comments.crw
 ---
-File@0..63
-  InlineComment@0..18 "// leading comment"
-  Whitespace@18..19 "\n"
-  FunctionDefinition@19..63
-    Func@19..23 "func"
-    Whitespace@23..24 " "
-    Identifier@24..25 "f"
-    ParameterList@25..28
-      OpenParen@25..26 "("
-      CloseParen@26..27 ")"
-      Whitespace@27..28 " "
-    Block@28..63
-      OpenBrace@28..29 "{"
-      Whitespace@29..34 "\n    "
-      ExpressionStatement@34..61
-        BinaryOperation@34..39
-          IntegerLiteral@34..36
-            Integer@34..35 "1"
-            Whitespace@35..36 " "
-          Plus@36..37 "+"
-          Whitespace@37..38 " "
-          IntegerLiteral@38..39
-            Integer@38..39 "2"
-        Semicolon@39..40 ";"
-        Whitespace@40..41 " "
-        InlineComment@41..60 "// trailing comment"
-        Whitespace@60..61 "\n"
-      CloseBrace@61..62 "}"
-      Whitespace@62..63 "\n"
+File
+├─InlineComment
+│   Lexeme: "// leading comment"
+│   Span: [0, 18)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [18, 19)
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [19, 23)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [23, 24)
+  ├─Identifier
+  │   Lexeme: "f"
+  │   Span: [24, 25)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [25, 26)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [26, 27)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [27, 28)
+  │ Span: [25, 28)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [28, 29)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [29, 34)
+    ├─ExpressionStatement
+    │ ├─BinaryOperation
+    │ │ ├─IntegerLiteral
+    │ │ │ ├─Integer
+    │ │ │ │   Lexeme: "1"
+    │ │ │ │   Span: [34, 35)
+    │ │ │ └─Whitespace
+    │ │ │     Lexeme: " "
+    │ │ │     Span: [35, 36)
+    │ │ │ Span: [34, 36)
+    │ │ ├─Plus
+    │ │ │   Lexeme: "+"
+    │ │ │   Span: [36, 37)
+    │ │ ├─Whitespace
+    │ │ │   Lexeme: " "
+    │ │ │   Span: [37, 38)
+    │ │ └─IntegerLiteral
+    │ │   └─Integer
+    │ │       Lexeme: "2"
+    │ │       Span: [38, 39)
+    │ │   Span: [38, 39)
+    │ │ Span: [34, 39)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [39, 40)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [40, 41)
+    │ ├─InlineComment
+    │ │   Lexeme: "// trailing comment"
+    │ │   Span: [41, 60)
+    │ └─Whitespace
+    │     Lexeme: "\n"
+    │     Span: [60, 61)
+    │ Span: [34, 61)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [61, 62)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [62, 63)
+    Span: [28, 63)
+  Span: [19, 63)
+Span: [0, 63)

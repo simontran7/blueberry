@@ -6,6 +6,9 @@ use std::time::Instant;
 use crate::cli::arg_parser::EmitKind;
 use crate::lexical_analysis::token_stream_dumper::TokenDumper;
 use crate::lexical_analysis::tokenizer::Tokenizer;
+use crate::syntactic_analysis::cst_builder::CstBuilder;
+use crate::syntactic_analysis::cst_dumper::CstDumper;
+use crate::syntactic_analysis::parser::Parser;
 
 pub fn build(path: PathBuf, emit: &HashSet<EmitKind>) {
     compile(path, emit);
@@ -40,7 +43,19 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     let tokens = Tokenizer::new(&source).tokenize();
     if emit.contains(&EmitKind::Tokens) {
         println!("{}", TokenDumper::new(&source, tokens).dump());
-    } else {
-        println!("Compiled {file_stem} in {:.2}s", start.elapsed().as_secs_f64());
+        return;
     }
+
+    // step 3: parse
+    let (events, diagnostics) = Parser::new(&tokens).parse();
+    let (cst, diagnostics) = CstBuilder::new(&source, &tokens, events, diagnostics).build();
+    if emit.contains(&EmitKind::Cst) {
+        println!("{}", CstDumper::new(&cst).dump());
+        for diagnostic in &diagnostics {
+            eprintln!("{:?}", diagnostic);
+        }
+        return;
+    }
+
+    println!("Compiled {file_stem} in {:.2}s", start.elapsed().as_secs_f64());
 }

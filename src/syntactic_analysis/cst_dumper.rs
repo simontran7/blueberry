@@ -1,36 +1,63 @@
-use crate::syntactic_analysis::cst::{GreenNode, NodeOrToken};
+use crate::syntactic_analysis::cst::{GreenChild, GreenNode};
 
-pub(crate) struct CstDumper;
+pub(crate) struct CstDumper<'cst> {
+    root: &'cst GreenNode,
+    dump: String,
+    offset: usize,
+}
 
-impl CstDumper {
-    pub(crate) fn dump(root: &GreenNode) -> String {
-        let mut dump = String::new();
-        let mut offset = 0;
-        Self::dump_node(root, 0, &mut offset, &mut dump);
-        dump
+impl<'cst> CstDumper<'cst> {
+    pub(crate) fn new(root: &'cst GreenNode) -> Self {
+        Self {
+            root,
+            dump: String::new(),
+            offset: 0,
+        }
     }
 
-    fn dump_node(node: &GreenNode, depth: usize, offset: &mut usize, dump: &mut String) {
-        let start = *offset;
-        let end = start + usize::from(node.width());
-        dump.push_str(&"  ".repeat(depth));
-        dump.push_str(&format!("{:?}@{}..{}\n", node.kind(), start, end));
+    pub(crate) fn dump(&mut self) -> String {
+        self.dump.push_str(&format!("{:?}\n", self.root.kind()));
+        self.dump_children(self.root, "");
+        self.dump
+            .push_str(&format!("Span: [{}, {})\n", 0, usize::from(self.root.width())));
+        std::mem::take(&mut self.dump)
+    }
 
-        for child in node.children() {
+    fn dump_children(&mut self, node: &GreenNode, prefix: &str) {
+        let Some(last_index) = node.children().len().checked_sub(1) else {
+            return;
+        };
+
+        for (index, child) in node.children().iter().enumerate() {
+            let is_last = index == last_index;
+            let connector = if is_last { "└─" } else { "├─" };
+            let continuation = if is_last { "  " } else { "│ " };
+            let child_prefix = format!("{prefix}{continuation}");
+
             match child {
-                NodeOrToken::Node(child_node) => Self::dump_node(child_node, depth + 1, offset, dump),
-                NodeOrToken::Token(token) => {
-                    let token_start = *offset;
-                    let token_end = token_start + usize::from(token.width());
-                    dump.push_str(&"  ".repeat(depth + 1));
-                    dump.push_str(&format!(
-                        "{:?}@{}..{} {:?}\n",
-                        token.kind(),
-                        token_start,
-                        token_end,
-                        token.text(),
+                GreenChild::Node(child_node) => {
+                    let start = self.offset;
+                    let end = start + usize::from(child_node.width());
+
+                    self.dump
+                        .push_str(&format!("{prefix}{connector}{:?}\n", child_node.kind()));
+                    self.dump_children(child_node, &child_prefix);
+                    self.dump
+                        .push_str(&format!("{child_prefix}Span: [{start}, {end})\n"));
+                }
+                GreenChild::Token(token) => {
+                    let start = self.offset;
+                    let end = start + usize::from(token.width());
+                    self.offset = end;
+
+                    self.dump
+                        .push_str(&format!("{prefix}{connector}{:?}\n", token.kind()));
+                    self.dump.push_str(&format!(
+                        "{child_prefix}  Lexeme: {:?}\n",
+                        token.lexeme()
                     ));
-                    *offset = token_end;
+                    self.dump
+                        .push_str(&format!("{child_prefix}  Span: [{start}, {end})\n"));
                 }
             }
         }

@@ -161,7 +161,7 @@ impl GreenToken {
         self.kind
     }
 
-    pub(crate) fn text(&self) -> &str {
+    pub(crate) fn lexeme(&self) -> &str {
         &self.text
     }
 

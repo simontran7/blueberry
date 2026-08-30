@@ -1,65 +1,170 @@
 ---
 source: src/syntactic_analysis/parser.rs
-assertion_line: 602
+assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/const.crw
 ---
-File@0..97
-  ConstantDefinition@0..27
-    Const@0..5 "const"
-    Whitespace@5..6 " "
-    Identifier@6..15 "THRESHOLD"
-    Colon@15..16 ":"
-    Whitespace@16..17 " "
-    TypeExpression@17..21
-      Identifier@17..20 "I32"
-      Whitespace@20..21 " "
-    Equal@21..22 "="
-    Whitespace@22..23 " "
-    IntegerLiteral@23..25
-      Integer@23..25 "10"
-    Semicolon@25..26 ";"
-    Whitespace@26..27 "\n"
-  ConstantDefinition@27..56
-    Const@27..32 "const"
-    Whitespace@32..33 " "
-    Identifier@33..40 "ENABLED"
-    Colon@40..41 ":"
-    Whitespace@41..42 " "
-    TypeExpression@42..47
-      Identifier@42..46 "Bool"
-      Whitespace@46..47 " "
-    Equal@47..48 "="
-    Whitespace@48..49 " "
-    BooleanLiteral@49..53
-      True@49..53 "true"
-    Semicolon@53..54 ";"
-    Whitespace@54..56 "\n\n"
-  FunctionDefinition@56..97
-    Func@56..60 "func"
-    Whitespace@60..61 " "
-    Identifier@61..62 "f"
-    ParameterList@62..65
-      OpenParen@62..63 "("
-      CloseParen@63..64 ")"
-      Whitespace@64..65 " "
-    Block@65..97
-      OpenBrace@65..66 "{"
-      Whitespace@66..71 "\n    "
-      LetStatement@71..95
-        Let@71..74 "let"
-        Whitespace@74..75 " "
-        Identifier@75..76 "x"
-        Colon@76..77 ":"
-        Whitespace@77..78 " "
-        TypeExpression@78..82
-          Identifier@78..81 "I32"
-          Whitespace@81..82 " "
-        Equal@82..83 "="
-        Whitespace@83..84 " "
-        Variable@84..93
-          Identifier@84..93 "THRESHOLD"
-        Semicolon@93..94 ";"
-        Whitespace@94..95 "\n"
-      CloseBrace@95..96 "}"
-      Whitespace@96..97 "\n"
+File
+├─ConstantDefinition
+│ ├─Const
+│ │   Lexeme: "const"
+│ │   Span: [0, 5)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [5, 6)
+│ ├─Identifier
+│ │   Lexeme: "THRESHOLD"
+│ │   Span: [6, 15)
+│ ├─Colon
+│ │   Lexeme: ":"
+│ │   Span: [15, 16)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [16, 17)
+│ ├─TypeExpression
+│ │ ├─Identifier
+│ │ │   Lexeme: "I32"
+│ │ │   Span: [17, 20)
+│ │ └─Whitespace
+│ │     Lexeme: " "
+│ │     Span: [20, 21)
+│ │ Span: [17, 21)
+│ ├─Equal
+│ │   Lexeme: "="
+│ │   Span: [21, 22)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [22, 23)
+│ ├─IntegerLiteral
+│ │ └─Integer
+│ │     Lexeme: "10"
+│ │     Span: [23, 25)
+│ │ Span: [23, 25)
+│ ├─Semicolon
+│ │   Lexeme: ";"
+│ │   Span: [25, 26)
+│ └─Whitespace
+│     Lexeme: "\n"
+│     Span: [26, 27)
+│ Span: [0, 27)
+├─ConstantDefinition
+│ ├─Const
+│ │   Lexeme: "const"
+│ │   Span: [27, 32)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [32, 33)
+│ ├─Identifier
+│ │   Lexeme: "ENABLED"
+│ │   Span: [33, 40)
+│ ├─Colon
+│ │   Lexeme: ":"
+│ │   Span: [40, 41)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [41, 42)
+│ ├─TypeExpression
+│ │ ├─Identifier
+│ │ │   Lexeme: "Bool"
+│ │ │   Span: [42, 46)
+│ │ └─Whitespace
+│ │     Lexeme: " "
+│ │     Span: [46, 47)
+│ │ Span: [42, 47)
+│ ├─Equal
+│ │   Lexeme: "="
+│ │   Span: [47, 48)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [48, 49)
+│ ├─BooleanLiteral
+│ │ └─True
+│ │     Lexeme: "true"
+│ │     Span: [49, 53)
+│ │ Span: [49, 53)
+│ ├─Semicolon
+│ │   Lexeme: ";"
+│ │   Span: [53, 54)
+│ └─Whitespace
+│     Lexeme: "\n\n"
+│     Span: [54, 56)
+│ Span: [27, 56)
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [56, 60)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [60, 61)
+  ├─Identifier
+  │   Lexeme: "f"
+  │   Span: [61, 62)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [62, 63)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [63, 64)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [64, 65)
+  │ Span: [62, 65)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [65, 66)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [66, 71)
+    ├─LetStatement
+    │ ├─Let
+    │ │   Lexeme: "let"
+    │ │   Span: [71, 74)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [74, 75)
+    │ ├─Identifier
+    │ │   Lexeme: "x"
+    │ │   Span: [75, 76)
+    │ ├─Colon
+    │ │   Lexeme: ":"
+    │ │   Span: [76, 77)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [77, 78)
+    │ ├─TypeExpression
+    │ │ ├─Identifier
+    │ │ │   Lexeme: "I32"
+    │ │ │   Span: [78, 81)
+    │ │ └─Whitespace
+    │ │     Lexeme: " "
+    │ │     Span: [81, 82)
+    │ │ Span: [78, 82)
+    │ ├─Equal
+    │ │   Lexeme: "="
+    │ │   Span: [82, 83)
+    │ ├─Whitespace
+    │ │   Lexeme: " "
+    │ │   Span: [83, 84)
+    │ ├─Variable
+    │ │ └─Identifier
+    │ │     Lexeme: "THRESHOLD"
+    │ │     Span: [84, 93)
+    │ │ Span: [84, 93)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [93, 94)
+    │ └─Whitespace
+    │     Lexeme: "\n"
+    │     Span: [94, 95)
+    │ Span: [71, 95)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [95, 96)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [96, 97)
+    Span: [65, 97)
+  Span: [56, 97)
+Span: [0, 97)

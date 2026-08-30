@@ -1,46 +1,115 @@
 ---
 source: src/syntactic_analysis/parser.rs
+assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/unary.crw
 ---
-File@0..52
-  FunctionDefinition@0..52
-    Func@0..4 "func"
-    Whitespace@4..5 " "
-    Identifier@5..9 "main"
-    ParameterList@9..12
-      OpenParen@9..10 "("
-      CloseParen@10..11 ")"
-      Whitespace@11..12 " "
-    Block@12..52
-      OpenBrace@12..13 "{"
-      Whitespace@13..18 "\n    "
-      ExpressionStatement@18..30
-        BinaryOperation@18..24
-          UnaryOperation@18..21
-            Minus@18..19 "-"
-            Variable@19..21
-              Identifier@19..20 "a"
-              Whitespace@20..21 " "
-          Plus@21..22 "+"
-          Whitespace@22..23 " "
-          Variable@23..24
-            Identifier@23..24 "b"
-        Semicolon@24..25 ";"
-        Whitespace@25..30 "\n    "
-      ExpressionStatement@30..50
-        BinaryOperation@30..48
-          UnaryOperation@30..39
-            LogicalNot@30..33 "not"
-            Whitespace@33..34 " "
-            Variable@34..39
-              Identifier@34..38 "flag"
-              Whitespace@38..39 " "
-          LogicalAnd@39..42 "and"
-          Whitespace@42..43 " "
-          Variable@43..48
-            Identifier@43..48 "other"
-        Semicolon@48..49 ";"
-        Whitespace@49..50 "\n"
-      CloseBrace@50..51 "}"
-      Whitespace@51..52 "\n"
+File
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [0, 4)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [4, 5)
+  ├─Identifier
+  │   Lexeme: "main"
+  │   Span: [5, 9)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [9, 10)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [10, 11)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [11, 12)
+  │ Span: [9, 12)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [12, 13)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [13, 18)
+    ├─ExpressionStatement
+    │ ├─BinaryOperation
+    │ │ ├─UnaryOperation
+    │ │ │ ├─Minus
+    │ │ │ │   Lexeme: "-"
+    │ │ │ │   Span: [18, 19)
+    │ │ │ └─Variable
+    │ │ │   ├─Identifier
+    │ │ │   │   Lexeme: "a"
+    │ │ │   │   Span: [19, 20)
+    │ │ │   └─Whitespace
+    │ │ │       Lexeme: " "
+    │ │ │       Span: [20, 21)
+    │ │ │   Span: [19, 21)
+    │ │ │ Span: [18, 21)
+    │ │ ├─Plus
+    │ │ │   Lexeme: "+"
+    │ │ │   Span: [21, 22)
+    │ │ ├─Whitespace
+    │ │ │   Lexeme: " "
+    │ │ │   Span: [22, 23)
+    │ │ └─Variable
+    │ │   └─Identifier
+    │ │       Lexeme: "b"
+    │ │       Span: [23, 24)
+    │ │   Span: [23, 24)
+    │ │ Span: [18, 24)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [24, 25)
+    │ └─Whitespace
+    │     Lexeme: "\n    "
+    │     Span: [25, 30)
+    │ Span: [18, 30)
+    ├─ExpressionStatement
+    │ ├─BinaryOperation
+    │ │ ├─UnaryOperation
+    │ │ │ ├─LogicalNot
+    │ │ │ │   Lexeme: "not"
+    │ │ │ │   Span: [30, 33)
+    │ │ │ ├─Whitespace
+    │ │ │ │   Lexeme: " "
+    │ │ │ │   Span: [33, 34)
+    │ │ │ └─Variable
+    │ │ │   ├─Identifier
+    │ │ │   │   Lexeme: "flag"
+    │ │ │   │   Span: [34, 38)
+    │ │ │   └─Whitespace
+    │ │ │       Lexeme: " "
+    │ │ │       Span: [38, 39)
+    │ │ │   Span: [34, 39)
+    │ │ │ Span: [30, 39)
+    │ │ ├─LogicalAnd
+    │ │ │   Lexeme: "and"
+    │ │ │   Span: [39, 42)
+    │ │ ├─Whitespace
+    │ │ │   Lexeme: " "
+    │ │ │   Span: [42, 43)
+    │ │ └─Variable
+    │ │   └─Identifier
+    │ │       Lexeme: "other"
+    │ │       Span: [43, 48)
+    │ │   Span: [43, 48)
+    │ │ Span: [30, 48)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [48, 49)
+    │ └─Whitespace
+    │     Lexeme: "\n"
+    │     Span: [49, 50)
+    │ Span: [30, 50)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [50, 51)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [51, 52)
+    Span: [12, 52)
+  Span: [0, 52)
+Span: [0, 52)

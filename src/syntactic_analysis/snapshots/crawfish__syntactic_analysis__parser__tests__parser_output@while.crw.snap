@@ -1,42 +1,103 @@
 ---
 source: src/syntactic_analysis/parser.rs
-assertion_line: 510
+assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/while.crw
 ---
-File@0..53
-  FunctionDefinition@0..53
-    Func@0..4 "func"
-    Whitespace@4..5 " "
-    Identifier@5..6 "f"
-    ParameterList@6..9
-      OpenParen@6..7 "("
-      CloseParen@7..8 ")"
-      Whitespace@8..9 " "
-    Block@9..53
-      OpenBrace@9..10 "{"
-      Whitespace@10..15 "\n    "
-      ExpressionStatement@15..51
-        WhileLoop@15..51
-          While@15..20 "while"
-          Whitespace@20..21 " "
-          BinaryOperation@21..28
-            Variable@21..23
-              Identifier@21..22 "x"
-              Whitespace@22..23 " "
-            LessThan@23..24 "<"
-            Whitespace@24..25 " "
-            IntegerLiteral@25..28
-              Integer@25..27 "10"
-              Whitespace@27..28 " "
-          Block@28..51
-            OpenBrace@28..29 "{"
-            Whitespace@29..38 "\n        "
-            BreakExpression@38..49
-              Break@38..43 "break"
-              Semicolon@43..44 ";"
-              Whitespace@44..49 "\n    "
-            CloseBrace@49..50 "}"
-            Whitespace@50..51 "\n"
-      CloseBrace@51..52 "}"
-      Whitespace@52..53 "\n"
+File
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [0, 4)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [4, 5)
+  ├─Identifier
+  │   Lexeme: "f"
+  │   Span: [5, 6)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [6, 7)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [7, 8)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [8, 9)
+  │ Span: [6, 9)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [9, 10)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [10, 15)
+    ├─ExpressionStatement
+    │ └─WhileLoop
+    │   ├─While
+    │   │   Lexeme: "while"
+    │   │   Span: [15, 20)
+    │   ├─Whitespace
+    │   │   Lexeme: " "
+    │   │   Span: [20, 21)
+    │   ├─BinaryOperation
+    │   │ ├─Variable
+    │   │ │ ├─Identifier
+    │   │ │ │   Lexeme: "x"
+    │   │ │ │   Span: [21, 22)
+    │   │ │ └─Whitespace
+    │   │ │     Lexeme: " "
+    │   │ │     Span: [22, 23)
+    │   │ │ Span: [21, 23)
+    │   │ ├─LessThan
+    │   │ │   Lexeme: "<"
+    │   │ │   Span: [23, 24)
+    │   │ ├─Whitespace
+    │   │ │   Lexeme: " "
+    │   │ │   Span: [24, 25)
+    │   │ └─IntegerLiteral
+    │   │   ├─Integer
+    │   │   │   Lexeme: "10"
+    │   │   │   Span: [25, 27)
+    │   │   └─Whitespace
+    │   │       Lexeme: " "
+    │   │       Span: [27, 28)
+    │   │   Span: [25, 28)
+    │   │ Span: [21, 28)
+    │   └─Block
+    │     ├─OpenBrace
+    │     │   Lexeme: "{"
+    │     │   Span: [28, 29)
+    │     ├─Whitespace
+    │     │   Lexeme: "\n        "
+    │     │   Span: [29, 38)
+    │     ├─BreakExpression
+    │     │ ├─Break
+    │     │ │   Lexeme: "break"
+    │     │ │   Span: [38, 43)
+    │     │ ├─Semicolon
+    │     │ │   Lexeme: ";"
+    │     │ │   Span: [43, 44)
+    │     │ └─Whitespace
+    │     │     Lexeme: "\n    "
+    │     │     Span: [44, 49)
+    │     │ Span: [38, 49)
+    │     ├─CloseBrace
+    │     │   Lexeme: "}"
+    │     │   Span: [49, 50)
+    │     └─Whitespace
+    │         Lexeme: "\n"
+    │         Span: [50, 51)
+    │     Span: [28, 51)
+    │   Span: [15, 51)
+    │ Span: [15, 51)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [51, 52)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [52, 53)
+    Span: [9, 53)
+  Span: [0, 53)
+Span: [0, 53)

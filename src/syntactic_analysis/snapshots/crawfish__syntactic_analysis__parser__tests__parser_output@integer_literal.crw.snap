@@ -4,22 +4,54 @@ assertion_line: 614
 expression: dump
 input_file: src/syntactic_analysis/snapshot_inputs/integer_literal.crw
 ---
-File@0..21
-  FunctionDefinition@0..21
-    Func@0..4 "func"
-    Whitespace@4..5 " "
-    Identifier@5..6 "f"
-    ParameterList@6..9
-      OpenParen@6..7 "("
-      CloseParen@7..8 ")"
-      Whitespace@8..9 " "
-    Block@9..21
-      OpenBrace@9..10 "{"
-      Whitespace@10..15 "\n    "
-      ExpressionStatement@15..19
-        IntegerLiteral@15..17
-          Integer@15..17 "42"
-        Semicolon@17..18 ";"
-        Whitespace@18..19 "\n"
-      CloseBrace@19..20 "}"
-      Whitespace@20..21 "\n"
+File
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [0, 4)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [4, 5)
+  ├─Identifier
+  │   Lexeme: "f"
+  │   Span: [5, 6)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [6, 7)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [7, 8)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [8, 9)
+  │ Span: [6, 9)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [9, 10)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [10, 15)
+    ├─ExpressionStatement
+    │ ├─IntegerLiteral
+    │ │ └─Integer
+    │ │     Lexeme: "42"
+    │ │     Span: [15, 17)
+    │ │ Span: [15, 17)
+    │ ├─Semicolon
+    │ │   Lexeme: ";"
+    │ │   Span: [17, 18)
+    │ └─Whitespace
+    │     Lexeme: "\n"
+    │     Span: [18, 19)
+    │ Span: [15, 19)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [19, 20)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [20, 21)
+    Span: [9, 21)
+  Span: [0, 21)
+Span: [0, 21)
