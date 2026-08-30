@@ -1,0 +1,36 @@
+---
+source: src/syntactic_analysis/parser.rs
+expression: dump
+input_file: src/syntactic_analysis/snapshot_inputs/assignment.crw
+---
+File@0..31
+  FunctionDefinition@0..31
+    Func@0..4 "func"
+    Whitespace@4..5 " "
+    Identifier@5..9 "main"
+    ParameterList@9..12
+      OpenParen@9..10 "("
+      CloseParen@10..11 ")"
+      Whitespace@11..12 " "
+    Block@12..31
+      OpenBrace@12..13 "{"
+      Whitespace@13..18 "\n    "
+      ExpressionStatement@18..29
+        Assignment@18..27
+          Variable@18..20
+            Identifier@18..19 "a"
+            Whitespace@19..20 " "
+          Equal@20..21 "="
+          Whitespace@21..22 " "
+          Assignment@22..27
+            Variable@22..24
+              Identifier@22..23 "b"
+              Whitespace@23..24 " "
+            Equal@24..25 "="
+            Whitespace@25..26 " "
+            Variable@26..27
+              Identifier@26..27 "c"
+        Semicolon@27..28 ";"
+        Whitespace@28..29 "\n"
+      CloseBrace@29..30 "}"
+      Whitespace@30..31 "\n"

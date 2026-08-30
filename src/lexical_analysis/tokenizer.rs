@@ -44,7 +44,14 @@ impl<'src> Tokenizer<'src> {
             ')' => TokenKind::CloseParen,
             '{' => TokenKind::OpenBrace,
             '}' => TokenKind::CloseBrace,
-            ':' => TokenKind::Colon,
+            ':' => {
+                if self.peek() == ':' {
+                    self.advance();
+                    TokenKind::ColonColon
+                } else {
+                    TokenKind::Colon
+                }
+            }
             ',' => TokenKind::Comma,
             '+' => TokenKind::Plus,
             '*' => TokenKind::Star,

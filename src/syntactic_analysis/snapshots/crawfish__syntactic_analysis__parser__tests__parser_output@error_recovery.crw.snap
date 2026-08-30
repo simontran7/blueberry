@@ -1,0 +1,89 @@
+---
+source: src/syntactic_analysis/parser.rs
+assertion_line: 614
+expression: dump
+input_file: src/syntactic_analysis/snapshot_inputs/error_recovery.crw
+---
+File@0..95
+  FunctionDefinition@0..36
+    Func@0..4 "func"
+    Whitespace@4..5 " "
+    Identifier@5..6 "f"
+    ParameterList@6..9
+      OpenParen@6..7 "("
+      CloseParen@7..8 ")"
+      Whitespace@8..9 " "
+    Block@9..36
+      OpenBrace@9..10 "{"
+      Whitespace@10..15 "\n    "
+      Error@15..16
+        CloseParen@15..16 ")"
+      Error@16..22
+        Semicolon@16..17 ";"
+        Whitespace@17..22 "\n    "
+      LetStatement@22..33
+        Let@22..25 "let"
+        Whitespace@25..26 " "
+        Identifier@26..27 "x"
+        Whitespace@27..28 " "
+        Equal@28..29 "="
+        Whitespace@29..30 " "
+        IntegerLiteral@30..31
+          Integer@30..31 "1"
+        Semicolon@31..32 ";"
+        Whitespace@32..33 "\n"
+      CloseBrace@33..34 "}"
+      Whitespace@34..36 "\n\n"
+  FunctionDefinition@36..95
+    Func@36..40 "func"
+    Whitespace@40..41 " "
+    Identifier@41..44 "fib"
+    ParameterList@44..53
+      OpenParen@44..45 "("
+      Parameter@45..51
+        Identifier@45..46 "n"
+        Colon@46..47 ":"
+        Whitespace@47..48 " "
+        TypeExpression@48..51
+          Identifier@48..51 "i32"
+      CloseParen@51..52 ")"
+      Whitespace@52..53 " "
+    ThinArrow@53..55 "->"
+    Whitespace@55..56 " "
+    TypeExpression@56..60
+      Identifier@56..59 "i32"
+      Whitespace@59..60 " "
+    Block@60..95
+      OpenBrace@60..61 "{"
+      Whitespace@61..66 "\n    "
+      LetStatement@66..82
+        Let@66..69 "let"
+        Whitespace@69..70 " "
+        Identifier@70..71 "x"
+        Whitespace@71..72 " "
+        Equal@72..73 "="
+        Whitespace@73..74 " "
+        BinaryOperation@74..82
+          IntegerLiteral@74..76
+            Integer@74..75 "1"
+            Whitespace@75..76 " "
+          Plus@76..77 "+"
+          Whitespace@77..82 "\n    "
+      LetStatement@82..93
+        Let@82..85 "let"
+        Whitespace@85..86 " "
+        Identifier@86..87 "y"
+        Whitespace@87..88 " "
+        Equal@88..89 "="
+        Whitespace@89..90 " "
+        IntegerLiteral@90..91
+          Integer@90..91 "2"
+        Semicolon@91..92 ";"
+        Whitespace@92..93 "\n"
+      CloseBrace@93..94 "}"
+      Whitespace@94..95 "\n"
+
+--- diagnostics ---
+UnexpectedToken { span: Some(15..16), expected: "statement", found: ")" }
+UnexpectedToken { span: Some(16..17), expected: "statement", found: ";" }
+UnexpectedToken { span: Some(82..85), expected: ";", found: "let" }

@@ -19,9 +19,7 @@ Implement according to the vertical slice architecture.
 
 ### Snapshot Testing (Primary)
 
-Each compilation stage has a single test that globs over all `.crw` input files in its `inputs/` directory, runs the pipeline, and snapshots the result.
-
-1. Create an input file `.crw` in `<stage>/inputs/`.
+1. Create an input file `.crw` in `<stage>/snapshot_inputs/`.
 
 2. Run the test (it will fail because no snapshot exists yet).
 

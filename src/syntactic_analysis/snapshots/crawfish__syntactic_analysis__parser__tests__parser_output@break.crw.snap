@@ -1,0 +1,45 @@
+---
+source: src/syntactic_analysis/parser.rs
+expression: dump
+input_file: src/syntactic_analysis/snapshot_inputs/break.crw
+---
+File@0..66
+  FunctionDefinition@0..66
+    Func@0..4 "func"
+    Whitespace@4..5 " "
+    Identifier@5..6 "f"
+    ParameterList@6..9
+      OpenParen@6..7 "("
+      CloseParen@7..8 ")"
+      Whitespace@8..9 " "
+    Block@9..66
+      OpenBrace@9..10 "{"
+      Whitespace@10..15 "\n    "
+      ExpressionStatement@15..64
+        InfiniteLoop@15..64
+          Loop@15..19 "loop"
+          Whitespace@19..20 " "
+          Block@20..64
+            OpenBrace@20..21 "{"
+            Whitespace@21..30 "\n        "
+            BreakExpression@30..45
+              Break@30..35 "break"
+              Semicolon@35..36 ";"
+              Whitespace@36..45 "\n        "
+            BreakExpression@45..62
+              Break@45..50 "break"
+              Whitespace@50..51 " "
+              BinaryOperation@51..56
+                IntegerLiteral@51..53
+                  Integer@51..52 "1"
+                  Whitespace@52..53 " "
+                Plus@53..54 "+"
+                Whitespace@54..55 " "
+                IntegerLiteral@55..56
+                  Integer@55..56 "2"
+              Semicolon@56..57 ";"
+              Whitespace@57..62 "\n    "
+            CloseBrace@62..63 "}"
+            Whitespace@63..64 "\n"
+      CloseBrace@64..65 "}"
+      Whitespace@65..66 "\n"

@@ -12,6 +12,10 @@ pub(crate) enum ParserDiagnostic {
 }
 
 impl ParserDiagnostic {
+    pub(crate) fn new(expected: String, found: String) -> Self {
+        Self::UnexpectedToken { span: None, expected, found }
+    }
+
     pub(crate) fn resolve(&mut self, span: Range<usize>) {
         match self {
             Self::UnexpectedToken { span: s, .. } => *s = Some(span),

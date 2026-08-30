@@ -28,6 +28,7 @@ pub(crate) enum TokenKind {
     // punctuators
     Comma,
     Colon,
+    ColonColon,
     Semicolon,
     OpenParen,
     CloseParen,
@@ -40,6 +41,8 @@ pub(crate) enum TokenKind {
     LogicalOr,
     LogicalNot,
     Let,
+    Mut,
+    Const,
     Func,
     If,
     Else,
@@ -50,6 +53,7 @@ pub(crate) enum TokenKind {
     Loop,
     Break,
     Continue,
+    Import,
 
     // trivia
     Whitespace,
@@ -105,6 +109,8 @@ impl TokenKind {
     pub(crate) fn classify(lexeme: &str) -> Self {
         match lexeme {
             "let" => Self::Let,
+            "mut" => Self::Mut,
+            "const" => Self::Const,
             "func" => Self::Func,
             "if" => Self::If,
             "else" => Self::Else,
@@ -118,6 +124,7 @@ impl TokenKind {
             "loop" => Self::Loop,
             "break" => Self::Break,
             "continue" => Self::Continue,
+            "import" => Self::Import,
             _ => Self::Identifier,
         }
     }
@@ -128,6 +135,35 @@ impl TokenKind {
 
     pub(crate) fn is_trivia(self) -> bool {
         matches!(self, TokenKind::Whitespace | TokenKind::InlineComment)
+    }
+
+    pub(crate) const fn postfix_binding_power(self) -> Option<(u8, ())> {
+        match self {
+            Self::OpenParen => Some((15, ())),
+            _ => None,
+        }
+    }
+
+    pub(crate) const fn infix_binding_power(self) -> Option<(u8, u8)> {
+        match self {
+            Self::Equal => Some((2, 1)),
+            Self::LogicalOr => Some((3, 4)),
+            Self::LogicalAnd => Some((5, 6)),
+            Self::EqualEqual | Self::NotEqual => Some((7, 8)),
+            Self::LessThan | Self::GreaterThan | Self::LessEqual | Self::GreaterEqual => {
+                Some((9, 10))
+            }
+            Self::Plus | Self::Minus => Some((11, 12)),
+            Self::Star | Self::Slash => Some((13, 14)),
+            _ => None,
+        }
+    }
+
+    pub(crate) const fn prefix_binding_power(self) -> Option<((), u8)> {
+        match self {
+            Self::LogicalNot | Self::Minus => Some(((), 15)),
+            _ => None,
+        }
     }
 }
 
@@ -151,6 +187,7 @@ impl fmt::Display for TokenKind {
 
             Self::Comma => ",",
             Self::Colon => ":",
+            Self::ColonColon => "::",
             Self::Semicolon => ";",
             Self::OpenParen => "(",
             Self::CloseParen => ")",
@@ -162,6 +199,8 @@ impl fmt::Display for TokenKind {
             Self::LogicalOr => "or",
             Self::LogicalNot => "not",
             Self::Let => "let",
+            Self::Mut => "mut",
+            Self::Const => "const",
             Self::Func => "func",
             Self::If => "if",
             Self::Else => "else",
@@ -172,6 +211,7 @@ impl fmt::Display for TokenKind {
             Self::Loop => "loop",
             Self::Break => "break",
             Self::Continue => "continue",
+            Self::Import => "import",
 
             Self::Whitespace => "whitespace",
             Self::InlineComment => "inline comment",

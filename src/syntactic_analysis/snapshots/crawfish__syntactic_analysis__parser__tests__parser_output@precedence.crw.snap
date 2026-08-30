@@ -1,0 +1,96 @@
+---
+source: src/syntactic_analysis/parser.rs
+assertion_line: 614
+expression: dump
+input_file: src/syntactic_analysis/snapshot_inputs/precedence.crw
+---
+File@0..87
+  FunctionDefinition@0..40
+    Func@0..4 "func"
+    Whitespace@4..5 " "
+    Identifier@5..9 "main"
+    ParameterList@9..12
+      OpenParen@9..10 "("
+      CloseParen@10..11 ")"
+      Whitespace@11..12 " "
+    Block@12..40
+      OpenBrace@12..13 "{"
+      Whitespace@13..18 "\n    "
+      ExpressionStatement@18..37
+        BinaryOperation@18..35
+          BinaryOperation@18..28
+            IntegerLiteral@18..20
+              Integer@18..19 "1"
+              Whitespace@19..20 " "
+            Plus@20..21 "+"
+            Whitespace@21..22 " "
+            BinaryOperation@22..28
+              IntegerLiteral@22..24
+                Integer@22..23 "2"
+                Whitespace@23..24 " "
+              Star@24..25 "*"
+              Whitespace@25..26 " "
+              IntegerLiteral@26..28
+                Integer@26..27 "3"
+                Whitespace@27..28 " "
+          Minus@28..29 "-"
+          Whitespace@29..30 " "
+          BinaryOperation@30..35
+            IntegerLiteral@30..32
+              Integer@30..31 "4"
+              Whitespace@31..32 " "
+            Slash@32..33 "/"
+            Whitespace@33..34 " "
+            IntegerLiteral@34..35
+              Integer@34..35 "2"
+        Semicolon@35..36 ";"
+        Whitespace@36..37 "\n"
+      CloseBrace@37..38 "}"
+      Whitespace@38..40 "\n\n"
+  FunctionDefinition@40..87
+    Func@40..44 "func"
+    Whitespace@44..45 " "
+    Identifier@45..46 "g"
+    ParameterList@46..49
+      OpenParen@46..47 "("
+      CloseParen@47..48 ")"
+      Whitespace@48..49 " "
+    Block@49..87
+      OpenBrace@49..50 "{"
+      Whitespace@50..55 "\n    "
+      ExpressionStatement@55..77
+        BinaryOperation@55..71
+          BinaryOperation@55..62
+            Variable@55..57
+              Identifier@55..56 "a"
+              Whitespace@56..57 " "
+            LessEqual@57..59 "<="
+            Whitespace@59..60 " "
+            Variable@60..62
+              Identifier@60..61 "b"
+              Whitespace@61..62 " "
+          LogicalOr@62..64 "or"
+          Whitespace@64..65 " "
+          BinaryOperation@65..71
+            Variable@65..67
+              Identifier@65..66 "c"
+              Whitespace@66..67 " "
+            GreaterEqual@67..69 ">="
+            Whitespace@69..70 " "
+            Variable@70..71
+              Identifier@70..71 "d"
+        Semicolon@71..72 ";"
+        Whitespace@72..77 "\n    "
+      ExpressionStatement@77..85
+        BinaryOperation@77..83
+          Variable@77..79
+            Identifier@77..78 "a"
+            Whitespace@78..79 " "
+          NotEqual@79..81 "!="
+          Whitespace@81..82 " "
+          Variable@82..83
+            Identifier@82..83 "b"
+        Semicolon@83..84 ";"
+        Whitespace@84..85 "\n"
+      CloseBrace@85..86 "}"
+      Whitespace@86..87 "\n"

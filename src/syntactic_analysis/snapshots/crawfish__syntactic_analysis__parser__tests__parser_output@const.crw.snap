@@ -1,0 +1,65 @@
+---
+source: src/syntactic_analysis/parser.rs
+assertion_line: 602
+expression: dump
+input_file: src/syntactic_analysis/snapshot_inputs/const.crw
+---
+File@0..97
+  ConstantDefinition@0..27
+    Const@0..5 "const"
+    Whitespace@5..6 " "
+    Identifier@6..15 "THRESHOLD"
+    Colon@15..16 ":"
+    Whitespace@16..17 " "
+    TypeExpression@17..21
+      Identifier@17..20 "I32"
+      Whitespace@20..21 " "
+    Equal@21..22 "="
+    Whitespace@22..23 " "
+    IntegerLiteral@23..25
+      Integer@23..25 "10"
+    Semicolon@25..26 ";"
+    Whitespace@26..27 "\n"
+  ConstantDefinition@27..56
+    Const@27..32 "const"
+    Whitespace@32..33 " "
+    Identifier@33..40 "ENABLED"
+    Colon@40..41 ":"
+    Whitespace@41..42 " "
+    TypeExpression@42..47
+      Identifier@42..46 "Bool"
+      Whitespace@46..47 " "
+    Equal@47..48 "="
+    Whitespace@48..49 " "
+    BooleanLiteral@49..53
+      True@49..53 "true"
+    Semicolon@53..54 ";"
+    Whitespace@54..56 "\n\n"
+  FunctionDefinition@56..97
+    Func@56..60 "func"
+    Whitespace@60..61 " "
+    Identifier@61..62 "f"
+    ParameterList@62..65
+      OpenParen@62..63 "("
+      CloseParen@63..64 ")"
+      Whitespace@64..65 " "
+    Block@65..97
+      OpenBrace@65..66 "{"
+      Whitespace@66..71 "\n    "
+      LetStatement@71..95
+        Let@71..74 "let"
+        Whitespace@74..75 " "
+        Identifier@75..76 "x"
+        Colon@76..77 ":"
+        Whitespace@77..78 " "
+        TypeExpression@78..82
+          Identifier@78..81 "I32"
+          Whitespace@81..82 " "
+        Equal@82..83 "="
+        Whitespace@83..84 " "
+        Variable@84..93
+          Identifier@84..93 "THRESHOLD"
+        Semicolon@93..94 ";"
+        Whitespace@94..95 "\n"
+      CloseBrace@95..96 "}"
+      Whitespace@96..97 "\n"

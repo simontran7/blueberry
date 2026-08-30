@@ -1,0 +1,65 @@
+---
+source: src/syntactic_analysis/parser.rs
+assertion_line: 614
+expression: dump
+input_file: src/syntactic_analysis/snapshot_inputs/mut.crw
+---
+File@0..82
+  FunctionDefinition@0..82
+    Func@0..4 "func"
+    Whitespace@4..5 " "
+    Identifier@5..6 "f"
+    ParameterList@6..9
+      OpenParen@6..7 "("
+      CloseParen@7..8 ")"
+      Whitespace@8..9 " "
+    Block@9..82
+      OpenBrace@9..10 "{"
+      Whitespace@10..15 "\n    "
+      LetStatement@15..35
+        Let@15..18 "let"
+        Whitespace@18..19 " "
+        Identifier@19..20 "x"
+        Colon@20..21 ":"
+        Whitespace@21..22 " "
+        TypeExpression@22..26
+          Identifier@22..25 "I32"
+          Whitespace@25..26 " "
+        Equal@26..27 "="
+        Whitespace@27..28 " "
+        IntegerLiteral@28..29
+          Integer@28..29 "5"
+        Semicolon@29..30 ";"
+        Whitespace@30..35 "\n    "
+      LetStatement@35..59
+        Let@35..38 "let"
+        Whitespace@38..39 " "
+        Mut@39..42 "mut"
+        Whitespace@42..43 " "
+        Identifier@43..49 "result"
+        Whitespace@49..50 " "
+        Equal@50..51 "="
+        Whitespace@51..52 " "
+        Variable@52..53
+          Identifier@52..53 "x"
+        Semicolon@53..54 ";"
+        Whitespace@54..59 "\n    "
+      ExpressionStatement@59..80
+        Assignment@59..78
+          Variable@59..66
+            Identifier@59..65 "result"
+            Whitespace@65..66 " "
+          Equal@66..67 "="
+          Whitespace@67..68 " "
+          BinaryOperation@68..78
+            Variable@68..75
+              Identifier@68..74 "result"
+              Whitespace@74..75 " "
+            Plus@75..76 "+"
+            Whitespace@76..77 " "
+            IntegerLiteral@77..78
+              Integer@77..78 "1"
+        Semicolon@78..79 ";"
+        Whitespace@79..80 "\n"
+      CloseBrace@80..81 "}"
+      Whitespace@81..82 "\n"

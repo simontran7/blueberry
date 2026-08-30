@@ -1,0 +1,35 @@
+---
+source: src/syntactic_analysis/parser.rs
+assertion_line: 614
+expression: dump
+input_file: src/syntactic_analysis/snapshot_inputs/comments.crw
+---
+File@0..63
+  InlineComment@0..18 "// leading comment"
+  Whitespace@18..19 "\n"
+  FunctionDefinition@19..63
+    Func@19..23 "func"
+    Whitespace@23..24 " "
+    Identifier@24..25 "f"
+    ParameterList@25..28
+      OpenParen@25..26 "("
+      CloseParen@26..27 ")"
+      Whitespace@27..28 " "
+    Block@28..63
+      OpenBrace@28..29 "{"
+      Whitespace@29..34 "\n    "
+      ExpressionStatement@34..61
+        BinaryOperation@34..39
+          IntegerLiteral@34..36
+            Integer@34..35 "1"
+            Whitespace@35..36 " "
+          Plus@36..37 "+"
+          Whitespace@37..38 " "
+          IntegerLiteral@38..39
+            Integer@38..39 "2"
+        Semicolon@39..40 ";"
+        Whitespace@40..41 " "
+        InlineComment@41..60 "// trailing comment"
+        Whitespace@60..61 "\n"
+      CloseBrace@61..62 "}"
+      Whitespace@62..63 "\n"

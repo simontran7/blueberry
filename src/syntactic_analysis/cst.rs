@@ -16,7 +16,7 @@ pub(crate) struct GreenToken {
     text: SmolStr,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum SyntaxKind {
     // --- token kinds ---
 
@@ -40,6 +40,7 @@ pub(crate) enum SyntaxKind {
     // punctuators
     Comma,
     Colon,
+    ColonColon,
     Semicolon,
     OpenParen,
     CloseParen,
@@ -52,6 +53,8 @@ pub(crate) enum SyntaxKind {
     LogicalOr,
     LogicalNot,
     Let,
+    Mut,
+    Const,
     Func,
     If,
     Else,
@@ -62,6 +65,7 @@ pub(crate) enum SyntaxKind {
     Loop,
     Break,
     Continue,
+    Import,
 
     // trivia
     Whitespace,
@@ -79,6 +83,7 @@ pub(crate) enum SyntaxKind {
     LetStatement,
 
     // expressions
+    TypeExpression,
     ParenthesizedExpression,
     UnitLiteral,
     IntegerLiteral,
@@ -92,8 +97,8 @@ pub(crate) enum SyntaxKind {
     Argument,
     ReturnExpression,
     BreakExpression,
+    ContinueExpression,
     Call,
-    Index,
     Assignment,
     WhileLoop,
     InfiniteLoop,
@@ -106,14 +111,12 @@ pub(crate) enum SyntaxKind {
     // miscellaneous
     ParameterList,
     Parameter,
-    Type,
 }
 
 pub(crate) enum NodeOrToken<N, T> {
     Node(N),
     Token(T),
 }
-
 
 impl GreenNode {
     pub(crate) fn new(kind: SyntaxKind) -> Self {
@@ -130,6 +133,10 @@ impl GreenNode {
 
     pub(crate) fn width(&self) -> TextWidth {
         self.width
+    }
+
+    pub(crate) fn children(&self) -> &[GreenChild] {
+        &self.children
     }
 
     pub(crate) fn add_child(&mut self, child: GreenChild) {
@@ -182,6 +189,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::NotEqual => Self::NotEqual,
             TokenKind::Comma => Self::Comma,
             TokenKind::Colon => Self::Colon,
+            TokenKind::ColonColon => Self::ColonColon,
             TokenKind::Semicolon => Self::Semicolon,
             TokenKind::OpenParen => Self::OpenParen,
             TokenKind::CloseParen => Self::CloseParen,
@@ -192,6 +200,8 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::LogicalOr => Self::LogicalOr,
             TokenKind::LogicalNot => Self::LogicalNot,
             TokenKind::Let => Self::Let,
+            TokenKind::Mut => Self::Mut,
+            TokenKind::Const => Self::Const,
             TokenKind::Func => Self::Func,
             TokenKind::If => Self::If,
             TokenKind::Else => Self::Else,
@@ -202,10 +212,11 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::Loop => Self::Loop,
             TokenKind::Break => Self::Break,
             TokenKind::Continue => Self::Continue,
+            TokenKind::Import => Self::Import,
             TokenKind::Whitespace => Self::Whitespace,
             TokenKind::InlineComment => Self::InlineComment,
             TokenKind::Error => Self::Error,
-            TokenKind::Eof => panic!("Eof is never pushed as a tree token"),
+            TokenKind::Eof => panic!("`eof` token is never pushed as a tree token"),
         }
     }
 }

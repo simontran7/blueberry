@@ -7,7 +7,7 @@ use crate::syntactic_analysis::parser_diagnostic::ParserDiagnostic;
 
 pub(crate) struct CstBuilder<'src> {
     source: &'src str,
-    tokens: TokenStream,
+    tokens: &'src TokenStream,
     events: Vec<Event>,
     diagnostics: Vec<ParserDiagnostic>,
 }
@@ -15,7 +15,7 @@ pub(crate) struct CstBuilder<'src> {
 impl<'src> CstBuilder<'src> {
     pub(crate) fn new(
         source: &'src str,
-        tokens: TokenStream,
+        tokens: &'src TokenStream,
         events: Vec<Event>,
         diagnostics: Vec<ParserDiagnostic>,
     ) -> Self {

@@ -1,0 +1,74 @@
+---
+source: src/syntactic_analysis/parser.rs
+assertion_line: 614
+expression: dump
+input_file: src/syntactic_analysis/snapshot_inputs/calls.crw
+---
+File@0..57
+  FunctionDefinition@0..57
+    Func@0..4 "func"
+    Whitespace@4..5 " "
+    Identifier@5..9 "main"
+    ParameterList@9..12
+      OpenParen@9..10 "("
+      CloseParen@10..11 ")"
+      Whitespace@11..12 " "
+    Block@12..57
+      OpenBrace@12..13 "{"
+      Whitespace@13..18 "\n    "
+      ExpressionStatement@18..38
+        BinaryOperation@18..32
+          UnaryOperation@18..23
+            Minus@18..19 "-"
+            Call@19..23
+              Variable@19..20
+                Identifier@19..20 "f"
+              ArgumentList@20..23
+                OpenParen@20..21 "("
+                CloseParen@21..22 ")"
+                Whitespace@22..23 " "
+          Plus@23..24 "+"
+          Whitespace@24..25 " "
+          Call@25..32
+            Variable@25..26
+              Identifier@25..26 "g"
+            ArgumentList@26..32
+              OpenParen@26..27 "("
+              Argument@27..30
+                Variable@27..28
+                  Identifier@27..28 "x"
+                Comma@28..29 ","
+                Whitespace@29..30 " "
+              Argument@30..31
+                Variable@30..31
+                  Identifier@30..31 "y"
+              CloseParen@31..32 ")"
+        Semicolon@32..33 ";"
+        Whitespace@33..38 "\n    "
+      ExpressionStatement@38..49
+        Call@38..43
+          Call@38..41
+            Variable@38..39
+              Identifier@38..39 "h"
+            ArgumentList@39..41
+              OpenParen@39..40 "("
+              CloseParen@40..41 ")"
+          ArgumentList@41..43
+            OpenParen@41..42 "("
+            CloseParen@42..43 ")"
+        Semicolon@43..44 ";"
+        Whitespace@44..49 "\n    "
+      ExpressionStatement@49..55
+        Call@49..53
+          Variable@49..50
+            Identifier@49..50 "k"
+          ArgumentList@50..53
+            OpenParen@50..51 "("
+            Argument@51..52
+              Variable@51..52
+                Identifier@51..52 "x"
+            CloseParen@52..53 ")"
+        Semicolon@53..54 ";"
+        Whitespace@54..55 "\n"
+      CloseBrace@55..56 "}"
+      Whitespace@56..57 "\n"

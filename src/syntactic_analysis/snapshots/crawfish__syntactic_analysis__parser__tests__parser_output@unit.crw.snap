@@ -1,0 +1,52 @@
+---
+source: src/syntactic_analysis/parser.rs
+assertion_line: 585
+expression: dump
+input_file: src/syntactic_analysis/snapshot_inputs/unit.crw
+---
+File@0..50
+  FunctionDefinition@0..50
+    Func@0..4 "func"
+    Whitespace@4..5 " "
+    Identifier@5..6 "f"
+    ParameterList@6..9
+      OpenParen@6..7 "("
+      CloseParen@7..8 ")"
+      Whitespace@8..9 " "
+    Block@9..50
+      OpenBrace@9..10 "{"
+      Whitespace@10..15 "\n    "
+      LetStatement@15..31
+        Let@15..18 "let"
+        Whitespace@18..19 " "
+        Identifier@19..20 "x"
+        Whitespace@20..21 " "
+        Equal@21..22 "="
+        Whitespace@22..23 " "
+        UnitLiteral@23..25
+          OpenParen@23..24 "("
+          CloseParen@24..25 ")"
+        Semicolon@25..26 ";"
+        Whitespace@26..31 "\n    "
+      LetStatement@31..48
+        Let@31..34 "let"
+        Whitespace@34..35 " "
+        Identifier@35..36 "y"
+        Whitespace@36..37 " "
+        Equal@37..38 "="
+        Whitespace@38..39 " "
+        ParenthesizedExpression@39..46
+          OpenParen@39..40 "("
+          BinaryOperation@40..45
+            IntegerLiteral@40..42
+              Integer@40..41 "1"
+              Whitespace@41..42 " "
+            Plus@42..43 "+"
+            Whitespace@43..44 " "
+            IntegerLiteral@44..45
+              Integer@44..45 "2"
+          CloseParen@45..46 ")"
+        Semicolon@46..47 ";"
+        Whitespace@47..48 "\n"
+      CloseBrace@48..49 "}"
+      Whitespace@49..50 "\n"

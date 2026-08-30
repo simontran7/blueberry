@@ -1,0 +1,30 @@
+---
+source: src/syntactic_analysis/parser.rs
+assertion_line: 614
+expression: dump
+input_file: src/syntactic_analysis/snapshot_inputs/boolean_literal.crw
+---
+File@0..34
+  FunctionDefinition@0..34
+    Func@0..4 "func"
+    Whitespace@4..5 " "
+    Identifier@5..6 "f"
+    ParameterList@6..9
+      OpenParen@6..7 "("
+      CloseParen@7..8 ")"
+      Whitespace@8..9 " "
+    Block@9..34
+      OpenBrace@9..10 "{"
+      Whitespace@10..15 "\n    "
+      ExpressionStatement@15..25
+        BooleanLiteral@15..19
+          True@15..19 "true"
+        Semicolon@19..20 ";"
+        Whitespace@20..25 "\n    "
+      ExpressionStatement@25..32
+        BooleanLiteral@25..30
+          False@25..30 "false"
+        Semicolon@30..31 ";"
+        Whitespace@31..32 "\n"
+      CloseBrace@32..33 "}"
+      Whitespace@33..34 "\n"
