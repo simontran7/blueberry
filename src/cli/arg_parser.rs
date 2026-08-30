@@ -24,7 +24,9 @@ pub enum EmitKind {
 impl Command {
     pub fn parse() -> Self {
         let mut arguments = std::env::args().skip(1);
-        let subcommand = arguments.next().unwrap_or_else(|| print_usage_error("missing command"));
+        let subcommand = arguments
+            .next()
+            .unwrap_or_else(|| print_usage_error("missing command"));
 
         let mut path = None;
         let mut emit = Vec::new();

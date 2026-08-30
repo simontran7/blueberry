@@ -19,7 +19,12 @@ impl<'src> CstBuilder<'src> {
         events: Vec<Event>,
         diagnostics: Vec<ParserDiagnostic>,
     ) -> Self {
-        CstBuilder { source, tokens, events, diagnostics }
+        CstBuilder {
+            source,
+            tokens,
+            events,
+            diagnostics,
+        }
     }
 
     pub(crate) fn build(self) -> (GreenNode, Vec<ParserDiagnostic>) {
@@ -45,8 +50,20 @@ impl<'src> CstBuilder<'src> {
                     // order the nodes
                     while let Some(cfp) = current_forward_parent {
                         current_index += cfp;
-                        current_forward_parent = match std::mem::replace(&mut events[current_index], Event::OpenNode { kind: SyntaxKind::Tombstone, forward_parent: None }) {
-                            Event::OpenNode { kind: next_kind,forward_parent: next_forward_parent } => { nodes.push(GreenNode::new(next_kind)); next_forward_parent }
+                        current_forward_parent = match std::mem::replace(
+                            &mut events[current_index],
+                            Event::OpenNode {
+                                kind: SyntaxKind::Tombstone,
+                                forward_parent: None,
+                            },
+                        ) {
+                            Event::OpenNode {
+                                kind: next_kind,
+                                forward_parent: next_forward_parent,
+                            } => {
+                                nodes.push(GreenNode::new(next_kind));
+                                next_forward_parent
+                            }
                             _ => unreachable!(),
                         };
                     }
@@ -57,7 +74,7 @@ impl<'src> CstBuilder<'src> {
                             stack.push(node);
                         }
                     }
-                },
+                }
                 Event::CloseNode => {
                     let node = stack.pop().unwrap();
                     let parent = stack.last_mut().unwrap();
@@ -71,7 +88,10 @@ impl<'src> CstBuilder<'src> {
                     offset += usize::from(width);
                 }
                 Event::AddDiagnostic { index } => {
-                    let end = offset + raw_tokens.peek().map_or(0, |(_, width)| usize::from(*width));
+                    let end = offset
+                        + raw_tokens
+                            .peek()
+                            .map_or(0, |(_, width)| usize::from(*width));
                     diagnostics[index].resolve(offset..end);
                 }
             }

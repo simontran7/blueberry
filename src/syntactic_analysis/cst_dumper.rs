@@ -18,12 +18,15 @@ impl<'cst> CstDumper<'cst> {
     pub(crate) fn dump(&mut self) -> String {
         self.dump.push_str(&format!("{:?}\n", self.root.kind()));
         self.dump_children(self.root, "");
-        self.dump
-            .push_str(&format!("Span: [{}, {})\n", 0, usize::from(self.root.width())));
+        self.dump.push_str(&format!(
+            "Span: [{}, {})\n",
+            0,
+            usize::from(self.root.width())
+        ));
         std::mem::take(&mut self.dump)
     }
 
-    fn dump_children(&mut self, node: &GreenNode, prefix: &str) {
+    fn dump_children(&mut self, node: &GreenNode, indent: &str) {
         let Some(last_index) = node.children().len().checked_sub(1) else {
             return;
         };
@@ -32,7 +35,7 @@ impl<'cst> CstDumper<'cst> {
             let is_last = index == last_index;
             let connector = if is_last { "└─" } else { "├─" };
             let continuation = if is_last { "  " } else { "│ " };
-            let child_prefix = format!("{prefix}{continuation}");
+            let child_indent = format!("{indent}{continuation}");
 
             match child {
                 GreenChild::Node(child_node) => {
@@ -40,10 +43,10 @@ impl<'cst> CstDumper<'cst> {
                     let end = start + usize::from(child_node.width());
 
                     self.dump
-                        .push_str(&format!("{prefix}{connector}{:?}\n", child_node.kind()));
-                    self.dump_children(child_node, &child_prefix);
+                        .push_str(&format!("{indent}{connector}{:?}\n", child_node.kind()));
+                    self.dump_children(child_node, &child_indent);
                     self.dump
-                        .push_str(&format!("{child_prefix}Span: [{start}, {end})\n"));
+                        .push_str(&format!("{child_indent}Span: [{start}, {end})\n"));
                 }
                 GreenChild::Token(token) => {
                     let start = self.offset;
@@ -51,13 +54,11 @@ impl<'cst> CstDumper<'cst> {
                     self.offset = end;
 
                     self.dump
-                        .push_str(&format!("{prefix}{connector}{:?}\n", token.kind()));
-                    self.dump.push_str(&format!(
-                        "{child_prefix}  Lexeme: {:?}\n",
-                        token.lexeme()
-                    ));
+                        .push_str(&format!("{indent}{connector}{:?}\n", token.kind()));
                     self.dump
-                        .push_str(&format!("{child_prefix}  Span: [{start}, {end})\n"));
+                        .push_str(&format!("{child_indent}  Lexeme: {:?}\n", token.lexeme()));
+                    self.dump
+                        .push_str(&format!("{child_indent}  Span: [{start}, {end})\n"));
                 }
             }
         }

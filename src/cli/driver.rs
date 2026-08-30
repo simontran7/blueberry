@@ -57,5 +57,8 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
         return;
     }
 
-    println!("Compiled {file_stem} in {:.2}s", start.elapsed().as_secs_f64());
+    println!(
+        "Compiled {file_stem} in {:.2}s",
+        start.elapsed().as_secs_f64()
+    );
 }

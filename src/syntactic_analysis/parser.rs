@@ -2,7 +2,7 @@ use std::cell::Cell;
 
 use crate::lexical_analysis::token_stream::TokenKind;
 use crate::lexical_analysis::token_stream::TokenStream;
-use crate::syntactic_analysis::cst::{SyntaxKind};
+use crate::syntactic_analysis::cst::SyntaxKind;
 use crate::syntactic_analysis::parser_diagnostic::ParserDiagnostic;
 
 pub(crate) struct Parser<'a> {
@@ -39,9 +39,22 @@ struct ClosedMarker {
 }
 
 impl<'a> Parser<'a> {
-    const PARAMETER_LIST_RECOVERY: &'static [TokenKind] = &[TokenKind::ThinArrow, TokenKind::OpenBrace, TokenKind::Func];
-    const EXPRESSION_STARTERS: &'static [TokenKind] = &[TokenKind::Integer, TokenKind::True, TokenKind::False, TokenKind::Identifier, TokenKind::OpenParen, TokenKind::Minus, TokenKind::LogicalNot, TokenKind::Loop, TokenKind::While, TokenKind::If];
-    const BLOCK_LIKE_EXPRESSION_STARTERS: &'static [TokenKind] = &[TokenKind::Loop, TokenKind::While, TokenKind::If];
+    const PARAMETER_LIST_RECOVERY: &'static [TokenKind] =
+        &[TokenKind::ThinArrow, TokenKind::OpenBrace, TokenKind::Func];
+    const EXPRESSION_STARTERS: &'static [TokenKind] = &[
+        TokenKind::Integer,
+        TokenKind::True,
+        TokenKind::False,
+        TokenKind::Identifier,
+        TokenKind::OpenParen,
+        TokenKind::Minus,
+        TokenKind::LogicalNot,
+        TokenKind::Loop,
+        TokenKind::While,
+        TokenKind::If,
+    ];
+    const BLOCK_LIKE_EXPRESSION_STARTERS: &'static [TokenKind] =
+        &[TokenKind::Loop, TokenKind::While, TokenKind::If];
     const MIN_BINDING_POWER: u8 = 0;
 
     pub(crate) fn new(tokens: &'a TokenStream) -> Self {
@@ -61,13 +74,19 @@ impl<'a> Parser<'a> {
             } else if self.cursor.at(TokenKind::Const) {
                 self.parse_constant_definition();
             } else {
-                self.advance_with_error(ParserDiagnostic::new(TokenKind::Func.to_string(), self.cursor.peek().to_string()));
+                self.advance_with_error(ParserDiagnostic::new(
+                    TokenKind::Func.to_string(),
+                    self.cursor.peek().to_string(),
+                ));
             }
         }
 
         self.close(marker, SyntaxKind::File);
 
-        (std::mem::take(&mut self.events), std::mem::take(&mut self.diagnostics))
+        (
+            std::mem::take(&mut self.events),
+            std::mem::take(&mut self.diagnostics),
+        )
     }
 
     fn parse_function_definition(&mut self) {
@@ -128,7 +147,10 @@ impl<'a> Parser<'a> {
             } else if self.cursor.at_any(Self::PARAMETER_LIST_RECOVERY) {
                 break;
             } else {
-                self.advance_with_error(ParserDiagnostic::new("parameter".to_string(), self.cursor.peek().to_string()));
+                self.advance_with_error(ParserDiagnostic::new(
+                    "parameter".to_string(),
+                    self.cursor.peek().to_string(),
+                ));
             }
         }
         self.expect(TokenKind::CloseParen);
@@ -166,9 +188,12 @@ impl<'a> Parser<'a> {
                     if self.cursor.at_any(Self::EXPRESSION_STARTERS) {
                         self.parse_expression_statement()
                     } else {
-                        self.advance_with_error(ParserDiagnostic::new("statement".to_string(), self.cursor.peek().to_string()));
+                        self.advance_with_error(ParserDiagnostic::new(
+                            "statement".to_string(),
+                            self.cursor.peek().to_string(),
+                        ));
                     }
-                },
+                }
             }
         }
         self.expect(TokenKind::CloseBrace);
@@ -240,7 +265,7 @@ impl<'a> Parser<'a> {
 
         match self.cursor.peek() {
             TokenKind::Semicolon => self.advance(),
-            TokenKind::CloseBrace => {} // no trailing `;` necessary for block-like expressions 
+            TokenKind::CloseBrace => {} // no trailing `;` necessary for block-like expressions
             _ => {
                 if !is_block_like {
                     self.expect(TokenKind::Semicolon);
@@ -252,9 +277,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self, min_bp: u8) -> Option<ClosedMarker> {
-        let Some(mut lhs) = self.nud() else {
-            return None;
-        };
+        let mut lhs = self.nud()?;
 
         while let Some((lbp, ())) = self.cursor.peek().postfix_binding_power()
             && min_bp <= lbp
@@ -432,10 +455,10 @@ impl<'a> Parser<'a> {
         if !self.cursor.at(TokenKind::CloseParen) {
             self.expect(TokenKind::Comma);
         }
-        
+
         self.close(marker, SyntaxKind::Argument);
     }
-    
+
     fn parse_type_expression(&mut self) {
         let marker = self.open();
 
@@ -520,7 +543,10 @@ impl<'a> Parser<'a> {
         if self.eat(kind) {
             return;
         }
-        self.record_diagnostic(ParserDiagnostic::new(kind.to_string(), self.cursor.peek().to_string()));
+        self.record_diagnostic(ParserDiagnostic::new(
+            kind.to_string(),
+            self.cursor.peek().to_string(),
+        ));
     }
 
     fn record_diagnostic(&mut self, diagnostic: ParserDiagnostic) {
@@ -600,8 +626,7 @@ mod tests {
             let tokens = Tokenizer::new(&input).tokenize();
 
             let (events, diagnostics) = Parser::new(&tokens).parse();
-            let (cst, diagnostics) =
-                CstBuilder::new(&input, &tokens, events, diagnostics).build();
+            let (cst, diagnostics) = CstBuilder::new(&input, &tokens, events, diagnostics).build();
 
             let mut dump = CstDumper::new(&cst).dump();
             if !diagnostics.is_empty() {
@@ -615,4 +640,3 @@ mod tests {
         })
     }
 }
-

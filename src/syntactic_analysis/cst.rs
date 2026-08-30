@@ -151,10 +151,7 @@ impl GreenNode {
 
 impl GreenToken {
     pub(crate) fn new(kind: SyntaxKind, text: SmolStr) -> Self {
-        Self {
-            kind,
-            text,
-        }
+        Self { kind, text }
     }
 
     pub(crate) fn kind(&self) -> SyntaxKind {
@@ -169,7 +166,6 @@ impl GreenToken {
         TextWidth::new(self.text.len())
     }
 }
-
 
 impl From<TokenKind> for SyntaxKind {
     fn from(kind: TokenKind) -> Self {
