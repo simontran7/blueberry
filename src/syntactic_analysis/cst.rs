@@ -1,13 +1,17 @@
+use std::sync::Arc;
+
 use smol_str::SmolStr;
 
-use crate::common::text_width::TextWidth;
+use crate::common::text_size::TextSize;
 use crate::lexical_analysis::token_stream::TokenKind;
 
-pub(crate) type GreenChild = NodeOrToken<GreenNode, GreenToken>;
+pub(crate) type GreenChild = NodeOrToken<Arc<GreenNode>, Arc<GreenToken>>;
+
+pub(crate) type RedChild = NodeOrToken<RedNode, RedToken>;
 
 pub(crate) struct GreenNode {
     kind: SyntaxKind,
-    width: TextWidth,
+    width: TextSize,
     children: Vec<GreenChild>,
 }
 
@@ -113,6 +117,26 @@ pub(crate) enum SyntaxKind {
     Parameter,
 }
 
+#[derive(Clone)]
+struct RedNode {
+    parent: Option<Arc<RedNode>>,
+    green: Arc<GreenNode>,
+    /// the node's index within `parent`'s children
+    index: u32,
+    /// absolute text offset in the whole file
+    offset: TextSize,
+}
+
+#[derive(Clone)]
+struct RedToken {
+    parent: Arc<RedNode>,
+    green: Arc<GreenToken>,
+    /// the token's index within `parent`'s children
+    index: u32,
+    /// absolute text offset in the whole file
+    offset: TextSize,
+}
+
 pub(crate) enum NodeOrToken<N, T> {
     Node(N),
     Token(T),
@@ -122,7 +146,7 @@ impl GreenNode {
     pub(crate) fn new(kind: SyntaxKind) -> Self {
         Self {
             kind,
-            width: TextWidth::new(0),
+            width: TextSize::new(0),
             children: Vec::new(),
         }
     }
@@ -131,7 +155,7 @@ impl GreenNode {
         self.kind
     }
 
-    pub(crate) fn width(&self) -> TextWidth {
+    pub(crate) fn width(&self) -> TextSize {
         self.width
     }
 
@@ -162,8 +186,136 @@ impl GreenToken {
         &self.text
     }
 
-    pub(crate) fn width(&self) -> TextWidth {
-        TextWidth::new(self.text.len())
+    pub(crate) fn width(&self) -> TextSize {
+        TextSize::new(self.text.len())
+    }
+}
+
+impl RedNode {
+    pub(crate) fn new(green: Arc<GreenNode>) -> Self {
+        Self {
+            parent: None,
+            green,
+            index: 0,
+            offset: TextSize::new(0),
+        }
+    }
+
+    pub(crate) fn kind(&self) -> SyntaxKind {
+        self.green.kind()
+    }
+
+    pub(crate) fn green(&self) -> &GreenNode {
+        &self.green
+    }
+
+    pub(crate) fn offset(&self) -> TextSize {
+        self.offset
+    }
+
+    pub(crate) fn parent(&self) -> Option<Arc<RedNode>> {
+        self.parent.clone()
+    }
+
+    pub(crate) fn children(&self) -> impl Iterator<Item = RedChild> {
+        let parent = Arc::new(self.clone());
+        let mut offset = self.offset;
+        self.green
+            .children()
+            .iter()
+            .enumerate()
+            .map(move |(index, child)| {
+                let child_offset = offset;
+                match child {
+                    GreenChild::Node(node) => {
+                        offset += node.width();
+                        RedChild::Node(RedNode {
+                            parent: Some(Arc::clone(&parent)),
+                            green: Arc::clone(node),
+                            index: index as u32,
+                            offset: child_offset,
+                        })
+                    }
+                    GreenChild::Token(token) => {
+                        offset += token.width();
+                        RedChild::Token(RedToken {
+                            parent: Arc::clone(&parent),
+                            green: Arc::clone(token),
+                            index: index as u32,
+                            offset: child_offset,
+                        })
+                    }
+                }
+            })
+    }
+
+    pub(crate) fn next_sibling(&self) -> Option<RedChild> {
+        let parent = self.parent.as_ref()?;
+        let sibling_green = parent.green.children().get(self.index as usize + 1)?;
+        let sibling_offset = self.offset + self.green.width();
+        Some(match sibling_green {
+            GreenChild::Node(node) => RedChild::Node(RedNode {
+                parent: Some(Arc::clone(parent)),
+                green: Arc::clone(node),
+                index: self.index + 1,
+                offset: sibling_offset,
+            }),
+            GreenChild::Token(token) => RedChild::Token(RedToken {
+                parent: Arc::clone(parent),
+                green: Arc::clone(token),
+                index: self.index + 1,
+                offset: sibling_offset,
+            }),
+        })
+    }
+}
+
+impl RedToken {
+    pub(crate) fn kind(&self) -> SyntaxKind {
+        self.green.kind()
+    }
+
+    pub(crate) fn lexeme(&self) -> &str {
+        self.green.lexeme()
+    }
+
+    pub(crate) fn offset(&self) -> TextSize {
+        self.offset
+    }
+
+    pub(crate) fn parent(&self) -> &RedNode {
+        &self.parent
+    }
+
+    pub(crate) fn next_sibling(&self) -> Option<RedChild> {
+        let sibling_green = self.parent.green.children().get(self.index as usize + 1)?;
+        let sibling_offset = self.offset + self.green.width();
+        Some(match sibling_green {
+            GreenChild::Node(node) => RedChild::Node(RedNode {
+                parent: Some(Arc::clone(&self.parent)),
+                green: Arc::clone(node),
+                index: self.index + 1,
+                offset: sibling_offset,
+            }),
+            GreenChild::Token(token) => RedChild::Token(RedToken {
+                parent: Arc::clone(&self.parent),
+                green: Arc::clone(token),
+                index: self.index + 1,
+                offset: sibling_offset,
+            }),
+        })
+    }
+}
+
+impl PartialEq for RedNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.offset == other.offset && Arc::ptr_eq(&self.green, &other.green)
+    }
+}
+
+impl PartialEq for RedToken {
+    fn eq(&self, other: &Self) -> bool {
+        self.offset == other.offset && Arc::ptr_eq(&self.green, &other.green)
     }
 }
 

@@ -1,4 +1,4 @@
-use handlemap::handle_map::{Handle, HandleMap};
+use handlemap::{Handle, HandleMap};
 
 use crate::common::types::TypeId;
 

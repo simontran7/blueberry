@@ -12,9 +12,9 @@ use crate::front_end::semantic_analysis::symbol_table::{
 };
 use crate::front_end::semantic_analysis::unification_table::UnificationTable;
 use crate::front_end::syntactic_analysis::cst::ast::{
-    AstNode, Assignment, BinaryOperation, Block, Break, Call, ConstantDefinition, Continue,
-    Definition, Expression, FunctionDefinition, IfExpression, InfiniteLoop, IntegerLiteral, Parameter,
-    Return, SourceFile, Statement, Type, UnaryOperation, Variable, WhileLoop,
+    Assignment, AstNode, BinaryOperation, Block, Break, Call, ConstantDefinition, Continue,
+    Definition, Expression, FunctionDefinition, IfExpression, InfiniteLoop, IntegerLiteral,
+    Parameter, Return, SourceFile, Statement, Type, UnaryOperation, Variable, WhileLoop,
 };
 use crate::front_end::syntactic_analysis::cst::green::GreenNode;
 use crate::front_end::syntactic_analysis::cst::operators::{BinOp, UnOp};
@@ -441,9 +441,9 @@ impl<'ast> SemanticAnalyzer<'ast> {
         let stmts: Vec<Statement<'ast>> = block.statements().collect();
         for stmt in stmts {
             if let Statement::Definition(stmt) = stmt {
-                let def = stmt
-                    .definition()
-                    .expect("parser guarantees a Definition on every well-formed DefinitionStatement");
+                let def = stmt.definition().expect(
+                    "parser guarantees a Definition on every well-formed DefinitionStatement",
+                );
                 self.collect_definition(def);
             }
         }
@@ -529,9 +529,9 @@ impl<'ast> SemanticAnalyzer<'ast> {
                 )
             }
             Statement::Definition(stmt) => {
-                let def = stmt
-                    .definition()
-                    .expect("parser guarantees a Definition on every well-formed DefinitionStatement");
+                let def = stmt.definition().expect(
+                    "parser guarantees a Definition on every well-formed DefinitionStatement",
+                );
                 let definition_id = match def {
                     Definition::FunctionDefinition(def) => self.typecheck_function_definition(def),
                     Definition::ConstantDefinition(def) => self.typecheck_constant_definition(def),
@@ -783,7 +783,10 @@ impl<'ast> SemanticAnalyzer<'ast> {
             Expression::Call(e) => self.typecheck_function_call(e),
             Expression::Block(e) => self.analyze_block(e, None),
             Expression::Index(e) => {
-                unreachable!("infer called on a non-expression node: {:?}", e.syntax().kind())
+                unreachable!(
+                    "infer called on a non-expression node: {:?}",
+                    e.syntax().kind()
+                )
             }
         }
     }
@@ -1319,7 +1322,7 @@ impl<'ast> SemanticAnalyzer<'ast> {
             .loop_frames
             .pop()
             .expect("just pushed this loop's own frame");
-        
+
         self.constrain(Constraint::Equality {
             expected_id: self.hir.get_expression(body_id).ty(),
             actual_id: self.ctx.type_interner.unit_id,

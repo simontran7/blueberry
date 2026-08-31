@@ -1,6 +1,6 @@
 use crate::common::span::Span;
 use crate::common::types::TypeId;
-use crate::front_end::semantic_analysis::hir::LoopSource;
+use crate::semantic_analysis::hir::LoopSource;
 
 pub(crate) enum Provenance {
     TypeMismatch {

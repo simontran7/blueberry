@@ -9,46 +9,32 @@
 
 ## Installation
 
-### Dependencies
+### Requirements
 
-- Rust Compiler
-- LLVM
+- Rust
+- LLVM 22
 
-### Steps
+### Building from Source
 
-1. Install Rust
-```sh
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-2. Install LLVM 22
-  - On Debian/Ubuntu:
-```sh
-wget https://apt.llvm.org/llvm.sh
-chmod +x llvm.sh
-sudo ./llvm.sh 22
-sudo apt install libpolly-22-dev
-```
-  - On macOS:
-```sh
-brew install llvm@22
-echo 'export LLVM_SYS_221_PREFIX="$(brew --prefix llvm@22)"' >> ~/.zshrc
-```
-
-3. Git clone the repository
+1. Git clone the repository
 
 ```sh
 git clone https://github.com/simontran7/blueberry.git
 ```
 
-4. `cd` into the `blueberry/` directory, then build the project with GNU Make
+2. `cd` into the `blueberry/` directory 
 
 ```sh
 cd blueberry/
+```
+
+3. Build
+
+```sh
 cargo build --release
 ```
 
-5. Move the `target/release/blueberry` binary to a desired location (e.g. in `/Users/<username>`), then add it to your `PATH` by adding the following line to your `.bashrc` file
+4. Move the `target/release/blueberry` binary to a desired location (e.g. in `/Users/<username>`), then add it to your `PATH` by adding the following line to your `.bashrc` file
 
 ```sh
 # in your .bashrc
@@ -80,4 +66,4 @@ flowchart TD
 
 ## Language Reference
 
-See [A Tour of Blueberry](docs/tour-of-blueberry.md)
+See [A Tour of Blueberry](docs/tour-of-blueberry.md).

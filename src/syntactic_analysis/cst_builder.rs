@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::cst::{GreenChild, GreenNode};
 use super::parser::Event;
 use crate::lexical_analysis::token_stream::TokenStream;
@@ -27,7 +29,7 @@ impl<'src> CstBuilder<'src> {
         }
     }
 
-    pub(crate) fn build(self) -> (GreenNode, Vec<ParserDiagnostic>) {
+    pub(crate) fn build(self) -> (Arc<GreenNode>, Vec<ParserDiagnostic>) {
         let source = self.source;
         let mut raw_tokens = self.tokens.kinds().zip(self.tokens.widths()).peekable();
         let mut events = self.events;
@@ -78,13 +80,16 @@ impl<'src> CstBuilder<'src> {
                 Event::CloseNode => {
                     let node = stack.pop().unwrap();
                     let parent = stack.last_mut().unwrap();
-                    parent.add_child(GreenChild::Node(node));
+                    parent.add_child(GreenChild::Node(Arc::new(node)));
                 }
                 Event::AddToken => {
                     let (kind, width) = raw_tokens.next().unwrap();
                     let text = &source[offset..offset + usize::from(width)];
                     let parent = stack.last_mut().unwrap();
-                    parent.add_child(GreenChild::Token(GreenToken::new(kind.into(), text.into())));
+                    parent.add_child(GreenChild::Token(Arc::new(GreenToken::new(
+                        kind.into(),
+                        text.into(),
+                    ))));
                     offset += usize::from(width);
                 }
                 Event::AddDiagnostic { index } => {
@@ -100,7 +105,10 @@ impl<'src> CstBuilder<'src> {
                 let (kind, width) = raw_tokens.next().unwrap();
                 let text = &source[offset..offset + usize::from(width)];
                 let parent = stack.last_mut().unwrap();
-                parent.add_child(GreenChild::Token(GreenToken::new(kind.into(), text.into())));
+                parent.add_child(GreenChild::Token(Arc::new(GreenToken::new(
+                    kind.into(),
+                    text.into(),
+                ))));
                 offset += usize::from(width);
             }
         }
@@ -110,6 +118,6 @@ impl<'src> CstBuilder<'src> {
         assert!(stack.is_empty());
         assert!(raw_tokens.next().is_none());
 
-        (root, diagnostics)
+        (Arc::new(root), diagnostics)
     }
 }

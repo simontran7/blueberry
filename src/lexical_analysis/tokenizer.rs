@@ -3,7 +3,7 @@ use std::str::CharIndices;
 
 use super::token_stream::TokenKind;
 use super::token_stream::TokenStream;
-use crate::common::text_width::TextWidth;
+use crate::common::text_size::TextSize;
 
 pub(crate) struct Tokenizer<'src> {
     source: &'src str,
@@ -34,7 +34,7 @@ impl<'src> Tokenizer<'src> {
         tokens
     }
 
-    fn tokenize_one(&mut self) -> (TokenKind, TextWidth) {
+    fn tokenize_one(&mut self) -> (TokenKind, TextSize) {
         let start = self.position();
         let first = self.peek();
         self.advance();
@@ -120,7 +120,7 @@ impl<'src> Tokenizer<'src> {
             _ => TokenKind::Error,
         };
         let end = self.position();
-        let width = TextWidth::new(end - start);
+        let width = TextSize::new(end - start);
         (kind, width)
     }
 

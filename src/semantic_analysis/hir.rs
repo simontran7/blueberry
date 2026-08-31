@@ -1,7 +1,7 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use handlemap::handle_map::HandleMap;
+use handlemap::HandleMap;
 
 use crate::common::span::Span;
 use crate::common::string_interner::Symbol;

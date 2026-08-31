@@ -44,8 +44,8 @@ jobs:
       - name: Format
         run: cargo fmt --check
 
-      - name: Clippy
-        run: cargo clippy --all-targets -- -D warnings -A dead_code
+      - name: Lint
+        run: cargo clippy -- -D warnings -D clippy::pedantic
 
   test:
     runs-on: ubuntu-latest

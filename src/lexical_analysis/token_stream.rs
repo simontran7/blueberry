@@ -1,9 +1,9 @@
-use crate::common::text_width::TextWidth;
+use crate::common::text_size::TextSize;
 use core::fmt;
 
 pub(crate) struct TokenStream {
     kinds: Vec<TokenKind>,
-    widths: Vec<TextWidth>,
+    widths: Vec<TextSize>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -72,7 +72,7 @@ impl TokenStream {
         }
     }
 
-    pub(crate) fn add(&mut self, kind: TokenKind, width: TextWidth) {
+    pub(crate) fn add(&mut self, kind: TokenKind, width: TextSize) {
         self.kinds.push(kind);
         self.widths.push(width);
     }
@@ -85,7 +85,7 @@ impl TokenStream {
         self.kinds.get(index).copied()
     }
 
-    pub(crate) fn width_at(&self, index: usize) -> Option<TextWidth> {
+    pub(crate) fn width_at(&self, index: usize) -> Option<TextSize> {
         self.widths.get(index).copied()
     }
 
@@ -93,7 +93,7 @@ impl TokenStream {
         self.kinds.iter().copied()
     }
 
-    pub(crate) fn widths(&self) -> impl Iterator<Item = TextWidth> {
+    pub(crate) fn widths(&self) -> impl Iterator<Item = TextSize> {
         self.widths.iter().copied()
     }
 
