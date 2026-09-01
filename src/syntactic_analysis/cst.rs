@@ -1,3 +1,4 @@
+use std::path::Iter;
 use std::sync::Arc;
 
 use smol_str::SmolStr;
@@ -146,6 +147,10 @@ pub(crate) struct SiblingsIter {
     current: Option<RedChild>,
 }
 
+pub(crate) struct DescendantsIter {
+    stack: Vec<RedNode>,
+}
+
 impl GreenNode {
     pub(crate) fn new(kind: SyntaxKind) -> Self {
         Self {
@@ -253,21 +258,10 @@ impl RedNode {
             })
     }
 
-    pub(crate) fn descendants(&self) -> impl Iterator<Item = RedNode> {
-        let mut descendants = Vec::new();
-
-        fn dfs(node: &RedNode, descendants: &mut Vec<RedNode>) {
-            for child in node.children() {
-                if let RedChild::Node(child) = child {
-                    descendants.push(child.clone());
-                    dfs(&child, descendants);
-                }
-            }
+    pub(crate) fn descendants(&self) -> DescendantsIter {
+        DescendantsIter {
+            stack: vec![self.clone()],
         }
-
-        dfs(self, &mut descendants);
-
-        descendants.into_iter()
     }
 
     pub(crate) fn siblings(&self) -> SiblingsIter {
@@ -314,7 +308,7 @@ impl PartialEq for RedToken {
 impl Iterator for SiblingsIter {
     type Item = RedChild;
 
-    fn next(&mut self) -> Option<RedChild> {
+    fn next(&mut self) -> Option<Self::Item> {
         let current = self.current.take()?;
 
         let parent: Option<Arc<RedNode>> = match &current {
@@ -346,6 +340,25 @@ impl Iterator for SiblingsIter {
         });
 
         Some(current)
+    }
+}
+
+impl Iterator for DescendantsIter {
+    type Item = RedNode;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let node = self.stack.pop()?;
+
+        let children: Vec<RedNode> = node
+            .children()
+            .filter_map(|child| match child {
+                RedChild::Node(child) => Some(child),
+                RedChild::Token(_) => None,
+            })
+            .collect();
+        self.stack.extend(children.into_iter().rev());
+
+        Some(node)
     }
 }
 
