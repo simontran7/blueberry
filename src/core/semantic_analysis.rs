@@ -1,7 +1,3 @@
-//! Producer: part of the core compiler. Pure, memoized salsa queries only --
-//! no I/O, no consumer-specific policy. Consumed by both the batch (`cli`)
-//! and, eventually, interactive (`lsp`) consumers.
-
 pub(crate) mod constraints;
 pub(crate) mod hir;
 pub(crate) mod hir_dumper;
@@ -20,6 +16,15 @@ use crate::core::file_scanning::SourceFile;
 use crate::core::semantic_analysis::hir::Hir;
 use crate::core::semantic_analysis::semantic_analyzer::{DefinitionKey, SemanticAnalyzer};
 use crate::core::syntactic_analysis::cst_of;
+
+#[salsa::tracked]
+pub(crate) fn hir_of(db: &dyn crate::Db, file: SourceFile) {
+    cst_of(db, file);
+    check_signatures_of(db, file);
+    for key in definition_keys_of(db, file) {
+        body_hir_of(db, file, key.clone());
+    }
+}
 
 #[salsa::tracked]
 pub(crate) fn signatures_of(
@@ -84,13 +89,4 @@ pub(crate) fn body_hir_of(
         DiagnosticAccumulator(Diagnostic::Semantic(diagnostic)).accumulate(db);
     }
     (hir, ctx)
-}
-
-#[salsa::tracked]
-pub(crate) fn full_diagnostics_of(db: &dyn crate::Db, file: SourceFile) {
-    cst_of(db, file);
-    check_signatures_of(db, file);
-    for key in definition_keys_of(db, file) {
-        body_hir_of(db, file, key.clone());
-    }
 }

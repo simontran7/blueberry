@@ -1,5 +1,4 @@
-use ariadne::{Color, Label, Report, ReportKind, Source};
-
+use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
 use crate::core::common::text_size::TextRange;
 use crate::core::semantic_analysis::hir::LoopSource;
 
@@ -109,22 +108,39 @@ pub(crate) enum SemanticDiagnostic {
     },
 }
 
+fn label(span: TextRange, message: impl Into<String>, severity: LabelSeverity) -> DiagnosticLabel {
+    DiagnosticLabel {
+        span,
+        message: Some(message.into()),
+        severity,
+    }
+}
+
+fn unlabeled(span: TextRange, severity: LabelSeverity) -> DiagnosticLabel {
+    DiagnosticLabel {
+        span,
+        message: None,
+        severity,
+    }
+}
+
 impl SemanticDiagnostic {
-    pub(crate) fn render(&self, filename: &str, source: &str) {
-        let report = match self {
+    pub(crate) fn describe(&self) -> DiagnosticDescription {
+        match self {
             Self::TypeMismatch {
                 expected,
                 found,
                 span,
-            } => Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                .with_code("E0201")
-                .with_message("mismatched types".to_string())
-                .with_label(
-                    Label::new((filename, span.into()))
-                        .with_message(format!("expected `{}`, found `{}`", expected, found))
-                        .with_color(Color::Red),
-                )
-                .finish(),
+            } => DiagnosticDescription {
+                code: "E0201",
+                message: "mismatched types".to_string(),
+                anchor: *span,
+                labels: vec![label(
+                    *span,
+                    format!("expected `{expected}`, found `{found}`"),
+                    LabelSeverity::Primary,
+                )],
+            },
             Self::ArityMismatch {
                 expected,
                 found,
@@ -132,323 +148,307 @@ impl SemanticDiagnostic {
                 callee_span,
                 extra_argument_spans,
             } => {
-                let mut builder =
-                    Report::build(ReportKind::Error, filename, usize::from(call_span.start()))
-                        .with_code("E0202")
-                        .with_message(format!(
-                            "this function takes {} argument{} but {} {} supplied",
-                            expected,
-                            if *expected == 1 { "" } else { "s" },
-                            found,
-                            if *found == 1 { "was" } else { "were" },
-                        ));
-
-                for (i, span) in extra_argument_spans.iter().enumerate() {
-                    builder = builder.with_label(
-                        Label::new((filename, span.into()))
-                            .with_message(format!("unexpected argument #{}", expected + i + 1))
-                            .with_color(Color::Red),
-                    );
+                let mut labels: Vec<DiagnosticLabel> = extra_argument_spans
+                    .iter()
+                    .enumerate()
+                    .map(|(i, span)| {
+                        label(
+                            *span,
+                            format!("unexpected argument #{}", expected + i + 1),
+                            LabelSeverity::Primary,
+                        )
+                    })
+                    .collect();
+                labels.push(label(
+                    *callee_span,
+                    "function defined here",
+                    LabelSeverity::Secondary,
+                ));
+                DiagnosticDescription {
+                    code: "E0202",
+                    message: format!(
+                        "this function takes {} argument{} but {} {} supplied",
+                        expected,
+                        if *expected == 1 { "" } else { "s" },
+                        found,
+                        if *found == 1 { "was" } else { "were" },
+                    ),
+                    anchor: *call_span,
+                    labels,
                 }
-
-                builder = builder.with_label(
-                    Label::new((filename, callee_span.into()))
-                        .with_message("function defined here")
-                        .with_color(Color::Blue),
-                );
-
-                builder.finish()
-            }
-            Self::UnresolvedName { name, span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0203")
-                    .with_message(format!("cannot find value `{}` in this scope", name))
-                    .with_label(
-                        Label::new((filename, span.into()))
-                            .with_message("not found in this scope".to_string())
-                            .with_color(Color::Red),
-                    )
-                    .finish()
             }
             Self::DuplicateDefinition {
                 name,
                 span,
                 previous_span,
-            } => {
-                let mut report_builder =
-                    Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                        .with_code("E0204")
-                        .with_message(format!("the name `{}` is defined multiple times", name))
-                        .with_label(
-                            Label::new((filename, span.into()))
-                                .with_message(format!("`{}` redefined here", name))
-                                .with_color(Color::Red),
-                        );
-
-                report_builder = report_builder.with_label(
-                    Label::new((filename, previous_span.into()))
-                        .with_message(format!("previous definition of `{}` here", name))
-                        .with_color(Color::Blue),
-                );
-
-                report_builder.finish()
-            }
-            Self::UnknownType { name, span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0205")
-                    .with_message(format!("cannot find type `{}` in this scope", name))
-                    .with_label(
-                        Label::new((filename, span.into()))
-                            .with_message("not found in this scope")
-                            .with_color(Color::Red),
-                    )
-                    .finish()
-            }
+            } => DiagnosticDescription {
+                code: "E0204",
+                message: format!("the name `{name}` is defined multiple times"),
+                anchor: *span,
+                labels: vec![
+                    label(
+                        *span,
+                        format!("`{name}` redefined here"),
+                        LabelSeverity::Primary,
+                    ),
+                    label(
+                        *previous_span,
+                        format!("previous definition of `{name}` here"),
+                        LabelSeverity::Secondary,
+                    ),
+                ],
+            },
+            Self::UnknownType { name, span } => DiagnosticDescription {
+                code: "E0205",
+                message: format!("cannot find type `{name}` in this scope"),
+                anchor: *span,
+                labels: vec![label(
+                    *span,
+                    "not found in this scope",
+                    LabelSeverity::Primary,
+                )],
+            },
+            Self::UnresolvedName { name, span } => DiagnosticDescription {
+                code: "E0203",
+                message: format!("cannot find value `{name}` in this scope"),
+                anchor: *span,
+                labels: vec![label(
+                    *span,
+                    "not found in this scope",
+                    LabelSeverity::Primary,
+                )],
+            },
             Self::NotCallable {
                 found,
                 callee_span,
                 call_span,
-            } => Report::build(ReportKind::Error, filename, usize::from(call_span.start()))
-                .with_code("E0207")
-                .with_message(format!("expected function, found `{}`", found))
-                .with_label(
-                    Label::new((filename, callee_span.into()))
-                        .with_message(format!("has type `{}`", found))
-                        .with_color(Color::Blue),
-                )
-                .with_label(
-                    Label::new((filename, call_span.into()))
-                        .with_message("call expression requires function")
-                        .with_color(Color::Red),
-                )
-                .finish(),
+            } => DiagnosticDescription {
+                code: "E0207",
+                message: format!("expected function, found `{found}`"),
+                anchor: *call_span,
+                labels: vec![
+                    label(
+                        *callee_span,
+                        format!("has type `{found}`"),
+                        LabelSeverity::Secondary,
+                    ),
+                    label(
+                        *call_span,
+                        "call expression requires function",
+                        LabelSeverity::Primary,
+                    ),
+                ],
+            },
+            Self::InvalidAssignTarget { span } => DiagnosticDescription {
+                code: "E0216",
+                message: "invalid left-hand side of assignment".to_string(),
+                anchor: *span,
+                labels: vec![label(
+                    *span,
+                    "cannot assign to this expression",
+                    LabelSeverity::Primary,
+                )],
+            },
             Self::IfBranchMismatch {
                 then_ty,
                 else_ty,
                 then_span,
                 else_span,
-            } => Report::build(ReportKind::Error, filename, usize::from(then_span.start()))
-                .with_code("E0209")
-                .with_message("if and else branches have incompatible types")
-                .with_label(
-                    Label::new((filename, then_span.into()))
-                        .with_message(format!("then branch has type `{}`", then_ty))
-                        .with_color(Color::Blue),
-                )
-                .with_label(
-                    Label::new((filename, else_span.into()))
-                        .with_message(format!("else branch has type `{}`", else_ty))
-                        .with_color(Color::Red),
-                )
-                .finish(),
-            Self::IfWithoutElse { found, then_span } => {
-                Report::build(ReportKind::Error, filename, usize::from(then_span.start()))
-                    .with_code("E0210")
-                    .with_message("if without else must evaluate to `()`")
-                    .with_label(
-                        Label::new((filename, then_span.into()))
-                            .with_message(format!("found type `{}`, expected `()`", found))
-                            .with_color(Color::Red),
-                    )
-                    .finish()
-            }
+            } => DiagnosticDescription {
+                code: "E0209",
+                message: "if and else branches have incompatible types".to_string(),
+                anchor: *then_span,
+                labels: vec![
+                    label(
+                        *then_span,
+                        format!("then branch has type `{then_ty}`"),
+                        LabelSeverity::Secondary,
+                    ),
+                    label(
+                        *else_span,
+                        format!("else branch has type `{else_ty}`"),
+                        LabelSeverity::Primary,
+                    ),
+                ],
+            },
+            Self::IfWithoutElse { found, then_span } => DiagnosticDescription {
+                code: "E0210",
+                message: "if without else must evaluate to `()`".to_string(),
+                anchor: *then_span,
+                labels: vec![label(
+                    *then_span,
+                    format!("found type `{found}`, expected `()`"),
+                    LabelSeverity::Primary,
+                )],
+            },
             Self::BinaryOperandMismatch {
                 lhs_ty,
                 rhs_ty,
                 lhs_span,
                 rhs_span,
-            } => Report::build(ReportKind::Error, filename, usize::from(lhs_span.start()))
-                .with_code("E0211")
-                .with_message("binary operation applied to mismatched types")
-                .with_label(
-                    Label::new((filename, lhs_span.into()))
-                        .with_message(format!("this has type `{}`", lhs_ty))
-                        .with_color(Color::Blue),
-                )
-                .with_label(
-                    Label::new((filename, rhs_span.into()))
-                        .with_message(format!("this has type `{}`", rhs_ty))
-                        .with_color(Color::Red),
-                )
-                .finish(),
+            } => DiagnosticDescription {
+                code: "E0211",
+                message: "binary operation applied to mismatched types".to_string(),
+                anchor: *lhs_span,
+                labels: vec![
+                    label(
+                        *lhs_span,
+                        format!("this has type `{lhs_ty}`"),
+                        LabelSeverity::Secondary,
+                    ),
+                    label(
+                        *rhs_span,
+                        format!("this has type `{rhs_ty}`"),
+                        LabelSeverity::Primary,
+                    ),
+                ],
+            },
             Self::BinaryOperandNotNumeric {
                 found,
                 operand_span,
-            } => Report::build(ReportKind::Error, filename, usize::from(operand_span.start()))
-                .with_code("E0212")
-                .with_message("binary operator requires integer operands")
-                .with_label(
-                    Label::new((filename, operand_span.into()))
-                        .with_message(format!("found type `{}`", found))
-                        .with_color(Color::Red),
-                )
-                .finish(),
+            } => DiagnosticDescription {
+                code: "E0212",
+                message: "binary operator requires integer operands".to_string(),
+                anchor: *operand_span,
+                labels: vec![label(
+                    *operand_span,
+                    format!("found type `{found}`"),
+                    LabelSeverity::Primary,
+                )],
+            },
             Self::BinaryOperandNotBool {
                 expected,
                 found,
                 operand_span,
-            } => Report::build(ReportKind::Error, filename, usize::from(operand_span.start()))
-                .with_code("E0206")
-                .with_message("binary operator requires boolean operands")
-                .with_label(
-                    Label::new((filename, operand_span.into()))
-                        .with_message(format!("expected `{}`, found `{}`", expected, found))
-                        .with_color(Color::Red),
-                )
-                .finish(),
+            } => DiagnosticDescription {
+                code: "E0206",
+                message: "binary operator requires boolean operands".to_string(),
+                anchor: *operand_span,
+                labels: vec![label(
+                    *operand_span,
+                    format!("expected `{expected}`, found `{found}`"),
+                    LabelSeverity::Primary,
+                )],
+            },
             Self::UnaryOperandMismatch {
                 operator,
                 expected,
                 found,
                 operand_span,
-            } => Report::build(ReportKind::Error, filename, usize::from(operand_span.start()))
-                .with_code("E0213")
-                .with_message(format!(
-                    "cannot apply unary operator `{}` to type `{}`",
-                    operator, found
-                ))
-                .with_label(
-                    Label::new((filename, operand_span.into()))
-                        .with_message(format!("expected `{}`, found `{}`", expected, found))
-                        .with_color(Color::Red),
-                )
-                .finish(),
+            } => DiagnosticDescription {
+                code: "E0213",
+                message: format!("cannot apply unary operator `{operator}` to type `{found}`"),
+                anchor: *operand_span,
+                labels: vec![label(
+                    *operand_span,
+                    format!("expected `{expected}`, found `{found}`"),
+                    LabelSeverity::Primary,
+                )],
+            },
             Self::BlockMissingTail {
                 expected,
                 block_span,
-            } => Report::build(ReportKind::Error, filename, usize::from(block_span.start()))
-                .with_code("E0214")
-                .with_message(format!(
-                    "block is missing a tail expression of type `{}`",
-                    expected
-                ))
-                .with_label(
-                    Label::new((filename, block_span.into()))
-                        .with_message(format!("expected `{}`, found `()`", expected))
-                        .with_color(Color::Red),
-                )
-                .finish(),
+            } => DiagnosticDescription {
+                code: "E0214",
+                message: format!("block is missing a tail expression of type `{expected}`"),
+                anchor: *block_span,
+                labels: vec![label(
+                    *block_span,
+                    format!("expected `{expected}`, found `()`"),
+                    LabelSeverity::Primary,
+                )],
+            },
             Self::ReturnMissingValue {
                 expected,
                 return_span,
-            } => Report::build(ReportKind::Error, filename, usize::from(return_span.start()))
-                .with_code("E0215")
-                .with_message(format!(
-                    "return without value in function expecting `{}`",
-                    expected
-                ))
-                .with_label(
-                    Label::new((filename, return_span.into()))
-                        .with_message(format!("expected `{}`", expected))
-                        .with_color(Color::Red),
-                )
-                .finish(),
-            Self::InvalidAssignTarget { span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0216")
-                    .with_message("invalid left-hand side of assignment")
-                    .with_label(
-                        Label::new((filename, span.into()))
-                            .with_message("cannot assign to this expression")
-                            .with_color(Color::Red),
-                    )
-                    .finish()
-            }
-            Self::ReturnOutsideFunction { span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0217")
-                    .with_message("return statement outside of function body")
-                    .with_label(Label::new((filename, span.into())).with_color(Color::Red))
-                    .finish()
-            }
-            Self::NonConstantValue { span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0218")
-                    .with_message("attempt to use a non-constant value in a constant")
-                    .with_label(
-                        Label::new((filename, span.into()))
-                            .with_message("non-constant value")
-                            .with_color(Color::Red),
-                    )
-                    .finish()
-            }
-            Self::CaptureInFunction { span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0219")
-                    .with_message("cannot capture variable from enclosing function")
-                    .with_label(
-                        Label::new((filename, span.into()))
-                            .with_message("not accessible inside nested function")
-                            .with_color(Color::Red),
-                    )
-                    .finish()
-            }
+            } => DiagnosticDescription {
+                code: "E0215",
+                message: format!("return without value in function expecting `{expected}`"),
+                anchor: *return_span,
+                labels: vec![label(
+                    *return_span,
+                    format!("expected `{expected}`"),
+                    LabelSeverity::Primary,
+                )],
+            },
+            Self::ReturnOutsideFunction { span } => DiagnosticDescription {
+                code: "E0217",
+                message: "return statement outside of function body".to_string(),
+                anchor: *span,
+                labels: vec![unlabeled(*span, LabelSeverity::Primary)],
+            },
+            Self::NonConstantValue { span } => DiagnosticDescription {
+                code: "E0218",
+                message: "attempt to use a non-constant value in a constant".to_string(),
+                anchor: *span,
+                labels: vec![label(*span, "non-constant value", LabelSeverity::Primary)],
+            },
+            Self::CaptureInFunction { span } => DiagnosticDescription {
+                code: "E0219",
+                message: "cannot capture variable from enclosing function".to_string(),
+                anchor: *span,
+                labels: vec![label(
+                    *span,
+                    "not accessible inside nested function",
+                    LabelSeverity::Primary,
+                )],
+            },
             Self::LoopBodyNotUnit {
                 source,
                 found,
                 body_span,
-            } => Report::build(ReportKind::Error, filename, usize::from(body_span.start()))
-                .with_code("E0220")
-                .with_message(format!(
-                    "{} body must evaluate to `()`",
-                    source.diagnostic_name()
-                ))
-                .with_label(
-                    Label::new((filename, body_span.into()))
-                        .with_message(format!("found type `{}`, expected `()`", found))
-                        .with_color(Color::Red),
-                )
-                .finish(),
-            Self::BreakOutsideLoop { span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0221")
-                    .with_message("`break` outside of a loop")
-                    .with_label(Label::new((filename, span.into())).with_color(Color::Red))
-                    .finish()
-            }
-            Self::ContinueOutsideLoop { span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0222")
-                    .with_message("`continue` outside of a loop")
-                    .with_label(Label::new((filename, span.into())).with_color(Color::Red))
-                    .finish()
-            }
-            Self::BreakWithValueFromWhile { span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0223")
-                    .with_message("`break` with value from a `while` loop")
-                    .with_label(
-                        Label::new((filename, span.into()))
-                            .with_message("can only break with a value inside `loop`")
-                            .with_color(Color::Red),
-                    )
-                    .finish()
-            }
-            Self::LetMissingTypeOrValue { span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0224")
-                    .with_message("cannot infer type for this binding")
-                    .with_label(
-                        Label::new((filename, span.into()))
-                            .with_message("needs a type annotation or an initializer")
-                            .with_color(Color::Red),
-                    )
-                    .finish()
-            }
-            Self::InvalidIntegerLiteral { found, span } => {
-                Report::build(ReportKind::Error, filename, usize::from(span.start()))
-                    .with_code("E0225")
-                    .with_message(format!("invalid integer literal `{}`", found))
-                    .with_label(
-                        Label::new((filename, span.into()))
-                            .with_message(
-                                "digits invalid for this literal's base, or too large to fit",
-                            )
-                            .with_color(Color::Red),
-                    )
-                    .finish()
-            }
-        };
-        report.eprint((filename, Source::from(source))).unwrap();
+            } => DiagnosticDescription {
+                code: "E0220",
+                message: format!("{} body must evaluate to `()`", source.diagnostic_name()),
+                anchor: *body_span,
+                labels: vec![label(
+                    *body_span,
+                    format!("found type `{found}`, expected `()`"),
+                    LabelSeverity::Primary,
+                )],
+            },
+            Self::BreakOutsideLoop { span } => DiagnosticDescription {
+                code: "E0221",
+                message: "`break` outside of a loop".to_string(),
+                anchor: *span,
+                labels: vec![unlabeled(*span, LabelSeverity::Primary)],
+            },
+            Self::ContinueOutsideLoop { span } => DiagnosticDescription {
+                code: "E0222",
+                message: "`continue` outside of a loop".to_string(),
+                anchor: *span,
+                labels: vec![unlabeled(*span, LabelSeverity::Primary)],
+            },
+            Self::BreakWithValueFromWhile { span } => DiagnosticDescription {
+                code: "E0223",
+                message: "`break` with value from a `while` loop".to_string(),
+                anchor: *span,
+                labels: vec![label(
+                    *span,
+                    "can only break with a value inside `loop`",
+                    LabelSeverity::Primary,
+                )],
+            },
+            Self::LetMissingTypeOrValue { span } => DiagnosticDescription {
+                code: "E0224",
+                message: "cannot infer type for this binding".to_string(),
+                anchor: *span,
+                labels: vec![label(
+                    *span,
+                    "needs a type annotation or an initializer",
+                    LabelSeverity::Primary,
+                )],
+            },
+            Self::InvalidIntegerLiteral { found, span } => DiagnosticDescription {
+                code: "E0225",
+                message: format!("invalid integer literal `{found}`"),
+                anchor: *span,
+                labels: vec![label(
+                    *span,
+                    "digits invalid for this literal's base, or too large to fit",
+                    LabelSeverity::Primary,
+                )],
+            },
+        }
     }
 }

@@ -1,28 +1,22 @@
-//! Consumer: the batch compiler. Implements batch-specific policy on top of
-//! the core compiler's producer queries -- stop before semantic analysis if
-//! lexing/parsing already found errors, and print diagnostics to stderr.
-//! A future `lsp` consumer would sit alongside this one, sharing the exact
-//! same producer queries, with the opposite policy: never stop early (an
-//! editor wants every diagnostic it can get while the user is mid-edit),
-//! and publish diagnostics over the wire instead of printing them.
-
 use std::collections::HashSet;
+use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
 use crate::batch::arg_parser::EmitKind;
+use crate::batch::diagnostic_render::render_diagnostic;
 use crate::core::common::diagnostic::DiagnosticAccumulator;
 use crate::core::db::BlueberryDatabase;
-use crate::core::file_scanning::{source_file_of, SourceFile};
+use crate::core::file_scanning::SourceFile;
 use crate::core::lexical_analysis::token_stream_dumper::TokenDumper;
 use crate::core::lexical_analysis::tokens_of;
 use crate::core::semantic_analysis::hir_dumper::HirDumper;
-use crate::core::semantic_analysis::{body_hir_of, definition_keys_of, full_diagnostics_of};
+use crate::core::semantic_analysis::{body_hir_of, definition_keys_of, hir_of};
 use crate::core::syntactic_analysis::cst_dumper::CstDumper;
 use crate::core::syntactic_analysis::cst_of;
 
 pub fn build(path: PathBuf, emit: &HashSet<EmitKind>) {
-    todo!()
+    todo!();
 }
 
 pub fn run(path: PathBuf, emit: &HashSet<EmitKind>) {
@@ -30,63 +24,68 @@ pub fn run(path: PathBuf, emit: &HashSet<EmitKind>) {
 }
 
 pub fn check(path: PathBuf, emit: &HashSet<EmitKind>) {
-    batch_compile(path, emit);
+    compile(path, emit);
 }
 
-fn batch_compile(path: PathBuf, emit: &HashSet<EmitKind>) {
+fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     // intialize
     let start = Instant::now();
-    let file_stem = path
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.to_string_lossy().into_owned());
+    let file_stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_string_lossy().into_owned());
     let db = BlueberryDatabase::default();
 
-    // scan the file
-    let display_path = path.to_string_lossy().to_string();
-    let file = match source_file_of(&db, path) {
-        Ok(file) => file,
+    // ---- Stage 0: Scanning ----
+    let file = match fs::read_to_string(&path) {
+        Ok(contents) => SourceFile::new(&db, path, contents),
         Err(error) => {
-            eprintln!("Error reading file {display_path}: {error}");
+            eprintln!("Error reading file {}: {}", path.to_string_lossy().to_string(), error);
             std::process::exit(1);
         }
     };
 
-    // dump IRs
+    // ---- Stage 1: Lexical Analysis ----
+    tokens_of(&db, file);
+    let lexical_diagnostics = tokens_of::accumulated::<DiagnosticAccumulator>(&db, file);
+    if !lexical_diagnostics.is_empty() {
+        for lexical_diagnostic in lexical_diagnostics {
+            render_diagnostic(&lexical_diagnostic.0, &file_stem, file.contents(&db));
+        }
+        return;
+    }
     if emit.contains(&EmitKind::Tokens) {
-        let tokens = tokens_of(&db, file);
-
-        let dumper = TokenDumper::new(file.contents(&db), tokens.clone());
+        let dumper = TokenDumper::new(file.contents(&db), tokens_of(&db, file).clone());
         println!("{}", dumper.dump());
+    }
 
+    // ---- Stage 2: Syntactic Analysis ----
+    cst_of(&db, file);
+    let syntactic_diagnostics = cst_of::accumulated::<DiagnosticAccumulator>(&db, file);
+    if !syntactic_diagnostics.is_empty() {
+        for syntactic_diagnostic in syntactic_diagnostics {
+            render_diagnostic(&syntactic_diagnostic.0, &file_stem, file.contents(&db));
+        }
         return;
     }
     if emit.contains(&EmitKind::Cst) {
-        let cst = cst_of(&db, file);
-
-        let mut dumper = CstDumper::new(cst);
+        let mut dumper = CstDumper::new(cst_of(&db, file));
         println!("{}", dumper.dump());
+    }
 
-        report_diagnostics(&db, file, &file_stem);
-
+    // ---- Stage 3: Semantic Analysis ----
+    hir_of(&db, file);
+    let semantic_diagnostics = hir_of::accumulated::<DiagnosticAccumulator>(&db, file);
+    if !semantic_diagnostics.is_empty() {
+        for semantic_diagnostic in semantic_diagnostics {
+            render_diagnostic(&semantic_diagnostic.0, &file_stem, file.contents(&db));
+        }
         return;
     }
     if emit.contains(&EmitKind::Hir) {
-        let keys = definition_keys_of(&db, file);
-
-        for key in keys {
+        for key in definition_keys_of(&db, file) {
             let (hir, ctx) = body_hir_of(&db, file, key.clone());
             let dumper = HirDumper::new(hir, ctx);
             println!("{}", dumper.dump().unwrap());
         }
-
-        report_diagnostics(&db, file, &file_stem);
-
-        return;
     }
-
-    // call the main query
-    report_diagnostics(&db, file, &file_stem);
 
     // print compile time
     println!(
@@ -95,18 +94,3 @@ fn batch_compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     );
 }
 
-fn report_diagnostics(db: &BlueberryDatabase, file: SourceFile, file_stem: &str) {
-    cst_of(db, file);
-    let lex_and_parse_diagnostics = cst_of::accumulated::<DiagnosticAccumulator>(db, file);
-    if !lex_and_parse_diagnostics.is_empty() {
-        for diagnostic in lex_and_parse_diagnostics {
-            diagnostic.0.render(file_stem, file.contents(db));
-        }
-        return;
-    }
-
-    full_diagnostics_of(db, file);
-    for diagnostic in full_diagnostics_of::accumulated::<DiagnosticAccumulator>(db, file) {
-        diagnostic.0.render(file_stem, file.contents(db));
-    }
-}

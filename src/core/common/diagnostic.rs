@@ -1,3 +1,4 @@
+use crate::core::common::text_size::TextRange;
 use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
 use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
 use crate::core::syntactic_analysis::syntax_diagnostic::SyntaxDiagnostic;
@@ -13,11 +14,29 @@ pub(crate) enum Diagnostic {
 }
 
 impl Diagnostic {
-    pub(crate) fn render(&self, filename: &str, source: &str) {
+    pub(crate) fn describe(&self) -> DiagnosticDescription {
         match self {
-            Self::Lexical(diagnostic) => diagnostic.render(filename, source),
-            Self::Syntax(diagnostic) => diagnostic.render(filename, source),
-            Self::Semantic(diagnostic) => diagnostic.render(filename, source),
+            Self::Lexical(diagnostic) => diagnostic.describe(),
+            Self::Syntax(diagnostic) => diagnostic.describe(),
+            Self::Semantic(diagnostic) => diagnostic.describe(),
         }
     }
+}
+
+pub(crate) struct DiagnosticDescription {
+    pub(crate) code: &'static str,
+    pub(crate) message: String,
+    pub(crate) anchor: TextRange,
+    pub(crate) labels: Vec<DiagnosticLabel>,
+}
+
+pub(crate) struct DiagnosticLabel {
+    pub(crate) span: TextRange,
+    pub(crate) message: Option<String>,
+    pub(crate) severity: LabelSeverity,
+}
+
+pub(crate) enum LabelSeverity {
+    Primary,
+    Secondary,
 }

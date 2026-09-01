@@ -22,16 +22,6 @@ use crate::core::syntactic_analysis::ast::{
 };
 use crate::core::syntactic_analysis::cst::{GreenNode, RedNode};
 
-/// A stable, position-independent identity for one top-level definition --
-/// deliberately *not* AST-position-based (a `usize` index, or a `TextRange`):
-/// either would shift value on any earlier edit in the file, which makes them
-/// unusable as a salsa query key (the key must compare *equal* across calls
-/// to hit the same memo). `disambiguator` is "the Nth definition with this
-/// name" (0-based) -- stays stable under edits anywhere else in the file;
-/// only shifts if a same-named definition is inserted/removed earlier than
-/// this one, which is the actual duplicate-name case, not a false trigger.
-/// Mirrors rustc's `DefPathHash` (path + name + disambiguator, no byte
-/// offsets involved at all).
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub(crate) struct DefinitionKey {
     pub(crate) name: String,
@@ -84,27 +74,6 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         }
     }
 
-    /// Seeds this analyzer's `hir.definition_bindings` and `symbol_table`'s
-    /// top-level scope from signatures already resolved by the shared
-    /// `signatures_of` query, instead of re-walking the AST and
-    /// re-resolving type annotations itself (that's the expensive part
-    /// `signatures_of` computes once per file, not once per definition).
-    ///
-    /// Only the parts that are necessarily per-call happen here: re-interning
-    /// each name through *this* call's `db` (free -- global `Symbol` identity
-    /// means the same handle comes back regardless of which call interned it
-    /// first) and re-interning each `Ty` through *this* call's own
-    /// `CompilerContext::type_interner`. That last part matters: unlike
-    /// `Symbol`, `TypeId` is a plain, per-instance handle into one
-    /// `TypeInterner` -- two separate `TypeInterner`s can (and, once a body
-    /// starts allocating its own inference variables, will) assign the same
-    /// numeric id to different `Ty`s. Only the structural `Ty` *value* is
-    /// safe to share across `TypeInterner` instances; re-interning it locally
-    /// is what makes the resulting `TypeId` valid for *this* call's `ctx`.
-    ///
-    /// Doesn't check for duplicate names or push diagnostics --
-    /// `check_signatures_of` already does that, independently, and is the
-    /// only place they're reported (see its doc comment).
     pub(crate) fn seed_signatures(
         mut self,
         signatures: &[(DefinitionKey, Ty, TextRange)],
@@ -151,21 +120,6 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         (self.hir, self.symbol_table, binding_ids, self.diagnostics)
     }
 
-    /// Type-checks exactly the one top-level definition identified by `key`,
-    /// and solves/substitutes constraints scoped to just what that one body
-    /// produced (`self.hir`/`self.constraints` only ever contain this call's
-    /// own additions on top of the shared, already-resolved signatures from
-    /// `collect_signatures`).
-    ///
-    /// `own_binding_id` must be the `DefinitionBindingId` `collect_signatures`
-    /// paired with this exact `key` -- not looked up by name here,
-    /// deliberately: two definitions can share a name (a `DuplicateDefinition`
-    /// error, but analysis still continues over both), and a name-keyed
-    /// lookup can only ever resolve to one of them. Matches how
-    /// rustc/rust-analyzer do this: an item's own identity (`DefId` /
-    /// `FunctionId`) is fixed at collection time and threaded through
-    /// directly; name resolution is only for resolving *references* to other
-    /// items, never for an item to find itself.
     pub(crate) fn typecheck_one(
         mut self,
         key: &DefinitionKey,
@@ -202,10 +156,6 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         name_token.lexeme().to_string()
     }
 
-    /// Finds the one definition `key` identifies by re-walking
-    /// `file.definitions()` and counting same-named occurrences -- mirrors
-    /// exactly how `collect_top_level_definitions` assigned `disambiguator`
-    /// values in the first place, so the two stay in agreement.
     fn find_definition_by_key(file: &File, key: &DefinitionKey) -> Definition {
         let mut seen = 0;
         for def in file.definitions() {
@@ -219,8 +169,6 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         panic!("no definition in this file matches {key:?}");
     }
 
-    /// Returns the `(DefinitionKey, DefinitionBindingId)` collected for each
-    /// definition -- see `collect_signatures`.
     fn collect_top_level_definitions(&mut self) -> Vec<(DefinitionKey, DefinitionBindingId)> {
         let file = self.ast.clone();
         let mut seen_counts: HashMap<String, usize> = HashMap::new();

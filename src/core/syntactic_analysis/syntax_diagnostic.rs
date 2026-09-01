@@ -1,5 +1,4 @@
-use ariadne::{Color, Label, Report, ReportKind, Source};
-
+use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
 use crate::core::common::text_size::TextRange;
 
 #[derive(Debug, Clone)]
@@ -25,22 +24,22 @@ impl SyntaxDiagnostic {
         *s = Some(span);
     }
 
-    pub(crate) fn render(&self, filename: &str, source: &str) {
+    pub(crate) fn describe(&self) -> DiagnosticDescription {
         let Self::UnexpectedToken {
             span,
             expected,
             found,
         } = self;
         let span = span.expect("diagnostic span not yet resolved");
-        let report = Report::build(ReportKind::Error, filename, usize::from(span.start()))
-            .with_code("E0101")
-            .with_message(format!("expected `{expected}`, found `{found}`"))
-            .with_label(
-                Label::new((filename, span.into()))
-                    .with_message(format!("expected `{expected}`"))
-                    .with_color(Color::Red),
-            )
-            .finish();
-        report.eprint((filename, Source::from(source))).unwrap();
+        DiagnosticDescription {
+            code: "E0101",
+            message: format!("expected `{expected}`, found `{found}`"),
+            anchor: span,
+            labels: vec![DiagnosticLabel {
+                span,
+                message: Some(format!("expected `{expected}`")),
+                severity: LabelSeverity::Primary,
+            }],
+        }
     }
 }
