@@ -5,7 +5,7 @@
 </div>
 
 > [!CAUTION]
-> The compiler can't compile blueberry programs yet.
+> The *batch* driver can't yet compile blueberry programs.
 
 ## Installation
 
@@ -47,22 +47,7 @@ Run `blueberry --help` to see available commands and options.
 
 ## Architecture
 
-```mermaid
-flowchart TD
-  A[Source] -->|Lexical Analysis I| B[List of tokens]
-  B -->|Syntactic Analysis| C[Concrete Syntax Tree]
-  C -->|Semantic Analysis| D[High-level Intermediate Representation]
-
-  subgraph loop [" "]
-    direction TD
-    F[Mid-level Intermediate Representation Function] -->|Mid-level Intermediate Representation Transformation Passes| G[Transformed Mid-level Intermediate Representation Function]
-    G -->|LLVM IR generation| H[LLVM IR Function]
-  end
-
-  D -->|Mid-level Intermediate Representation Construction| loop
-  H --> M[(LLVM Module)]
-  H -.->|next function| F
-```
+See [docs/architecture](docs/architecture/index.md)
 
 ## Language Reference
 

@@ -1,6 +1,5 @@
-pub mod cli;
-pub(crate) mod common;
-pub(crate) mod lexical_analysis;
-pub(crate) mod semantic_analysis;
-pub(crate) mod syntactic_analysis;
-// pub(crate) mod mir_construction;
+pub mod batch;
+pub(crate) mod core;
+pub mod lsp;
+
+pub(crate) use salsa::Database as Db;

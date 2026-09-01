@@ -1,0 +1,118 @@
+---
+source: src/core/syntactic_analysis/parser.rs
+assertion_line: 645
+expression: dump
+input_file: src/core/syntactic_analysis/snapshot_inputs/break.bb
+---
+File
+└─FunctionDefinition
+  ├─Func
+  │   Lexeme: "func"
+  │   Span: [0, 4)
+  ├─Whitespace
+  │   Lexeme: " "
+  │   Span: [4, 5)
+  ├─Identifier
+  │   Lexeme: "f"
+  │   Span: [5, 6)
+  ├─ParameterList
+  │ ├─OpenParen
+  │ │   Lexeme: "("
+  │ │   Span: [6, 7)
+  │ ├─CloseParen
+  │ │   Lexeme: ")"
+  │ │   Span: [7, 8)
+  │ └─Whitespace
+  │     Lexeme: " "
+  │     Span: [8, 9)
+  │ Span: [6, 9)
+  └─Block
+    ├─OpenBrace
+    │   Lexeme: "{"
+    │   Span: [9, 10)
+    ├─Whitespace
+    │   Lexeme: "\n    "
+    │   Span: [10, 15)
+    ├─ExpressionStatement
+    │ └─InfiniteLoop
+    │   ├─Loop
+    │   │   Lexeme: "loop"
+    │   │   Span: [15, 19)
+    │   ├─Whitespace
+    │   │   Lexeme: " "
+    │   │   Span: [19, 20)
+    │   └─Block
+    │     ├─OpenBrace
+    │     │   Lexeme: "{"
+    │     │   Span: [20, 21)
+    │     ├─Whitespace
+    │     │   Lexeme: "\n        "
+    │     │   Span: [21, 30)
+    │     ├─ExpressionStatement
+    │     │ ├─BreakExpression
+    │     │ │ └─Break
+    │     │ │     Lexeme: "break"
+    │     │ │     Span: [30, 35)
+    │     │ │ Span: [30, 35)
+    │     │ ├─Semicolon
+    │     │ │   Lexeme: ";"
+    │     │ │   Span: [35, 36)
+    │     │ └─Whitespace
+    │     │     Lexeme: "\n        "
+    │     │     Span: [36, 45)
+    │     │ Span: [30, 45)
+    │     ├─ExpressionStatement
+    │     │ ├─BreakExpression
+    │     │ │ ├─Break
+    │     │ │ │   Lexeme: "break"
+    │     │ │ │   Span: [45, 50)
+    │     │ │ ├─Whitespace
+    │     │ │ │   Lexeme: " "
+    │     │ │ │   Span: [50, 51)
+    │     │ │ └─BinaryOperation
+    │     │ │   ├─IntegerLiteral
+    │     │ │   │ ├─Integer
+    │     │ │   │ │   Lexeme: "1"
+    │     │ │   │ │   Span: [51, 52)
+    │     │ │   │ └─Whitespace
+    │     │ │   │     Lexeme: " "
+    │     │ │   │     Span: [52, 53)
+    │     │ │   │ Span: [51, 53)
+    │     │ │   ├─Plus
+    │     │ │   │   Lexeme: "+"
+    │     │ │   │   Span: [53, 54)
+    │     │ │   ├─Whitespace
+    │     │ │   │   Lexeme: " "
+    │     │ │   │   Span: [54, 55)
+    │     │ │   └─IntegerLiteral
+    │     │ │     └─Integer
+    │     │ │         Lexeme: "2"
+    │     │ │         Span: [55, 56)
+    │     │ │     Span: [55, 56)
+    │     │ │   Span: [51, 56)
+    │     │ │ Span: [45, 56)
+    │     │ ├─Semicolon
+    │     │ │   Lexeme: ";"
+    │     │ │   Span: [56, 57)
+    │     │ └─Whitespace
+    │     │     Lexeme: "\n    "
+    │     │     Span: [57, 62)
+    │     │ Span: [45, 62)
+    │     ├─CloseBrace
+    │     │   Lexeme: "}"
+    │     │   Span: [62, 63)
+    │     └─Whitespace
+    │         Lexeme: "\n"
+    │         Span: [63, 64)
+    │     Span: [20, 64)
+    │   Span: [15, 64)
+    │ Span: [15, 64)
+    ├─CloseBrace
+    │   Lexeme: "}"
+    │   Span: [64, 65)
+    └─Whitespace
+        Lexeme: "\n"
+        Span: [65, 66)
+    Span: [9, 66)
+  Span: [0, 66)
+Span: [0, 66)

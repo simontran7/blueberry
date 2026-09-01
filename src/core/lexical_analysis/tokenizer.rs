@@ -1,0 +1,198 @@
+use std::iter::Peekable;
+use std::str::CharIndices;
+
+use super::token_stream::TokenKind;
+use super::token_stream::TokenStream;
+use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
+use crate::core::common::text_size::{TextRange, TextSize};
+
+pub(crate) struct Tokenizer<'src> {
+    source: &'src str,
+    cursor: Peekable<CharIndices<'src>>,
+}
+
+impl<'src> Tokenizer<'src> {
+    const EOF: char = '\0';
+
+    pub(crate) fn new(source: &'src str) -> Self {
+        Tokenizer {
+            source,
+            cursor: source.char_indices().peekable(),
+        }
+    }
+
+    pub(crate) fn tokenize(&mut self) -> (TokenStream, Vec<LexicalDiagnostic>) {
+        let mut tokens = TokenStream::new();
+        let mut diagnostics = Vec::new();
+
+        loop {
+            let (kind, width, diagnostic) = self.tokenize_one();
+            if kind == TokenKind::Eof {
+                break;
+            }
+            if let Some(diagnostic) = diagnostic {
+                diagnostics.push(diagnostic);
+            }
+            tokens.add(kind, width);
+        }
+
+        (tokens, diagnostics)
+    }
+
+    fn tokenize_one(&mut self) -> (TokenKind, TextSize, Option<LexicalDiagnostic>) {
+        let start = self.position();
+        let first = self.peek();
+        self.advance();
+        let kind = match first {
+            ';' => TokenKind::Semicolon,
+            '(' => TokenKind::OpenParen,
+            ')' => TokenKind::CloseParen,
+            '{' => TokenKind::OpenBrace,
+            '}' => TokenKind::CloseBrace,
+            ':' => {
+                if self.peek() == ':' {
+                    self.advance();
+                    TokenKind::ColonColon
+                } else {
+                    TokenKind::Colon
+                }
+            }
+            ',' => TokenKind::Comma,
+            '+' => TokenKind::Plus,
+            '*' => TokenKind::Star,
+            '/' => {
+                if self.peek() == '/' {
+                    self.eat_inline_comment();
+                    TokenKind::InlineComment
+                } else {
+                    TokenKind::Slash
+                }
+            }
+            '-' => {
+                if self.peek() == '>' {
+                    self.advance();
+                    TokenKind::ThinArrow
+                } else {
+                    TokenKind::Minus
+                }
+            }
+            '!' => {
+                if self.peek() == '=' {
+                    self.advance();
+                    TokenKind::NotEqual
+                } else {
+                    TokenKind::Error
+                }
+            }
+            '=' => {
+                if self.peek() == '=' {
+                    self.advance();
+                    TokenKind::EqualEqual
+                } else {
+                    TokenKind::Equal
+                }
+            }
+            '<' => {
+                if self.peek() == '=' {
+                    self.advance();
+                    TokenKind::LessEqual
+                } else {
+                    TokenKind::LessThan
+                }
+            }
+            '>' => {
+                if self.peek() == '=' {
+                    self.advance();
+                    TokenKind::GreaterEqual
+                } else {
+                    TokenKind::GreaterThan
+                }
+            }
+            c if c.is_alphabetic() || c == '_' => {
+                self.eat_lexeme();
+                let lexeme = &self.source[start..self.position()];
+                TokenKind::classify(lexeme)
+            }
+            '0'..='9' => {
+                self.eat_integer();
+                TokenKind::Integer
+            }
+            c if c.is_whitespace() => {
+                self.eat_whitespace();
+                TokenKind::Whitespace
+            }
+            Self::EOF => TokenKind::Eof,
+            _ => TokenKind::Error,
+        };
+        let end = self.position();
+        let width = TextSize::new(end - start);
+        let diagnostic = (kind == TokenKind::Error).then(|| LexicalDiagnostic::UnknownToken {
+            character: first,
+            span: TextRange::new(TextSize::new(start), TextSize::new(end)),
+        });
+        (kind, width, diagnostic)
+    }
+
+    fn eat_whitespace(&mut self) {
+        self.advance_while(|c| c.is_whitespace())
+    }
+
+    fn eat_inline_comment(&mut self) {
+        self.advance_while(|c| c != '\n');
+    }
+
+    fn eat_integer(&mut self) {
+        self.advance_while(|c| c.is_ascii_hexdigit() || c == '_');
+    }
+
+    fn eat_lexeme(&mut self) {
+        self.advance_while(|c| c.is_alphanumeric() || c == '_')
+    }
+
+    fn peek(&mut self) -> char {
+        if let Some((_, character)) = self.cursor.peek() {
+            *character
+        } else {
+            Self::EOF
+        }
+    }
+
+    fn at_eof(&mut self) -> bool {
+        self.position() == self.source.len()
+    }
+
+    fn position(&mut self) -> usize {
+        if let Some((position, _)) = self.cursor.peek() {
+            *position
+        } else {
+            self.source.len()
+        }
+    }
+
+    fn advance(&mut self) {
+        self.cursor.next();
+    }
+
+    fn advance_while(&mut self, predicate: impl Fn(char) -> bool) {
+        while predicate(self.peek()) && !self.at_eof() {
+            self.advance();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::token_stream_dumper::TokenDumper;
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_tokenizer_output() {
+        insta::glob!("snapshot_inputs/**/*.bb", |path| {
+            let input = fs::read_to_string(path).unwrap();
+            let mut tokenizer = Tokenizer::new(&input);
+            let (tokens, _diagnostics) = tokenizer.tokenize();
+            insta::assert_snapshot!(TokenDumper::new(&input, tokens).dump());
+        })
+    }
+}
