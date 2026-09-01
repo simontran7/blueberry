@@ -84,7 +84,7 @@ if a < b and b < c {
 }
 ```
 
-## `if` as an expression
+## Conditional Expressions
 
 `if`/`else` produces a value, so it can appear anywhere an expression can, where both branches must agree on type.
 

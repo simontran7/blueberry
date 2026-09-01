@@ -22,7 +22,7 @@
 git clone https://github.com/simontran7/blueberry.git
 ```
 
-2. `cd` into the `blueberry/` directory 
+2. Change directory 
 
 ```sh
 cd blueberry/

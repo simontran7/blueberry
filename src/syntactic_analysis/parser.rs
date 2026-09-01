@@ -52,9 +52,17 @@ impl<'a> Parser<'a> {
         TokenKind::Loop,
         TokenKind::While,
         TokenKind::If,
+        TokenKind::OpenBrace,
+        TokenKind::Return,
+        TokenKind::Break,
+        TokenKind::Continue,
     ];
-    const BLOCK_LIKE_EXPRESSION_STARTERS: &'static [TokenKind] =
-        &[TokenKind::Loop, TokenKind::While, TokenKind::If];
+    const BLOCK_LIKE_EXPRESSION_STARTERS: &'static [TokenKind] = &[
+        TokenKind::Loop,
+        TokenKind::While,
+        TokenKind::If,
+        TokenKind::OpenBrace,
+    ];
     const MIN_BINDING_POWER: u8 = 0;
 
     pub(crate) fn new(tokens: &'a TokenStream) -> Self {
@@ -172,7 +180,7 @@ impl<'a> Parser<'a> {
         self.close(marker, SyntaxKind::Parameter);
     }
 
-    fn parse_block(&mut self) {
+    fn parse_block(&mut self) -> ClosedMarker {
         assert!(self.cursor.at(TokenKind::OpenBrace));
         let marker = self.open();
 
@@ -180,9 +188,6 @@ impl<'a> Parser<'a> {
         while !self.cursor.at(TokenKind::CloseBrace) && !self.cursor.at_eof() {
             match self.cursor.peek() {
                 TokenKind::Let => self.parse_let(),
-                TokenKind::Return => self.parse_return(),
-                TokenKind::Break => self.parse_break(),
-                TokenKind::Continue => self.parse_continue(),
                 TokenKind::Func | TokenKind::Const => self.parse_definition_statement(),
                 _ => {
                     if self.cursor.at_any(Self::EXPRESSION_STARTERS) {
@@ -198,7 +203,7 @@ impl<'a> Parser<'a> {
         }
         self.expect(TokenKind::CloseBrace);
 
-        self.close(marker, SyntaxKind::Block);
+        self.close(marker, SyntaxKind::Block)
     }
 
     fn parse_let(&mut self) {
@@ -218,18 +223,17 @@ impl<'a> Parser<'a> {
         self.close(marker, SyntaxKind::LetStatement);
     }
 
-    fn parse_return(&mut self) {
+    fn parse_return(&mut self) -> ClosedMarker {
         assert!(self.cursor.at(TokenKind::Return));
         let marker = self.open();
 
         self.expect(TokenKind::Return);
         let _ = self.parse_expression(Self::MIN_BINDING_POWER);
-        self.expect(TokenKind::Semicolon);
 
-        self.close(marker, SyntaxKind::ReturnExpression);
+        self.close(marker, SyntaxKind::ReturnExpression)
     }
 
-    fn parse_break(&mut self) {
+    fn parse_break(&mut self) -> ClosedMarker {
         assert!(self.cursor.at(TokenKind::Break));
         let marker = self.open();
 
@@ -237,19 +241,17 @@ impl<'a> Parser<'a> {
         if self.cursor.at_any(Self::EXPRESSION_STARTERS) {
             let _ = self.parse_expression(Self::MIN_BINDING_POWER);
         }
-        self.expect(TokenKind::Semicolon);
 
-        self.close(marker, SyntaxKind::BreakExpression);
+        self.close(marker, SyntaxKind::BreakExpression)
     }
 
-    fn parse_continue(&mut self) {
+    fn parse_continue(&mut self) -> ClosedMarker {
         assert!(self.cursor.at(TokenKind::Continue));
         let marker = self.open();
 
         self.expect(TokenKind::Continue);
-        self.expect(TokenKind::Semicolon);
 
-        self.close(marker, SyntaxKind::ContinueExpression);
+        self.close(marker, SyntaxKind::ContinueExpression)
     }
 
     fn parse_expression_statement(&mut self) {
@@ -305,6 +307,10 @@ impl<'a> Parser<'a> {
             TokenKind::Loop => Some(self.parse_infinite_loop()),
             TokenKind::While => Some(self.parse_while_loop()),
             TokenKind::If => Some(self.parse_if()),
+            TokenKind::OpenBrace => Some(self.parse_block()),
+            TokenKind::Return => Some(self.parse_return()),
+            TokenKind::Break => Some(self.parse_break()),
+            TokenKind::Continue => Some(self.parse_continue()),
             kind if kind.prefix_binding_power().is_some() => Some(self.parse_unary_operation()),
             _ => {
                 assert!(!self.cursor.at_any(Self::EXPRESSION_STARTERS));

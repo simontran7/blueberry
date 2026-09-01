@@ -118,7 +118,7 @@ pub(crate) enum SyntaxKind {
 }
 
 #[derive(Clone)]
-struct RedNode {
+pub(crate) struct RedNode {
     parent: Option<Arc<RedNode>>,
     green: Arc<GreenNode>,
     /// the node's index within `parent`'s children
@@ -128,7 +128,7 @@ struct RedNode {
 }
 
 #[derive(Clone)]
-struct RedToken {
+pub(crate) struct RedToken {
     parent: Arc<RedNode>,
     green: Arc<GreenToken>,
     /// the token's index within `parent`'s children
@@ -140,6 +140,10 @@ struct RedToken {
 pub(crate) enum NodeOrToken<N, T> {
     Node(N),
     Token(T),
+}
+
+pub(crate) struct SiblingsIter {
+    current: Option<RedChild>,
 }
 
 impl GreenNode {
@@ -249,25 +253,29 @@ impl RedNode {
             })
     }
 
-    pub(crate) fn next_sibling(&self) -> Option<RedChild> {
-        let parent = self.parent.as_ref()?;
-        let sibling_green = parent.green.children().get(self.index as usize + 1)?;
-        let sibling_offset = self.offset + self.green.width();
-        Some(match sibling_green {
-            GreenChild::Node(node) => RedChild::Node(RedNode {
-                parent: Some(Arc::clone(parent)),
-                green: Arc::clone(node),
-                index: self.index + 1,
-                offset: sibling_offset,
-            }),
-            GreenChild::Token(token) => RedChild::Token(RedToken {
-                parent: Arc::clone(parent),
-                green: Arc::clone(token),
-                index: self.index + 1,
-                offset: sibling_offset,
-            }),
-        })
+    pub(crate) fn descendants(&self) -> impl Iterator<Item = RedNode> {
+        let mut descendants = Vec::new();
+
+        fn dfs(node: &RedNode, descendants: &mut Vec<RedNode>) {
+            for child in node.children() {
+                if let RedChild::Node(child) = child {
+                    descendants.push(child.clone());
+                    dfs(&child, descendants);
+                }
+            }
+        }
+
+        dfs(self, &mut descendants);
+
+        descendants.into_iter()
     }
+
+    pub(crate) fn siblings(&self) -> SiblingsIter {
+        SiblingsIter {
+            current: Some(RedChild::Node(self.clone())),
+        }
+    }
+
 }
 
 impl RedToken {
@@ -286,25 +294,6 @@ impl RedToken {
     pub(crate) fn parent(&self) -> &RedNode {
         &self.parent
     }
-
-    pub(crate) fn next_sibling(&self) -> Option<RedChild> {
-        let sibling_green = self.parent.green.children().get(self.index as usize + 1)?;
-        let sibling_offset = self.offset + self.green.width();
-        Some(match sibling_green {
-            GreenChild::Node(node) => RedChild::Node(RedNode {
-                parent: Some(Arc::clone(&self.parent)),
-                green: Arc::clone(node),
-                index: self.index + 1,
-                offset: sibling_offset,
-            }),
-            GreenChild::Token(token) => RedChild::Token(RedToken {
-                parent: Arc::clone(&self.parent),
-                green: Arc::clone(token),
-                index: self.index + 1,
-                offset: sibling_offset,
-            }),
-        })
-    }
 }
 
 impl PartialEq for RedNode {
@@ -313,9 +302,50 @@ impl PartialEq for RedNode {
     }
 }
 
+impl Eq for RedNode {}
+
 impl PartialEq for RedToken {
     fn eq(&self, other: &Self) -> bool {
         self.offset == other.offset && Arc::ptr_eq(&self.green, &other.green)
+    }
+}
+
+
+impl Iterator for SiblingsIter {
+    type Item = RedChild;
+
+    fn next(&mut self) -> Option<RedChild> {
+        let current = self.current.take()?;
+
+        let parent: Option<Arc<RedNode>> = match &current {
+            RedChild::Node(node) => node.parent.clone(),
+            RedChild::Token(token) => Some(Arc::clone(&token.parent)),
+        };
+        let (index, offset, width) = match &current {
+            RedChild::Node(node) => (node.index, node.offset, node.green.width()),
+            RedChild::Token(token) => (token.index, token.offset, token.green.width()),
+        };
+
+        self.current = parent.and_then(|parent| {
+            let sibling_green = parent.green.children().get(index as usize + 1)?;
+            let sibling_offset = offset + width;
+            Some(match sibling_green {
+                GreenChild::Node(node) => RedChild::Node(RedNode {
+                    parent: Some(Arc::clone(&parent)),
+                    green: Arc::clone(node),
+                    index: index + 1,
+                    offset: sibling_offset,
+                }),
+                GreenChild::Token(token) => RedChild::Token(RedToken {
+                    parent: Arc::clone(&parent),
+                    green: Arc::clone(token),
+                    index: index + 1,
+                    offset: sibling_offset,
+                }),
+            })
+        });
+
+        Some(current)
     }
 }
 
