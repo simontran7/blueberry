@@ -81,7 +81,7 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     }
     if emit.contains(&EmitKind::Hir) {
         for key in definition_keys_of(&db, file) {
-            let (hir, ctx) = body_hir_of(&db, file, key.clone());
+            let (hir, _, ctx) = body_hir_of(&db, file, key.clone());
             let dumper = HirDumper::new(hir, ctx);
             println!("{}", dumper.dump().unwrap());
         }

@@ -11,31 +11,31 @@ pub(crate) enum Provenance {
         else_span: TextRange,
     },
     IfWithoutElse {
-        then_span: TextRange,
+        span: TextRange,
     },
     BinaryOperandMismatch {
         lhs_span: TextRange,
         rhs_span: TextRange,
     },
     BinaryOperandNotNumeric {
-        operand_span: TextRange,
+        span: TextRange,
     },
     BinaryOperandNotBool {
-        operand_span: TextRange,
+        span: TextRange,
     },
     UnaryOperandMismatch {
         operator: String,
-        operand_span: TextRange,
+        span: TextRange,
     },
     BlockMissingTail {
-        block_span: TextRange,
+        span: TextRange,
     },
     ReturnMissingValue {
-        return_span: TextRange,
+        span: TextRange,
     },
     LoopBodyNotUnit {
         source: LoopSource,
-        body_span: TextRange,
+        span: TextRange,
     },
 }
 

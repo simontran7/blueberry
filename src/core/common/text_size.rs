@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Range};
+use std::ops::{Add, AddAssign, Range, Sub};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) struct TextSize(u32);
@@ -26,6 +26,14 @@ impl Add for TextSize {
 
     fn add(self, rhs: Self) -> Self {
         TextSize(self.0 + rhs.0)
+    }
+}
+
+impl Sub for TextSize {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self {
+        TextSize(self.0 - rhs.0)
     }
 }
 

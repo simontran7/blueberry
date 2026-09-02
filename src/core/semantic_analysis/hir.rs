@@ -1,53 +1,114 @@
 use std::fmt;
 use std::marker::PhantomData;
 
-use handlemap::HandleMap;
+use handlemap::{HandleMap, SideHandleMap};
 
 use crate::core::common::text_size::{TextRange, TextSize};
 use crate::core::common::types::TypeId;
 use crate::core::syntactic_analysis::cst::SyntaxKind;
 
+/// Pure semantic data -- no spans anywhere in this type. This is what a
+/// spans-free salsa query (nothing to invalidate on unrelated text shifts)
+/// can return, mirroring rust-analyzer's `Body` (as opposed to
+/// `(Body, BodySourceMap)`). See `HirSourceMaps` for the spans, and
+/// `HirBuilder` for how the two get built together.
+#[derive(Clone)]
 pub(crate) struct Hir {
     pub(crate) source_file: SourceFileNode,
-
     pub(crate) definitions: HandleMap<DefinitionId, Definition>,
+    pub(crate) definition_children_ids: Vec<DefinitionId>,
+    pub(crate) definition_bindings: HandleMap<DefinitionBindingId, DefinitionBinding>,
+    pub(crate) body: Body,
+}
+
+/// The span data stripped out of `Hir`, kept as a separate type so a query
+/// that only needs semantics (not source locations) can depend on `Hir`
+/// alone and skip whatever depends on this churning on every unrelated
+/// edit -- mirroring rust-analyzer's `BodySourceMap`.
+#[derive(Clone)]
+pub(crate) struct HirSourceMaps {
+    /// Absolute start offset of the top-level definition this `Hir`/`Body`
+    /// was built for (set once via `HirBuilder::set_anchor`, before any
+    /// definition/body node is added). Every span in `definition_spans` and
+    /// `body_source_map` is stored relative to this anchor rather than
+    /// absolute -- mirroring rust-analyzer's `Span`/`SpanAnchor`: an edit to
+    /// an unrelated, earlier definition in the file shifts absolute
+    /// offsets, but leaves this definition's own anchor-relative spans
+    /// byte-identical.
+    pub(crate) anchor: TextSize,
+
+    /// Anchor-relative: every `Definition` here belongs to this `Hir`'s own
+    /// focus definition (itself, or one of its nested local definitions),
+    /// never a sibling top-level one.
+    pub(crate) definition_spans: SideHandleMap<DefinitionId, TextRange>,
+
+    /// Unlike `definition_spans`, this covers *every* top-level binding in
+    /// the file (re-seeded on every `body_hir_of` call so name resolution
+    /// can see sibling/forward references) -- so a `DuplicateDefinition`
+    /// diagnostic compares one binding's span against a *different*
+    /// definition's binding span. That cross-definition comparison needs
+    /// file-absolute spans; they can't be relative to this `Hir`'s single
+    /// `anchor`.
+    pub(crate) definition_binding_spans: SideHandleMap<DefinitionBindingId, TextRange>,
+
+    pub(crate) body_source_map: BodySourceMap,
+}
+
+impl HirSourceMaps {
+    fn to_relative(&self, span: TextRange) -> TextRange {
+        TextRange::new(span.start() - self.anchor, span.end() - self.anchor)
+    }
+
+    fn to_absolute(&self, span: TextRange) -> TextRange {
+        TextRange::new(self.anchor + span.start(), self.anchor + span.end())
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct SourceFileNode {
+    pub(crate) definition_id_span: DefinitionIdSpan,
+}
+
+/// The lowered statements, expressions, and local bindings belonging to a
+/// single definition's body (a function's block, or a constant's
+/// initializer). Ids here are only meaningful against this `Body`.
+#[derive(Clone)]
+pub(crate) struct Body {
     pub(crate) statements: HandleMap<StatementId, Statement>,
     pub(crate) expressions: HandleMap<ExpressionId, Expression>,
+    pub(crate) local_bindings: HandleMap<LocalBindingId, LocalBinding>,
 
-    pub(crate) definition_children_ids: Vec<DefinitionId>,
     pub(crate) statement_children_ids: Vec<StatementId>,
     pub(crate) expression_children_ids: Vec<ExpressionId>,
     pub(crate) parameter_children_ids: Vec<LocalBindingId>,
-
-    pub(crate) local_bindings: HandleMap<LocalBindingId, LocalBinding>,
-    pub(crate) definition_bindings: HandleMap<DefinitionBindingId, DefinitionBinding>,
 }
 
-pub(crate) struct SourceFileNode {
-    pub(crate) definition_id_span: DefinitionIdSpan,
-    pub(crate) span: TextRange,
+/// Anchor-relative spans (see `Hir::anchor`) for the nodes inside `body`,
+/// kept separate from `Body` so the semantic nodes stay pure data.
+#[derive(Clone)]
+pub(crate) struct BodySourceMap {
+    pub(crate) statement_spans: SideHandleMap<StatementId, TextRange>,
+    pub(crate) expression_spans: SideHandleMap<ExpressionId, TextRange>,
+    pub(crate) local_binding_spans: SideHandleMap<LocalBindingId, TextRange>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Definition {
     pub(crate) kind: DefinitionKind,
-    pub(crate) span: TextRange,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Statement {
     pub(crate) kind: StatementKind,
-    pub(crate) span: TextRange,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Expression {
     pub(crate) kind: ExpressionKind,
     pub(crate) ty: TypeId,
-    pub(crate) span: TextRange,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum DefinitionKind {
     Function {
         definition_binding_id: DefinitionBindingId,
@@ -60,7 +121,7 @@ pub(crate) enum DefinitionKind {
     },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum StatementKind {
     Expression {
         expression_id: ExpressionId,
@@ -75,7 +136,7 @@ pub(crate) enum StatementKind {
     },
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum ExpressionKind {
     Missing,
     Unit,
@@ -225,7 +286,7 @@ impl LoopSource {
     }
 }
 
-// Opaque, 4-byte handles into the tables in `Hir`.
+// Opaque, 4-byte handles into the tables in `Hir`/`Body`.
 handlemap::handle_impl!(pub(crate) DefinitionId);
 handlemap::handle_impl!(pub(crate) StatementId);
 handlemap::handle_impl!(pub(crate) ExpressionId);
@@ -254,20 +315,18 @@ pub(crate) struct ParameterIdSpan {
     pub(crate) len: u32,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct LocalBinding {
     pub(crate) name: String,
     pub(crate) mutable: bool,
     pub(crate) annotation: Option<TypeId>,
     pub(crate) ty: TypeId,
-    pub(crate) span: TextRange,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct DefinitionBinding {
     pub(crate) name: String,
     pub(crate) ty: TypeId,
-    pub(crate) span: TextRange,
 }
 
 pub(crate) type LocalBindingId = TypedBindingId<LocalBinding, { BindingKind::Local as u8 }>;
@@ -290,92 +349,146 @@ pub(crate) enum BindingKind {
     Definition,
 }
 
+// Every view holds a plain `&'a Hir` (always available) plus an optional
+// `&'a HirSourceMaps` -- `Some` when constructed through a `HirBuilder`
+// (during lowering, spans are available), `None` when constructed directly
+// through a spans-free `Hir` (e.g. `HirDumper`, which never calls
+// `text_range()`). `text_range()` panics if called on a `None` view --
+// nothing does today, since span-consuming diagnostics are all built during
+// lowering, while `HirBuilder` is still around.
+
 pub(crate) struct DefinitionView<'a> {
     definition_id: DefinitionId,
     hir: &'a Hir,
+    source_maps: Option<&'a HirSourceMaps>,
 }
 
 pub(crate) struct StatementView<'a> {
     statement_id: StatementId,
     hir: &'a Hir,
+    source_maps: Option<&'a HirSourceMaps>,
 }
 
 pub(crate) struct ExpressionView<'a> {
     expression_id: ExpressionId,
     hir: &'a Hir,
+    source_maps: Option<&'a HirSourceMaps>,
 }
 
 pub(crate) struct LocalBindingView<'a> {
     local_binding_id: LocalBindingId,
     hir: &'a Hir,
+    source_maps: Option<&'a HirSourceMaps>,
 }
 
 pub(crate) struct DefinitionBindingView<'a> {
     definition_binding_id: DefinitionBindingId,
     hir: &'a Hir,
+    source_maps: Option<&'a HirSourceMaps>,
 }
 
-impl Hir {
-    pub(crate) fn new(source_size: usize) -> Self {
+/// Builds a `Hir` and its `HirSourceMaps` together (spans can only be
+/// computed as nodes are lowered), then hands them back apart via
+/// `finish`. Exposes the same `add_*`/`get_*` surface `Hir` used to have on
+/// its own, so callers that only care about semantics (not the query
+/// split) don't need to change.
+pub(crate) struct HirBuilder {
+    pub(crate) hir: Hir,
+    pub(crate) source_maps: HirSourceMaps,
+}
+
+impl HirBuilder {
+    pub(crate) fn new() -> Self {
         Self {
-            source_file: SourceFileNode {
-                definition_id_span: DefinitionIdSpan { start: 0, len: 0 },
-                span: TextRange::new(TextSize::new(0), TextSize::new(source_size)),
+            hir: Hir {
+                source_file: SourceFileNode {
+                    definition_id_span: DefinitionIdSpan { start: 0, len: 0 },
+                },
+                definitions: HandleMap::new(),
+                definition_children_ids: Vec::new(),
+                definition_bindings: HandleMap::new(),
+                body: Body {
+                    statements: HandleMap::new(),
+                    expressions: HandleMap::new(),
+                    local_bindings: HandleMap::new(),
+                    statement_children_ids: Vec::new(),
+                    expression_children_ids: Vec::new(),
+                    parameter_children_ids: Vec::new(),
+                },
             },
-            definitions: HandleMap::new(),
-            statements: HandleMap::new(),
-            expressions: HandleMap::new(),
-            definition_children_ids: Vec::new(),
-            statement_children_ids: Vec::new(),
-            expression_children_ids: Vec::new(),
-            parameter_children_ids: Vec::new(),
-            local_bindings: HandleMap::new(),
-            definition_bindings: HandleMap::new(),
+            source_maps: HirSourceMaps {
+                anchor: TextSize::new(0),
+                definition_spans: SideHandleMap::new(),
+                definition_binding_spans: SideHandleMap::new(),
+                body_source_map: BodySourceMap {
+                    statement_spans: SideHandleMap::new(),
+                    expression_spans: SideHandleMap::new(),
+                    local_binding_spans: SideHandleMap::new(),
+                },
+            },
         }
+    }
+
+    /// Splits the builder into its finished, independently-returnable
+    /// halves -- called once, when a definition's body is fully lowered.
+    pub(crate) fn finish(self) -> (Hir, HirSourceMaps) {
+        (self.hir, self.source_maps)
+    }
+
+    /// Sets the absolute start offset that every subsequently-recorded
+    /// definition/body span is stored relative to. Must be called once,
+    /// before the first `add_definition`/`add_statement`/`add_expression`/
+    /// `add_local_binding` call for this `Hir`'s focus definition --
+    /// `add_definition_binding` is unaffected and may be called before or
+    /// after (see the doc comment on `HirSourceMaps::definition_binding_spans`).
+    pub(crate) fn set_anchor(&mut self, anchor: TextSize) {
+        self.source_maps.anchor = anchor;
     }
 
     pub(crate) fn get_definition_ids(
         &self,
         definition_id_span: DefinitionIdSpan,
     ) -> &[DefinitionId] {
-        &self.definition_children_ids[definition_id_span.start as usize
-            ..(definition_id_span.start + definition_id_span.len) as usize]
+        self.hir.get_definition_ids(definition_id_span)
     }
 
     pub(crate) fn get_statement_ids(&self, statement_id_span: StatementIdSpan) -> &[StatementId] {
-        &self.statement_children_ids[statement_id_span.start as usize
-            ..(statement_id_span.start + statement_id_span.len) as usize]
+        self.hir.get_statement_ids(statement_id_span)
     }
 
     pub(crate) fn get_expression_ids(
         &self,
         expression_id_span: ExpressionIdSpan,
     ) -> &[ExpressionId] {
-        &self.expression_children_ids[expression_id_span.start as usize
-            ..(expression_id_span.start + expression_id_span.len) as usize]
+        self.hir.get_expression_ids(expression_id_span)
     }
 
     pub(crate) fn get_parameter_binding_ids(
         &self,
         parameter_id_span: ParameterIdSpan,
     ) -> &[LocalBindingId] {
-        &self.parameter_children_ids[parameter_id_span.start as usize
-            ..(parameter_id_span.start + parameter_id_span.len) as usize]
+        self.hir.get_parameter_binding_ids(parameter_id_span)
     }
 
     pub(crate) fn functions_ids(&self) -> impl Iterator<Item = DefinitionId> + '_ {
-        self.definitions
-            .iter()
-            .filter(|(_, definition)| matches!(definition.kind, DefinitionKind::Function { .. }))
-            .map(|(definition_id, _)| definition_id)
+        self.hir.functions_ids()
     }
 
     pub(crate) fn add_definition(&mut self, kind: DefinitionKind, span: TextRange) -> DefinitionId {
-        self.definitions.add(Definition { kind, span })
+        let definition_id = self.hir.definitions.add(Definition { kind });
+        let relative = self.source_maps.to_relative(span);
+        self.source_maps.definition_spans.add(definition_id, relative);
+        definition_id
     }
 
     pub(crate) fn add_statement(&mut self, kind: StatementKind, span: TextRange) -> StatementId {
-        self.statements.add(Statement { kind, span })
+        let statement_id = self.hir.body.statements.add(Statement { kind });
+        let relative = self.source_maps.to_relative(span);
+        self.source_maps
+            .body_source_map
+            .statement_spans
+            .add(statement_id, relative);
+        statement_id
     }
 
     pub(crate) fn add_expression(
@@ -384,15 +497,22 @@ impl Hir {
         ty: TypeId,
         span: TextRange,
     ) -> ExpressionId {
-        self.expressions.add(Expression { kind, ty, span })
+        let expression_id = self.hir.body.expressions.add(Expression { kind, ty });
+        let relative = self.source_maps.to_relative(span);
+        self.source_maps
+            .body_source_map
+            .expression_spans
+            .add(expression_id, relative);
+        expression_id
     }
 
     pub(crate) fn add_definition_ids(
         &mut self,
         definition_ids: &[DefinitionId],
     ) -> DefinitionIdSpan {
-        let start = self.definition_children_ids.len() as u32;
-        self.definition_children_ids
+        let start = self.hir.definition_children_ids.len() as u32;
+        self.hir
+            .definition_children_ids
             .extend_from_slice(definition_ids);
         DefinitionIdSpan {
             start,
@@ -401,8 +521,11 @@ impl Hir {
     }
 
     pub(crate) fn add_statement_ids(&mut self, statement_ids: &[StatementId]) -> StatementIdSpan {
-        let start = self.statement_children_ids.len() as u32;
-        self.statement_children_ids.extend_from_slice(statement_ids);
+        let start = self.hir.body.statement_children_ids.len() as u32;
+        self.hir
+            .body
+            .statement_children_ids
+            .extend_from_slice(statement_ids);
         StatementIdSpan {
             start,
             len: statement_ids.len() as u32,
@@ -413,8 +536,10 @@ impl Hir {
         &mut self,
         expression_ids: &[ExpressionId],
     ) -> ExpressionIdSpan {
-        let start = self.expression_children_ids.len() as u32;
-        self.expression_children_ids
+        let start = self.hir.body.expression_children_ids.len() as u32;
+        self.hir
+            .body
+            .expression_children_ids
             .extend_from_slice(expression_ids);
         ExpressionIdSpan {
             start,
@@ -426,8 +551,11 @@ impl Hir {
         &mut self,
         parameter_ids: &[LocalBindingId],
     ) -> ParameterIdSpan {
-        let start = self.parameter_children_ids.len() as u32;
-        self.parameter_children_ids.extend_from_slice(parameter_ids);
+        let start = self.hir.body.parameter_children_ids.len() as u32;
+        self.hir
+            .body
+            .parameter_children_ids
+            .extend_from_slice(parameter_ids);
         ParameterIdSpan {
             start,
             len: parameter_ids.len() as u32,
@@ -442,13 +570,18 @@ impl Hir {
         ty: TypeId,
         span: TextRange,
     ) -> LocalBindingId {
-        self.local_bindings.add(LocalBinding {
+        let local_binding_id = self.hir.body.local_bindings.add(LocalBinding {
             name,
             mutable,
             annotation,
             ty,
-            span,
-        })
+        });
+        let relative = self.source_maps.to_relative(span);
+        self.source_maps
+            .body_source_map
+            .local_binding_spans
+            .add(local_binding_id, relative);
+        local_binding_id
     }
 
     pub(crate) fn add_definition_binding(
@@ -457,14 +590,100 @@ impl Hir {
         ty: TypeId,
         span: TextRange,
     ) -> DefinitionBindingId {
-        self.definition_bindings
-            .add(DefinitionBinding { name, ty, span })
+        let definition_binding_id = self
+            .hir
+            .definition_bindings
+            .add(DefinitionBinding { name, ty });
+        // Absolute, not anchor-relative -- see the doc comment on
+        // `HirSourceMaps::definition_binding_spans`.
+        self.source_maps
+            .definition_binding_spans
+            .add(definition_binding_id, span);
+        definition_binding_id
     }
 
+    pub(crate) fn get_definition(&self, definition_id: DefinitionId) -> DefinitionView<'_> {
+        let mut view = self.hir.get_definition(definition_id);
+        view.source_maps = Some(&self.source_maps);
+        view
+    }
+
+    pub(crate) fn get_statement(&self, statement_id: StatementId) -> StatementView<'_> {
+        let mut view = self.hir.get_statement(statement_id);
+        view.source_maps = Some(&self.source_maps);
+        view
+    }
+
+    pub(crate) fn get_expression(&self, expression_id: ExpressionId) -> ExpressionView<'_> {
+        let mut view = self.hir.get_expression(expression_id);
+        view.source_maps = Some(&self.source_maps);
+        view
+    }
+
+    pub(crate) fn get_local_binding(
+        &self,
+        local_binding_id: LocalBindingId,
+    ) -> LocalBindingView<'_> {
+        let mut view = self.hir.get_local_binding(local_binding_id);
+        view.source_maps = Some(&self.source_maps);
+        view
+    }
+
+    pub(crate) fn get_definition_binding(
+        &self,
+        definition_binding_id: DefinitionBindingId,
+    ) -> DefinitionBindingView<'_> {
+        let mut view = self.hir.get_definition_binding(definition_binding_id);
+        view.source_maps = Some(&self.source_maps);
+        view
+    }
+}
+
+impl Hir {
+    pub(crate) fn get_definition_ids(
+        &self,
+        definition_id_span: DefinitionIdSpan,
+    ) -> &[DefinitionId] {
+        &self.definition_children_ids[definition_id_span.start as usize
+            ..(definition_id_span.start + definition_id_span.len) as usize]
+    }
+
+    pub(crate) fn get_statement_ids(&self, statement_id_span: StatementIdSpan) -> &[StatementId] {
+        &self.body.statement_children_ids[statement_id_span.start as usize
+            ..(statement_id_span.start + statement_id_span.len) as usize]
+    }
+
+    pub(crate) fn get_expression_ids(
+        &self,
+        expression_id_span: ExpressionIdSpan,
+    ) -> &[ExpressionId] {
+        &self.body.expression_children_ids[expression_id_span.start as usize
+            ..(expression_id_span.start + expression_id_span.len) as usize]
+    }
+
+    pub(crate) fn get_parameter_binding_ids(
+        &self,
+        parameter_id_span: ParameterIdSpan,
+    ) -> &[LocalBindingId] {
+        &self.body.parameter_children_ids[parameter_id_span.start as usize
+            ..(parameter_id_span.start + parameter_id_span.len) as usize]
+    }
+
+    pub(crate) fn functions_ids(&self) -> impl Iterator<Item = DefinitionId> + '_ {
+        self.definitions
+            .iter()
+            .filter(|(_, definition)| matches!(definition.kind, DefinitionKind::Function { .. }))
+            .map(|(definition_id, _)| definition_id)
+    }
+
+    /// Structural-only view (`source_maps: None`) -- `.text_range()` on it
+    /// panics. Use `HirBuilder::get_definition` during lowering, when spans
+    /// are available.
     pub(crate) fn get_definition(&self, definition_id: DefinitionId) -> DefinitionView<'_> {
         DefinitionView {
             definition_id,
             hir: self,
+            source_maps: None,
         }
     }
 
@@ -472,6 +691,7 @@ impl Hir {
         StatementView {
             statement_id,
             hir: self,
+            source_maps: None,
         }
     }
 
@@ -479,6 +699,7 @@ impl Hir {
         ExpressionView {
             expression_id,
             hir: self,
+            source_maps: None,
         }
     }
 
@@ -489,6 +710,7 @@ impl Hir {
         LocalBindingView {
             local_binding_id,
             hir: self,
+            source_maps: None,
         }
     }
 
@@ -499,6 +721,7 @@ impl Hir {
         DefinitionBindingView {
             definition_binding_id,
             hir: self,
+            source_maps: None,
         }
     }
 }
@@ -513,7 +736,10 @@ impl<'a> DefinitionView<'a> {
     }
 
     pub(crate) fn text_range(&self) -> TextRange {
-        self.hir.definitions[self.definition_id].span
+        let source_maps = self
+            .source_maps
+            .expect("text_range() called on a spans-free Hir view");
+        source_maps.to_absolute(source_maps.definition_spans[self.definition_id])
     }
 }
 
@@ -523,11 +749,14 @@ impl<'a> StatementView<'a> {
     }
 
     pub(crate) fn kind(&self) -> &'a StatementKind {
-        &self.hir.statements[self.statement_id].kind
+        &self.hir.body.statements[self.statement_id].kind
     }
 
     pub(crate) fn text_range(&self) -> TextRange {
-        self.hir.statements[self.statement_id].span
+        let source_maps = self
+            .source_maps
+            .expect("text_range() called on a spans-free Hir view");
+        source_maps.to_absolute(source_maps.body_source_map.statement_spans[self.statement_id])
     }
 }
 
@@ -537,15 +766,18 @@ impl<'a> ExpressionView<'a> {
     }
 
     pub(crate) fn kind(&self) -> &'a ExpressionKind {
-        &self.hir.expressions[self.expression_id].kind
+        &self.hir.body.expressions[self.expression_id].kind
     }
 
     pub(crate) fn ty(&self) -> TypeId {
-        self.hir.expressions[self.expression_id].ty
+        self.hir.body.expressions[self.expression_id].ty
     }
 
     pub(crate) fn text_range(&self) -> TextRange {
-        self.hir.expressions[self.expression_id].span
+        let source_maps = self
+            .source_maps
+            .expect("text_range() called on a spans-free Hir view");
+        source_maps.to_absolute(source_maps.body_source_map.expression_spans[self.expression_id])
     }
 }
 
@@ -555,23 +787,27 @@ impl<'a> LocalBindingView<'a> {
     }
 
     pub(crate) fn name(&self) -> &'a str {
-        &self.hir.local_bindings[self.local_binding_id].name
+        &self.hir.body.local_bindings[self.local_binding_id].name
     }
 
     pub(crate) fn mutable(&self) -> bool {
-        self.hir.local_bindings[self.local_binding_id].mutable
+        self.hir.body.local_bindings[self.local_binding_id].mutable
     }
 
     pub(crate) fn annotation(&self) -> Option<TypeId> {
-        self.hir.local_bindings[self.local_binding_id].annotation
+        self.hir.body.local_bindings[self.local_binding_id].annotation
     }
 
     pub(crate) fn ty(&self) -> TypeId {
-        self.hir.local_bindings[self.local_binding_id].ty
+        self.hir.body.local_bindings[self.local_binding_id].ty
     }
 
     pub(crate) fn text_range(&self) -> TextRange {
-        self.hir.local_bindings[self.local_binding_id].span
+        let source_maps = self
+            .source_maps
+            .expect("text_range() called on a spans-free Hir view");
+        source_maps
+            .to_absolute(source_maps.body_source_map.local_binding_spans[self.local_binding_id])
     }
 }
 
@@ -589,7 +825,12 @@ impl<'a> DefinitionBindingView<'a> {
     }
 
     pub(crate) fn text_range(&self) -> TextRange {
-        self.hir.definition_bindings[self.definition_binding_id].span
+        // Absolute, not anchor-relative -- see the doc comment on
+        // `HirSourceMaps::definition_binding_spans`.
+        let source_maps = self
+            .source_maps
+            .expect("text_range() called on a spans-free Hir view");
+        source_maps.definition_binding_spans[self.definition_binding_id]
     }
 }
 

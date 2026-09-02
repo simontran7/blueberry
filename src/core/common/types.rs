@@ -36,6 +36,7 @@ pub(crate) enum InferTy {
     IntVar(IntVarId),
 }
 
+#[derive(Clone)]
 pub(crate) struct TypeInterner {
     types: Vec<Ty>,
     handles: HashMap<Ty, TypeId>,

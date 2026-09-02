@@ -8,8 +8,8 @@ use crate::core::common::types::{InferTy, Ty, TypeId};
 use crate::core::semantic_analysis::constraints::{Constraint, Provenance};
 use crate::core::semantic_analysis::hir::{
     BinOp, BindingId, BindingKind, DefinitionBindingId, DefinitionId, DefinitionKind, ExpressionId,
-    ExpressionIdSpan, ExpressionKind, Hir, LocalBindingId, LoopSource, StatementId, StatementKind,
-    UnOp,
+    ExpressionIdSpan, ExpressionKind, Hir, HirBuilder, HirSourceMaps, LocalBindingId, LoopSource,
+    StatementId, StatementKind, UnOp,
 };
 use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
 use crate::core::semantic_analysis::symbol_table::{DefineError, LookupError, ScopeKind, SymbolTable};
@@ -33,7 +33,7 @@ pub(crate) struct SemanticAnalyzer<'ctx, 'db> {
     ctx: &'ctx mut CompilerContext,
     db: &'db dyn crate::Db,
     symbol_table: SymbolTable<'db>,
-    hir: Hir,
+    hir: HirBuilder,
     constraints: Vec<Constraint>,
     substitutions: UnificationTable,
     current_return_ty: Option<TypeId>,
@@ -61,7 +61,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         db: &'db dyn crate::Db,
     ) -> Self {
         Self {
-            hir: Hir::new(usize::from(cst.width())),
+            hir: HirBuilder::new(),
             ast: File::cast(RedNode::new(cst)).unwrap(),
             ctx,
             db,
@@ -110,7 +110,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
     pub(crate) fn collect_signatures(
         mut self,
     ) -> (
-        Hir,
+        HirBuilder,
         SymbolTable<'db>,
         Vec<(DefinitionKey, DefinitionBindingId)>,
         Vec<SemanticDiagnostic>,
@@ -124,9 +124,10 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         mut self,
         key: &DefinitionKey,
         own_binding_id: DefinitionBindingId,
-    ) -> (Hir, Vec<SemanticDiagnostic>) {
+    ) -> (Hir, HirSourceMaps, Vec<SemanticDiagnostic>) {
         let file = self.ast.clone();
         let def = Self::find_definition_by_key(&file, key);
+        self.hir.set_anchor(def.text_range().start());
 
         let definition_id = match def {
             Definition::FunctionDefinition(def) => {
@@ -136,12 +137,14 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 self.typecheck_constant_definition(def, own_binding_id)
             }
         };
-        self.hir.source_file.definition_id_span = self.hir.add_definition_ids(&[definition_id]);
+        self.hir.hir.source_file.definition_id_span =
+            self.hir.add_definition_ids(&[definition_id]);
 
         self.solve_constraints();
         self.substitute();
 
-        (self.hir, self.diagnostics)
+        let (hir, source_maps) = self.hir.finish();
+        (hir, source_maps, self.diagnostics)
     }
 
     fn definition_name(def: &Definition) -> String {
@@ -222,9 +225,9 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                         then_span,
                         else_span,
                     },
-                    Provenance::IfWithoutElse { then_span } => SemanticDiagnostic::IfWithoutElse {
+                    Provenance::IfWithoutElse { span } => SemanticDiagnostic::IfWithoutElse {
                         found: e_str,
-                        then_span,
+                        then_span: span,
                     },
                     Provenance::BinaryOperandMismatch { lhs_span, rhs_span } => {
                         SemanticDiagnostic::BinaryOperandMismatch {
@@ -234,45 +237,44 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                             rhs_span,
                         }
                     }
-                    Provenance::BinaryOperandNotNumeric { operand_span } => {
+                    Provenance::BinaryOperandNotNumeric { span } => {
                         SemanticDiagnostic::BinaryOperandNotNumeric {
                             found: a_str,
-                            operand_span,
+                            operand_span: span,
                         }
                     }
-                    Provenance::BinaryOperandNotBool { operand_span } => {
+                    Provenance::BinaryOperandNotBool { span } => {
                         SemanticDiagnostic::BinaryOperandNotBool {
                             expected: e_str,
                             found: a_str,
-                            operand_span,
+                            operand_span: span,
                         }
                     }
-                    Provenance::UnaryOperandMismatch {
-                        operator,
-                        operand_span,
-                    } => SemanticDiagnostic::UnaryOperandMismatch {
-                        operator,
-                        expected: e_str,
-                        found: a_str,
-                        operand_span,
-                    },
-                    Provenance::BlockMissingTail { block_span } => {
+                    Provenance::UnaryOperandMismatch { operator, span } => {
+                        SemanticDiagnostic::UnaryOperandMismatch {
+                            operator,
+                            expected: e_str,
+                            found: a_str,
+                            operand_span: span,
+                        }
+                    }
+                    Provenance::BlockMissingTail { span } => {
                         SemanticDiagnostic::BlockMissingTail {
                             expected: e_str,
-                            block_span,
+                            block_span: span,
                         }
                     }
-                    Provenance::ReturnMissingValue { return_span } => {
+                    Provenance::ReturnMissingValue { span } => {
                         SemanticDiagnostic::ReturnMissingValue {
                             expected: e_str,
-                            return_span,
+                            return_span: span,
                         }
                     }
-                    Provenance::LoopBodyNotUnit { source, body_span } => {
+                    Provenance::LoopBodyNotUnit { source, span } => {
                         SemanticDiagnostic::LoopBodyNotUnit {
                             source,
                             found: e_str,
-                            body_span,
+                            body_span: span,
                         }
                     }
                 };
@@ -285,12 +287,14 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         // unresolved IntVar defaults to i32, unresolved TyVar becomes error
         let tys: Vec<_> = self
             .hir
+            .hir
+            .body
             .expressions
             .values()
             .map(|expression| expression.ty)
             .collect();
         let tys: Vec<_> = tys.iter().map(|&ty| self.shallow_resolve(ty)).collect();
-        for (expression, ty) in self.hir.expressions.values_mut().zip(tys) {
+        for (expression, ty) in self.hir.hir.body.expressions.values_mut().zip(tys) {
             expression.ty = match self.ctx.type_interner.resolve(ty).unwrap() {
                 Ty::Infer(InferTy::IntVar(_)) => self.ctx.type_interner.i32_id,
                 Ty::Infer(InferTy::TyVar(_)) => self.ctx.type_interner.error_id,
@@ -299,9 +303,16 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         }
 
         // same for local bindings
-        let tys: Vec<_> = self.hir.local_bindings.values().map(|b| b.ty).collect();
+        let tys: Vec<_> = self
+            .hir
+            .hir
+            .body
+            .local_bindings
+            .values()
+            .map(|b| b.ty)
+            .collect();
         let tys: Vec<_> = tys.iter().map(|&ty| self.shallow_resolve(ty)).collect();
-        for (binding, ty) in self.hir.local_bindings.values_mut().zip(tys) {
+        for (binding, ty) in self.hir.hir.body.local_bindings.values_mut().zip(tys) {
             binding.ty = match self.ctx.type_interner.resolve(ty).unwrap() {
                 Ty::Infer(InferTy::IntVar(_)) => self.ctx.type_interner.i32_id,
                 Ty::Infer(InferTy::TyVar(_)) => self.ctx.type_interner.error_id,
@@ -593,7 +604,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 self.constrain(Constraint::Equality {
                     expected_id: expected,
                     actual_id: self.ctx.type_interner.unit_id,
-                    provenance: Provenance::BlockMissingTail { block_span },
+                    provenance: Provenance::BlockMissingTail { span: block_span },
                 });
                 (None, self.ctx.type_interner.unit_id)
             }
@@ -795,7 +806,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                             expected_id: int_ty,
                             actual_id: ty,
                             provenance: Provenance::BinaryOperandNotNumeric {
-                                operand_span: self.hir.get_expression(lhs_id).text_range(),
+                                span: self.hir.get_expression(lhs_id).text_range(),
                             },
                         });
 
@@ -991,7 +1002,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::UnaryOperandMismatch {
                         operator: operator.to_string(),
-                        operand_span: self.hir.get_expression(rhs_id).text_range(),
+                        span: self.hir.get_expression(rhs_id).text_range(),
                     },
                 });
                 self.ctx.type_interner.bool_id
@@ -1003,7 +1014,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::UnaryOperandMismatch {
                         operator: operator.to_string(),
-                        operand_span: self.hir.get_expression(rhs_id).text_range(),
+                        span: self.hir.get_expression(rhs_id).text_range(),
                     },
                 });
                 self.hir.get_expression(rhs_id).ty()
@@ -1044,7 +1055,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     expected_id: int_ty,
                     actual_id: self.hir.get_expression(lhs_id).ty(),
                     provenance: Provenance::BinaryOperandNotNumeric {
-                        operand_span: self.hir.get_expression(lhs_id).text_range(),
+                        span: self.hir.get_expression(lhs_id).text_range(),
                     },
                 });
                 self.hir.get_expression(lhs_id).ty()
@@ -1063,7 +1074,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     expected_id: int_ty,
                     actual_id: self.hir.get_expression(lhs_id).ty(),
                     provenance: Provenance::BinaryOperandNotNumeric {
-                        operand_span: self.hir.get_expression(lhs_id).text_range(),
+                        span: self.hir.get_expression(lhs_id).text_range(),
                     },
                 });
                 self.ctx.type_interner.bool_id
@@ -1073,14 +1084,14 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     expected_id: self.ctx.type_interner.bool_id,
                     actual_id: self.hir.get_expression(lhs_id).ty(),
                     provenance: Provenance::BinaryOperandNotBool {
-                        operand_span: self.hir.get_expression(lhs_id).text_range(),
+                        span: self.hir.get_expression(lhs_id).text_range(),
                     },
                 });
                 self.constrain(Constraint::Equality {
                     expected_id: self.ctx.type_interner.bool_id,
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::BinaryOperandNotBool {
-                        operand_span: self.hir.get_expression(rhs_id).text_range(),
+                        span: self.hir.get_expression(rhs_id).text_range(),
                     },
                 });
                 self.ctx.type_interner.bool_id
@@ -1275,7 +1286,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 self.constrain(Constraint::Equality {
                     expected_id: return_ty,
                     actual_id: self.ctx.type_interner.unit_id,
-                    provenance: Provenance::ReturnMissingValue { return_span: span },
+                    provenance: Provenance::ReturnMissingValue { span },
                 });
                 None
             }
@@ -1330,7 +1341,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     expected_id: self.hir.get_expression(then_branch_id).ty(),
                     actual_id: self.ctx.type_interner.unit_id,
                     provenance: Provenance::IfWithoutElse {
-                        then_span: self.hir.get_expression(then_branch_id).text_range(),
+                        span: self.hir.get_expression(then_branch_id).text_range(),
                     },
                 });
                 (None, self.ctx.type_interner.unit_id)
@@ -1425,7 +1436,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             actual_id: self.ctx.type_interner.unit_id,
             provenance: Provenance::LoopBodyNotUnit {
                 source: LoopSource::While,
-                body_span,
+                span: body_span,
             },
         });
 
@@ -1468,7 +1479,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             actual_id: self.ctx.type_interner.unit_id,
             provenance: Provenance::LoopBodyNotUnit {
                 source: LoopSource::Loop,
-                body_span: self.hir.get_expression(body_id).text_range(),
+                span: self.hir.get_expression(body_id).text_range(),
             },
         });
 

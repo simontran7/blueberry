@@ -1,5 +1,6 @@
 use crate::core::common::types::TypeInterner;
 
+#[derive(Clone)]
 pub struct CompilerContext {
     pub(crate) type_interner: TypeInterner,
 }

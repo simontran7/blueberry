@@ -13,7 +13,7 @@ use crate::core::common::diagnostic::{Diagnostic, DiagnosticAccumulator};
 use crate::core::common::text_size::TextRange;
 use crate::core::common::types::Ty;
 use crate::core::file_scanning::SourceFile;
-use crate::core::semantic_analysis::hir::Hir;
+use crate::core::semantic_analysis::hir::{Hir, HirSourceMaps};
 use crate::core::semantic_analysis::semantic_analyzer::{DefinitionKey, SemanticAnalyzer};
 use crate::core::syntactic_analysis::cst_of;
 
@@ -73,7 +73,7 @@ pub(crate) fn body_hir_of(
     db: &dyn crate::Db,
     file: SourceFile,
     key: DefinitionKey,
-) -> (Hir, CompilerContext) {
+) -> (Hir, HirSourceMaps, CompilerContext) {
     let cst = cst_of(db, file).clone();
     let mut ctx = CompilerContext::new();
     let signatures = signatures_of(db, file).clone();
@@ -84,9 +84,9 @@ pub(crate) fn body_hir_of(
         .find(|(candidate, _)| *candidate == key)
         .expect("caller-supplied key must belong to this file")
         .1;
-    let (hir, diagnostics) = analyzer.typecheck_one(&key, own_binding_id);
+    let (hir, source_maps, diagnostics) = analyzer.typecheck_one(&key, own_binding_id);
     for diagnostic in diagnostics {
         DiagnosticAccumulator(Diagnostic::Semantic(diagnostic)).accumulate(db);
     }
-    (hir, ctx)
+    (hir, source_maps, ctx)
 }
