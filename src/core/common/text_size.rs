@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Range, Sub};
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub(crate) struct TextSize(u32);
 
 impl TextSize {
@@ -37,7 +37,7 @@ impl Sub for TextSize {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub(crate) struct TextRange {
     start: TextSize,
     end: TextSize,

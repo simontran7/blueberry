@@ -1,13 +1,77 @@
 use std::fmt;
 
-use handlemap::HandleRange;
+use handlemap::{HandleMap, HandleRange};
 
 use crate::core::common::symbol::Symbol;
+use crate::core::source_file::SourceFile;
 use crate::core::syntactic_analysis::cst::SyntaxKind;
 
+struct File<'db> {
+    definitions: Vec<RawDefinition<'db>>,
+}
+enum RawDefinition<'db> {
+    Function { name: Symbol<'db> },
+    Constant { name: Symbol<'db> },
+}
+
+enum BindingHandle<'db> {
+    Local(LocalBindingHandle),
+    Function(FunctionBindingKey<'db>),
+    Constant(ConstantBindingKey<'db>),
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+enum DefinitionSource<'db> {
+    File(SourceFile),
+    Block(BlockKey<'db>),
+}
+
+// TODO: `block` needs a stable, edit-surviving pointer into syntax (an
+// AstId equivalent) 
+#[salsa::interned(debug)]
+struct BlockKey<'db> {
+    block: /* AstId-equivalent, not designed yet */,
+}
+
+#[salsa::interned(debug)]
+struct FunctionBindingKey<'db> {
+    container: DefinitionSource<'db>,
+    name: Symbol<'db>,
+}
+
+#[salsa::interned(debug)]
+struct ConstantBindingKey<'db> {
+    container: DefinitionSource<'db>,
+    name: Symbol<'db>,
+}
+
+struct FunctionSignature<'db> {
+    binding: FunctionBindingKey<'db>,
+    parameters: HandleRange<LocalBindingHandle>,
+    return_type_annotation: Option<TypeAnnotationHandle>,
+}
+struct ConstantSignature<'db> {
+    binding: ConstantBindingKey<'db>,
+    type_annotation: Option<TypeAnnotationHandle>,
+}
+struct DefinitionBody<'db> {
+    root: ExpressionHandle,
+    expressions: HandleMap<ExpressionHandle, Expression<'db>>,
+    statements: HandleMap<StatementHandle, Statement>,
+    local_bindings: HandleMap<LocalBindingHandle, LocalBinding<'db>>,
+    type_annotations: HandleMap<TypeAnnotationHandle, TypeAnnotation<'db>>,
+}
+
+struct LocalBinding<'db> {
+    name: Symbol<'db>,
+    mutable: bool,
+}
+
 enum Expression<'db> {
+    Unit,
+    Integer(u128),
+    Boolean(bool),
     Path(Symbol<'db>),
-    Literal(Literal),
     If {
         condition: ExpressionHandle,
         then_branch: ExpressionHandle,
@@ -16,14 +80,16 @@ enum Expression<'db> {
     Block {
         statements: HandleRange<StatementHandle>,
         tail: Option<ExpressionHandle>,
+        // `Some` only when this block has nested definitions inside it
+        key: Option<BlockKey<'db>>,
     },
-    InfiniteLoop {
+    Loop {
         source: LoopSource,
         body: ExpressionHandle,
     },
     Call {
         callee: ExpressionHandle,
-        argument: HandleRange<ExpressionHandle>,
+        arguments: HandleRange<ExpressionHandle>,
     },
     Continue,
     Break {
@@ -38,20 +104,37 @@ enum Expression<'db> {
     },
     BinaryOperation {
         lhs: ExpressionHandle,
-        operator: BinaryOperator,
+        operator: Option<BinaryOperator>,
         rhs: ExpressionHandle,
     },
     Assignment {
         target: ExpressionHandle,
         value: ExpressionHandle,
     },
-    Missing,
+    Hole,
 }
 
-enum Literal {
-    Integer(u128),
-    Boolean(bool),
-    Unit,
+enum Statement {
+    Let {
+        name: LocalBindingHandle,
+        annotation: Option<TypeAnnotationHandle>,
+        initializer: Option<ExpressionHandle>,
+    },
+    Expression {
+        expression: ExpressionHandle,
+        has_semi: bool,
+    },
+    Definition,
+}
+
+enum TypeAnnotation<'db> {
+    Path(Symbol<'db>),
+    Hole,
+}
+
+enum LoopSource {
+    Loop,
+    While,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,9 +159,13 @@ enum UnaryOperator {
     Not,
 }
 
+handlemap::handle_impl!(pub(crate) StatementHandle);
+
 handlemap::handle_impl!(pub(crate) ExpressionHandle);
 
-handlemap::handle_impl!(pub(crate) StatementHandle);
+handlemap::handle_impl!(pub(crate) TypeAnnotationHandle);
+
+handlemap::handle_impl!(pub(crate) LocalBindingHandle);
 
 impl TryFrom<SyntaxKind> for BinaryOperator {
     type Error = SyntaxKind;
