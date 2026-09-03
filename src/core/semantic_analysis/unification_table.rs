@@ -1,3 +1,6 @@
+/* Being redesigned from scratch alongside the new HIR -- kept here for
+   reference during the rewrite. */
+/*
 use handlemap::{Handle, HandleMap};
 
 use crate::core::common::types::TypeId;
@@ -112,3 +115,5 @@ impl UnificationTable {
         self.int_var_concrete[root] = Some(ty);
     }
 }
+
+*/

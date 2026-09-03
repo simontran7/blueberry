@@ -123,9 +123,7 @@ pub(crate) enum SyntaxKind {
 pub(crate) struct RedNode {
     parent: Option<Arc<RedNode>>,
     green: Arc<GreenNode>,
-    /// the node's index within `parent`'s children
     index: u32,
-    /// absolute text offset in the whole file
     offset: TextSize,
 }
 
@@ -133,9 +131,7 @@ pub(crate) struct RedNode {
 pub(crate) struct RedToken {
     parent: Arc<RedNode>,
     green: Arc<GreenToken>,
-    /// the token's index within `parent`'s children
     index: u32,
-    /// absolute text offset in the whole file
     offset: TextSize,
 }
 

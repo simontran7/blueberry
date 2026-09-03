@@ -1,21 +1,32 @@
-use crate::core::common::context::CompilerContext;
+/* HirDumper matches the old ExpressionKind shape -- being redesigned
+   from scratch alongside the new HIR. Kept here for reference. */
+/*
 use crate::core::semantic_analysis::hir::{
     BindingId, BindingKind, DefinitionId, DefinitionKind, ExpressionId, ExpressionKind, Hir,
-    StatementId, StatementKind,
+    ResolvedTypes, StatementId, StatementKind,
 };
 
 use std::fmt::{self, Write};
 
-pub(crate) struct HirDumper<'a> {
+pub(crate) struct HirDumper<'a, 'db> {
     hir: &'a Hir,
-    ctx: &'a CompilerContext,
+    resolved_types: &'a ResolvedTypes<'db>,
+    db: &'db dyn crate::Db,
 }
 
-impl<'a> HirDumper<'a> {
+impl<'a, 'db> HirDumper<'a, 'db> {
     const INDENT: &'static str = "  ";
 
-    pub(crate) const fn new(hir: &'a Hir, ctx: &'a CompilerContext) -> Self {
-        HirDumper { hir, ctx }
+    pub(crate) const fn new(
+        hir: &'a Hir,
+        resolved_types: &'a ResolvedTypes<'db>,
+        db: &'db dyn crate::Db,
+    ) -> Self {
+        HirDumper {
+            hir,
+            resolved_types,
+            db,
+        }
     }
 
     pub(crate) fn dump(&self) -> Result<String, fmt::Error> {
@@ -47,7 +58,10 @@ impl<'a> HirDumper<'a> {
             } => {
                 let binding_view = self.hir.get_definition_binding(definition_binding_id);
                 let name = binding_view.name();
-                let ty = self.ctx.type_interner.to_string(binding_view.ty());
+                let ty = self
+                    .resolved_types
+                    .resolved_definition_binding_type(definition_binding_id)
+                    .to_display_string(self.db);
 
                 // dump header
                 writeln!(hir_output, "{padding}func {name} : {ty}")?;
@@ -60,7 +74,9 @@ impl<'a> HirDumper<'a> {
                         hir_output,
                         "{}  parameter {parameter_name} : {}",
                         padding,
-                        self.ctx.type_interner.to_string(local_binding_view.ty())
+                        self.resolved_types
+                            .resolved_local_binding_type(local_binding_id)
+                            .to_display_string(self.db)
                     )?;
                 }
 
@@ -73,7 +89,10 @@ impl<'a> HirDumper<'a> {
             } => {
                 let binding_view = self.hir.get_definition_binding(definition_binding_id);
                 let name = binding_view.name();
-                let ty = self.ctx.type_interner.to_string(binding_view.ty());
+                let ty = self
+                    .resolved_types
+                    .resolved_definition_binding_type(definition_binding_id)
+                    .to_display_string(self.db);
 
                 // dump header
                 writeln!(hir_output, "{padding}const {name} : {ty}")?;
@@ -107,7 +126,10 @@ impl<'a> HirDumper<'a> {
                 let binding_view = self.hir.get_local_binding(pattern_id);
                 let name = binding_view.name();
                 let mutability = if binding_view.mutable() { "mut " } else { "" };
-                let ty = self.ctx.type_interner.to_string(binding_view.ty());
+                let ty = self
+                    .resolved_types
+                    .resolved_local_binding_type(pattern_id)
+                    .to_display_string(self.db);
 
                 // dump the whole statement inline or with the expression nested
                 match value_id {
@@ -130,8 +152,22 @@ impl<'a> HirDumper<'a> {
                     }
                 }
             }
-            StatementKind::Definition { definition_id } => {
-                self.dump_definition(definition_id, depth, hir_output)?;
+            StatementKind::Definition {
+                definition_binding_id,
+            } => {
+                // No body embedded here -- the nested definition has its
+                // own independent identity/Body, dumped separately (see
+                // `driver.rs`'s loop over `definition_keys_of`, which now
+                // includes nested keys). Just reference it by name/type.
+                let name = self
+                    .hir
+                    .get_definition_binding(definition_binding_id)
+                    .name();
+                let ty = self
+                    .resolved_types
+                    .resolved_definition_binding_type(definition_binding_id)
+                    .to_display_string(self.db);
+                writeln!(hir_output, "{padding}local {name} : {ty}")?;
             }
         }
 
@@ -147,7 +183,10 @@ impl<'a> HirDumper<'a> {
     ) -> fmt::Result {
         let expression = self.hir.get_expression(expression_id);
         let padding = Self::pad(depth);
-        let ty = self.ctx.type_interner.to_string(expression.ty());
+        let ty = self
+            .resolved_types
+            .resolved_expression_type(expression_id)
+            .to_display_string(self.db);
 
         match *expression.kind() {
             ExpressionKind::Missing => {
@@ -318,3 +357,4 @@ impl<'a> HirDumper<'a> {
         Self::INDENT.repeat(level)
     }
 }
+*/

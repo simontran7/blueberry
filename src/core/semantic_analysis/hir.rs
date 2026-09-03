@@ -1,18 +1,160 @@
 use std::fmt;
-use std::marker::PhantomData;
 
-use handlemap::{HandleMap, SideHandleMap};
+use handlemap::HandleRange;
 
-use crate::core::common::text_size::{TextRange, TextSize};
-use crate::core::common::types::TypeId;
+use crate::core::common::symbol::Symbol;
 use crate::core::syntactic_analysis::cst::SyntaxKind;
 
-/// Pure semantic data -- no spans anywhere in this type. This is what a
-/// spans-free salsa query (nothing to invalidate on unrelated text shifts)
-/// can return, mirroring rust-analyzer's `Body` (as opposed to
-/// `(Body, BodySourceMap)`). See `HirSourceMaps` for the spans, and
-/// `HirBuilder` for how the two get built together.
-#[derive(Clone)]
+enum Expression<'db> {
+    Path(Symbol<'db>),
+    Literal(Literal),
+    If {
+        condition: ExpressionHandle,
+        then_branch: ExpressionHandle,
+        else_branch: Option<ExpressionHandle>,
+    },
+    Block {
+        statements: HandleRange<StatementHandle>,
+        tail: Option<ExpressionHandle>,
+    },
+    InfiniteLoop {
+        source: LoopSource,
+        body: ExpressionHandle,
+    },
+    Call {
+        callee: ExpressionHandle,
+        argument: HandleRange<ExpressionHandle>,
+    },
+    Continue,
+    Break {
+        value: Option<ExpressionHandle>,
+    },
+    Return {
+        value: Option<ExpressionHandle>,
+    },
+    UnaryOperation {
+        operand: ExpressionHandle,
+        operator: UnaryOperator,
+    },
+    BinaryOperation {
+        lhs: ExpressionHandle,
+        operator: BinaryOperator,
+        rhs: ExpressionHandle,
+    },
+    Assignment {
+        target: ExpressionHandle,
+        value: ExpressionHandle,
+    },
+    Missing,
+}
+
+enum Literal {
+    Integer(u128),
+    Boolean(bool),
+    Unit,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BinaryOperator {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Lt,
+    Gt,
+    Le,
+    Ge,
+    Eq,
+    Ne,
+    And,
+    Or,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UnaryOperator {
+    Neg,
+    Not,
+}
+
+handlemap::handle_impl!(pub(crate) ExpressionHandle);
+
+handlemap::handle_impl!(pub(crate) StatementHandle);
+
+impl TryFrom<SyntaxKind> for BinaryOperator {
+    type Error = SyntaxKind;
+
+    fn try_from(kind: SyntaxKind) -> Result<Self, Self::Error> {
+        Ok(match kind {
+            SyntaxKind::Plus => Self::Add,
+            SyntaxKind::Minus => Self::Sub,
+            SyntaxKind::Star => Self::Mul,
+            SyntaxKind::Slash => Self::Div,
+            SyntaxKind::LessThan => Self::Lt,
+            SyntaxKind::GreaterThan => Self::Gt,
+            SyntaxKind::LessEqual => Self::Le,
+            SyntaxKind::GreaterEqual => Self::Ge,
+            SyntaxKind::EqualEqual => Self::Eq,
+            SyntaxKind::NotEqual => Self::Ne,
+            SyntaxKind::LogicalAnd => Self::And,
+            SyntaxKind::LogicalOr => Self::Or,
+            other => return Err(other),
+        })
+    }
+}
+
+impl TryFrom<SyntaxKind> for UnaryOperator {
+    type Error = SyntaxKind;
+
+    fn try_from(kind: SyntaxKind) -> Result<Self, Self::Error> {
+        Ok(match kind {
+            SyntaxKind::Minus => Self::Neg,
+            SyntaxKind::LogicalNot => Self::Not,
+            other => return Err(other),
+        })
+    }
+}
+
+impl fmt::Display for BinaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Add => "+",
+            Self::Sub => "-",
+            Self::Mul => "*",
+            Self::Div => "/",
+            Self::Lt => "<",
+            Self::Gt => ">",
+            Self::Le => "<=",
+            Self::Ge => ">=",
+            Self::Eq => "==",
+            Self::Ne => "!=",
+            Self::And => "&&",
+            Self::Or => "||",
+        };
+        write!(f, "{s}")
+    }
+}
+
+impl fmt::Display for UnaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Self::Neg => "-",
+            Self::Not => "not",
+        };
+        write!(f, "{s}")
+    }
+}
+
+/*
+use std::fmt;
+use std::marker::PhantomData;
+
+use handlemap::{Handle, HandleMap, SideHandleMap};
+
+use crate::core::common::text_size::{TextRange, TextSize};
+use crate::core::common::types::{ResolvedTypeId, TypeId, TypeInterner, resolve_ty};
+use crate::core::syntactic_analysis::cst::SyntaxKind;
+
+#[derive(Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct Hir {
     pub(crate) source_file: SourceFileNode,
     pub(crate) definitions: HandleMap<DefinitionId, Definition>,
@@ -21,34 +163,32 @@ pub(crate) struct Hir {
     pub(crate) body: Body,
 }
 
-/// The span data stripped out of `Hir`, kept as a separate type so a query
-/// that only needs semantics (not source locations) can depend on `Hir`
-/// alone and skip whatever depends on this churning on every unrelated
-/// edit -- mirroring rust-analyzer's `BodySourceMap`.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) struct ResolvedTypes<'db> {
+    pub(crate) expression_types: Vec<ResolvedTypeId<'db>>,
+    pub(crate) local_binding_types: Vec<ResolvedTypeId<'db>>,
+    pub(crate) local_binding_annotations: Vec<Option<ResolvedTypeId<'db>>>,
+    pub(crate) definition_binding_types: Vec<ResolvedTypeId<'db>>,
+}
+
+// Local, in-progress inference scratch: never part of `Hir` (so it never
+// leaks into salsa's memoized value or its `Eq` cutoff comparison), indexed
+// in lockstep with `Body`'s `HandleMap`s (each `add_*` on `HirBuilder` pushes
+// to both at once). Dropped once `HirBuilder::finish` folds it into
+// `resolved_types` -- the actual, globally-comparable answer.
+pub(crate) struct LocalTypes {
+    pub(crate) expression_types: Vec<TypeId>,
+    pub(crate) local_binding_types: Vec<TypeId>,
+    pub(crate) local_binding_annotations: Vec<Option<TypeId>>,
+    pub(crate) definition_binding_types: Vec<TypeId>,
+}
+
+#[derive(Clone, salsa::SalsaValue)]
 pub(crate) struct HirSourceMaps {
-    /// Absolute start offset of the top-level definition this `Hir`/`Body`
-    /// was built for (set once via `HirBuilder::set_anchor`, before any
-    /// definition/body node is added). Every span in `definition_spans` and
-    /// `body_source_map` is stored relative to this anchor rather than
-    /// absolute -- mirroring rust-analyzer's `Span`/`SpanAnchor`: an edit to
-    /// an unrelated, earlier definition in the file shifts absolute
-    /// offsets, but leaves this definition's own anchor-relative spans
-    /// byte-identical.
     pub(crate) anchor: TextSize,
 
-    /// Anchor-relative: every `Definition` here belongs to this `Hir`'s own
-    /// focus definition (itself, or one of its nested local definitions),
-    /// never a sibling top-level one.
     pub(crate) definition_spans: SideHandleMap<DefinitionId, TextRange>,
 
-    /// Unlike `definition_spans`, this covers *every* top-level binding in
-    /// the file (re-seeded on every `body_hir_of` call so name resolution
-    /// can see sibling/forward references) -- so a `DuplicateDefinition`
-    /// diagnostic compares one binding's span against a *different*
-    /// definition's binding span. That cross-definition comparison needs
-    /// file-absolute spans; they can't be relative to this `Hir`'s single
-    /// `anchor`.
     pub(crate) definition_binding_spans: SideHandleMap<DefinitionBindingId, TextRange>,
 
     pub(crate) body_source_map: BodySourceMap,
@@ -64,15 +204,12 @@ impl HirSourceMaps {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct SourceFileNode {
     pub(crate) definition_id_span: DefinitionIdSpan,
 }
 
-/// The lowered statements, expressions, and local bindings belonging to a
-/// single definition's body (a function's block, or a constant's
-/// initializer). Ids here are only meaningful against this `Body`.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct Body {
     pub(crate) statements: HandleMap<StatementId, Statement>,
     pub(crate) expressions: HandleMap<ExpressionId, Expression>,
@@ -83,32 +220,29 @@ pub(crate) struct Body {
     pub(crate) parameter_children_ids: Vec<LocalBindingId>,
 }
 
-/// Anchor-relative spans (see `Hir::anchor`) for the nodes inside `body`,
-/// kept separate from `Body` so the semantic nodes stay pure data.
-#[derive(Clone)]
+#[derive(Clone, salsa::SalsaValue)]
 pub(crate) struct BodySourceMap {
     pub(crate) statement_spans: SideHandleMap<StatementId, TextRange>,
     pub(crate) expression_spans: SideHandleMap<ExpressionId, TextRange>,
     pub(crate) local_binding_spans: SideHandleMap<LocalBindingId, TextRange>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct Definition {
     pub(crate) kind: DefinitionKind,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct Statement {
     pub(crate) kind: StatementKind,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct Expression {
     pub(crate) kind: ExpressionKind,
-    pub(crate) ty: TypeId,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) enum DefinitionKind {
     Function {
         definition_binding_id: DefinitionBindingId,
@@ -121,7 +255,7 @@ pub(crate) enum DefinitionKind {
     },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) enum StatementKind {
     Expression {
         expression_id: ExpressionId,
@@ -132,11 +266,11 @@ pub(crate) enum StatementKind {
         value_id: Option<ExpressionId>,
     },
     Definition {
-        definition_id: DefinitionId,
+        definition_binding_id: DefinitionBindingId,
     },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) enum ExpressionKind {
     Missing,
     Unit,
@@ -315,18 +449,15 @@ pub(crate) struct ParameterIdSpan {
     pub(crate) len: u32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct LocalBinding {
     pub(crate) name: String,
     pub(crate) mutable: bool,
-    pub(crate) annotation: Option<TypeId>,
-    pub(crate) ty: TypeId,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct DefinitionBinding {
     pub(crate) name: String,
-    pub(crate) ty: TypeId,
 }
 
 pub(crate) type LocalBindingId = TypedBindingId<LocalBinding, { BindingKind::Local as u8 }>;
@@ -356,6 +487,11 @@ pub(crate) enum BindingKind {
 // `text_range()`). `text_range()` panics if called on a `None` view --
 // nothing does today, since span-consuming diagnostics are all built during
 // lowering, while `HirBuilder` is still around.
+//
+// `ExpressionView`/`LocalBindingView`/`DefinitionBindingView` additionally
+// hold an optional `&'a LocalTypes`, same `Some`-during-lowering/
+// `None`-after-construction split, for the same reason: `ty()`/`annotation()`
+// only make sense while `HirBuilder`'s local scratch is still around.
 
 pub(crate) struct DefinitionView<'a> {
     definition_id: DefinitionId,
@@ -373,28 +509,27 @@ pub(crate) struct ExpressionView<'a> {
     expression_id: ExpressionId,
     hir: &'a Hir,
     source_maps: Option<&'a HirSourceMaps>,
+    local_types: Option<&'a LocalTypes>,
 }
 
 pub(crate) struct LocalBindingView<'a> {
     local_binding_id: LocalBindingId,
     hir: &'a Hir,
     source_maps: Option<&'a HirSourceMaps>,
+    local_types: Option<&'a LocalTypes>,
 }
 
 pub(crate) struct DefinitionBindingView<'a> {
     definition_binding_id: DefinitionBindingId,
     hir: &'a Hir,
     source_maps: Option<&'a HirSourceMaps>,
+    local_types: Option<&'a LocalTypes>,
 }
 
-/// Builds a `Hir` and its `HirSourceMaps` together (spans can only be
-/// computed as nodes are lowered), then hands them back apart via
-/// `finish`. Exposes the same `add_*`/`get_*` surface `Hir` used to have on
-/// its own, so callers that only care about semantics (not the query
-/// split) don't need to change.
 pub(crate) struct HirBuilder {
     pub(crate) hir: Hir,
     pub(crate) source_maps: HirSourceMaps,
+    pub(crate) local_types: LocalTypes,
 }
 
 impl HirBuilder {
@@ -426,21 +561,52 @@ impl HirBuilder {
                     local_binding_spans: SideHandleMap::new(),
                 },
             },
+            local_types: LocalTypes {
+                expression_types: Vec::new(),
+                local_binding_types: Vec::new(),
+                local_binding_annotations: Vec::new(),
+                definition_binding_types: Vec::new(),
+            },
         }
     }
 
-    /// Splits the builder into its finished, independently-returnable
-    /// halves -- called once, when a definition's body is fully lowered.
-    pub(crate) fn finish(self) -> (Hir, HirSourceMaps) {
-        (self.hir, self.source_maps)
+    pub(crate) fn finish<'db>(
+        self,
+        db: &'db dyn crate::Db,
+        interner: &TypeInterner,
+    ) -> (Hir, HirSourceMaps, ResolvedTypes<'db>) {
+        let mut resolved_types = ResolvedTypes {
+            expression_types: Vec::new(),
+            local_binding_types: Vec::new(),
+            local_binding_annotations: Vec::new(),
+            definition_binding_types: Vec::new(),
+        };
+
+        for &ty in &self.local_types.expression_types {
+            resolved_types
+                .expression_types
+                .push(resolve_ty(db, interner, ty));
+        }
+
+        for (i, &ty) in self.local_types.local_binding_types.iter().enumerate() {
+            resolved_types
+                .local_binding_types
+                .push(resolve_ty(db, interner, ty));
+            resolved_types.local_binding_annotations.push(
+                self.local_types.local_binding_annotations[i]
+                    .map(|annotation| resolve_ty(db, interner, annotation)),
+            );
+        }
+
+        for &ty in &self.local_types.definition_binding_types {
+            resolved_types
+                .definition_binding_types
+                .push(resolve_ty(db, interner, ty));
+        }
+
+        (self.hir, self.source_maps, resolved_types)
     }
 
-    /// Sets the absolute start offset that every subsequently-recorded
-    /// definition/body span is stored relative to. Must be called once,
-    /// before the first `add_definition`/`add_statement`/`add_expression`/
-    /// `add_local_binding` call for this `Hir`'s focus definition --
-    /// `add_definition_binding` is unaffected and may be called before or
-    /// after (see the doc comment on `HirSourceMaps::definition_binding_spans`).
     pub(crate) fn set_anchor(&mut self, anchor: TextSize) {
         self.source_maps.anchor = anchor;
     }
@@ -497,7 +663,8 @@ impl HirBuilder {
         ty: TypeId,
         span: TextRange,
     ) -> ExpressionId {
-        let expression_id = self.hir.body.expressions.add(Expression { kind, ty });
+        let expression_id = self.hir.body.expressions.add(Expression { kind });
+        self.local_types.expression_types.push(ty);
         let relative = self.source_maps.to_relative(span);
         self.source_maps
             .body_source_map
@@ -570,12 +737,13 @@ impl HirBuilder {
         ty: TypeId,
         span: TextRange,
     ) -> LocalBindingId {
-        let local_binding_id = self.hir.body.local_bindings.add(LocalBinding {
-            name,
-            mutable,
-            annotation,
-            ty,
-        });
+        let local_binding_id = self
+            .hir
+            .body
+            .local_bindings
+            .add(LocalBinding { name, mutable });
+        self.local_types.local_binding_types.push(ty);
+        self.local_types.local_binding_annotations.push(annotation);
         let relative = self.source_maps.to_relative(span);
         self.source_maps
             .body_source_map
@@ -590,10 +758,8 @@ impl HirBuilder {
         ty: TypeId,
         span: TextRange,
     ) -> DefinitionBindingId {
-        let definition_binding_id = self
-            .hir
-            .definition_bindings
-            .add(DefinitionBinding { name, ty });
+        let definition_binding_id = self.hir.definition_bindings.add(DefinitionBinding { name });
+        self.local_types.definition_binding_types.push(ty);
         // Absolute, not anchor-relative -- see the doc comment on
         // `HirSourceMaps::definition_binding_spans`.
         self.source_maps
@@ -617,6 +783,7 @@ impl HirBuilder {
     pub(crate) fn get_expression(&self, expression_id: ExpressionId) -> ExpressionView<'_> {
         let mut view = self.hir.get_expression(expression_id);
         view.source_maps = Some(&self.source_maps);
+        view.local_types = Some(&self.local_types);
         view
     }
 
@@ -626,6 +793,7 @@ impl HirBuilder {
     ) -> LocalBindingView<'_> {
         let mut view = self.hir.get_local_binding(local_binding_id);
         view.source_maps = Some(&self.source_maps);
+        view.local_types = Some(&self.local_types);
         view
     }
 
@@ -635,7 +803,35 @@ impl HirBuilder {
     ) -> DefinitionBindingView<'_> {
         let mut view = self.hir.get_definition_binding(definition_binding_id);
         view.source_maps = Some(&self.source_maps);
+        view.local_types = Some(&self.local_types);
         view
+    }
+}
+
+impl<'db> ResolvedTypes<'db> {
+    pub(crate) fn resolved_expression_type(&self, expression_id: ExpressionId) -> ResolvedTypeId<'db> {
+        self.expression_types[expression_id.index()]
+    }
+
+    pub(crate) fn resolved_local_binding_type(
+        &self,
+        local_binding_id: LocalBindingId,
+    ) -> ResolvedTypeId<'db> {
+        self.local_binding_types[local_binding_id.index()]
+    }
+
+    pub(crate) fn resolved_local_binding_annotation(
+        &self,
+        local_binding_id: LocalBindingId,
+    ) -> Option<ResolvedTypeId<'db>> {
+        self.local_binding_annotations[local_binding_id.index()]
+    }
+
+    pub(crate) fn resolved_definition_binding_type(
+        &self,
+        definition_binding_id: DefinitionBindingId,
+    ) -> ResolvedTypeId<'db> {
+        self.definition_binding_types[definition_binding_id.index()]
     }
 }
 
@@ -676,9 +872,6 @@ impl Hir {
             .map(|(definition_id, _)| definition_id)
     }
 
-    /// Structural-only view (`source_maps: None`) -- `.text_range()` on it
-    /// panics. Use `HirBuilder::get_definition` during lowering, when spans
-    /// are available.
     pub(crate) fn get_definition(&self, definition_id: DefinitionId) -> DefinitionView<'_> {
         DefinitionView {
             definition_id,
@@ -700,6 +893,7 @@ impl Hir {
             expression_id,
             hir: self,
             source_maps: None,
+            local_types: None,
         }
     }
 
@@ -711,6 +905,7 @@ impl Hir {
             local_binding_id,
             hir: self,
             source_maps: None,
+            local_types: None,
         }
     }
 
@@ -722,6 +917,7 @@ impl Hir {
             definition_binding_id,
             hir: self,
             source_maps: None,
+            local_types: None,
         }
     }
 }
@@ -770,7 +966,10 @@ impl<'a> ExpressionView<'a> {
     }
 
     pub(crate) fn ty(&self) -> TypeId {
-        self.hir.body.expressions[self.expression_id].ty
+        let local_types = self
+            .local_types
+            .expect("ty() called on a builder-free Hir view");
+        local_types.expression_types[self.expression_id.index()]
     }
 
     pub(crate) fn text_range(&self) -> TextRange {
@@ -795,11 +994,17 @@ impl<'a> LocalBindingView<'a> {
     }
 
     pub(crate) fn annotation(&self) -> Option<TypeId> {
-        self.hir.body.local_bindings[self.local_binding_id].annotation
+        let local_types = self
+            .local_types
+            .expect("annotation() called on a builder-free Hir view");
+        local_types.local_binding_annotations[self.local_binding_id.index()]
     }
 
     pub(crate) fn ty(&self) -> TypeId {
-        self.hir.body.local_bindings[self.local_binding_id].ty
+        let local_types = self
+            .local_types
+            .expect("ty() called on a builder-free Hir view");
+        local_types.local_binding_types[self.local_binding_id.index()]
     }
 
     pub(crate) fn text_range(&self) -> TextRange {
@@ -821,7 +1026,10 @@ impl<'a> DefinitionBindingView<'a> {
     }
 
     pub(crate) fn ty(&self) -> TypeId {
-        self.hir.definition_bindings[self.definition_binding_id].ty
+        let local_types = self
+            .local_types
+            .expect("ty() called on a builder-free Hir view");
+        local_types.definition_binding_types[self.definition_binding_id.index()]
     }
 
     pub(crate) fn text_range(&self) -> TextRange {
@@ -946,3 +1154,5 @@ impl<T, const KIND: u8> From<TypedBindingId<T, KIND>> for BindingId {
         Self::new(KIND, typed.index())
     }
 }
+
+*/

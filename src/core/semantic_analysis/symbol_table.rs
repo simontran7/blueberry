@@ -1,3 +1,6 @@
+/* Being redesigned from scratch alongside the new HIR -- kept here for
+   reference during the rewrite. */
+/*
 use std::collections::HashMap;
 
 use crate::core::common::symbol::Symbol;
@@ -86,3 +89,5 @@ impl<'db> SymbolTable<'db> {
         Err(LookupError::NotFound)
     }
 }
+
+*/

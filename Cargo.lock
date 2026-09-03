@@ -223,7 +223,7 @@ dependencies = [
 [[package]]
 name = "handlemap"
 version = "0.1.0"
-source = "git+https://github.com/simontran7/handlemap#1b210ba60f456b5b56948b8e99da106dcb548afe"
+source = "git+https://github.com/simontran7/handlemap#fc9060baba4c3bc757f2b88c8fdd90e2d8425506"
 
 [[package]]
 name = "hashbrown"

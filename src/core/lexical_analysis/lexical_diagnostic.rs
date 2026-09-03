@@ -12,7 +12,7 @@ impl LexicalDiagnostic {
             Self::UnknownToken { character, span } => DiagnosticDescription {
                 code: "E0102",
                 message: format!("unknown start of token: `{character}`"),
-                anchor: *span,
+                span: *span,
                 labels: vec![DiagnosticLabel {
                     span: *span,
                     message: Some("unrecognized character".to_string()),

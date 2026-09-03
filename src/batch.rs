@@ -1,7 +1,6 @@
 pub mod arg_parser;
 pub mod diagnostic_render;
 pub mod driver;
-pub mod llvm_codegen;
 
 use std::collections::HashSet;
 

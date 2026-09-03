@@ -1,15 +1,15 @@
+/* Imports for the old design -- commented out along with everything below.
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::core::common::context::CompilerContext;
 use crate::core::common::text_size::TextRange;
 use crate::core::common::symbol::Symbol;
-use crate::core::common::types::{InferTy, Ty, TypeId};
+use crate::core::common::types::{InferTy, Ty, TypeId, TypeInterner};
 use crate::core::semantic_analysis::constraints::{Constraint, Provenance};
 use crate::core::semantic_analysis::hir::{
     BinOp, BindingId, BindingKind, DefinitionBindingId, DefinitionId, DefinitionKind, ExpressionId,
     ExpressionIdSpan, ExpressionKind, Hir, HirBuilder, HirSourceMaps, LocalBindingId, LoopSource,
-    StatementId, StatementKind, UnOp,
+    ResolvedTypes, StatementId, StatementKind, UnOp,
 };
 use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
 use crate::core::semantic_analysis::symbol_table::{DefineError, LookupError, ScopeKind, SymbolTable};
@@ -22,15 +22,52 @@ use crate::core::syntactic_analysis::ast::{
 };
 use crate::core::syntactic_analysis::cst::{GreenNode, RedNode};
 
+/* Everything below is being redesigned from scratch to mirror
+   rust-analyzer's HIR split (pure shape lowering, then a separate
+   inference pass) -- kept here for reference during the rewrite.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub(crate) struct DefinitionKey {
-    pub(crate) name: String,
-    pub(crate) disambiguator: usize,
+pub(crate) enum ScopeId {
+    File,
+    Definition(DefinitionKey),
+    Block(BlockId),
 }
 
-pub(crate) struct SemanticAnalyzer<'ctx, 'db> {
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub(crate) struct BlockId {
+    pub(crate) parent: Box<ScopeId>,
+    pub(crate) index: usize,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub(crate) struct DefinitionKeySegment {
+    pub(crate) name: String,
+    pub(crate) disambiguator: usize, // Nth same-named DefinitionStatement directly in `parent`
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub(crate) struct DefinitionKey {
+    pub(crate) parent: Box<ScopeId>,
+    pub(crate) segment: DefinitionKeySegment,
+}
+
+#[derive(Clone)]
+enum ScopeSyntax {
+    Block(Block),
+    Expr(Expression),
+}
+
+struct FoundDefinition {
+    segment: DefinitionKeySegment,
+    binding_id: DefinitionBindingId,
+}
+
+struct FoundBlock {
+    index: usize,
+}
+
+pub(crate) struct SemanticAnalyzer<'db> {
     ast: File,
-    ctx: &'ctx mut CompilerContext,
+    type_interner: TypeInterner,
     db: &'db dyn crate::Db,
     symbol_table: SymbolTable<'db>,
     hir: HirBuilder,
@@ -54,16 +91,12 @@ enum UnificationError {
     },
 }
 
-impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
-    pub(crate) fn new(
-        cst: Arc<GreenNode>,
-        ctx: &'ctx mut CompilerContext,
-        db: &'db dyn crate::Db,
-    ) -> Self {
+impl<'db> SemanticAnalyzer<'db> {
+    pub(crate) fn new(cst: Arc<GreenNode>, db: &'db dyn crate::Db) -> Self {
         Self {
             hir: HirBuilder::new(),
             ast: File::cast(RedNode::new(cst)).unwrap(),
-            ctx,
+            type_interner: TypeInterner::new(),
             db,
             symbol_table: SymbolTable::new(),
             substitutions: UnificationTable::new(),
@@ -76,57 +109,355 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
 
     pub(crate) fn seed_signatures(
         mut self,
-        signatures: &[(DefinitionKey, Ty, TextRange)],
-    ) -> (Self, Vec<(DefinitionKey, DefinitionBindingId)>) {
-        self.symbol_table.enter_scope(ScopeKind::Normal);
-        let binding_ids = signatures
-            .iter()
-            .map(|(key, ty, span)| {
-                let type_id = self.ctx.type_interner.intern(ty.clone());
-                let name = Symbol::new(self.db, key.name.clone());
-                let definition_binding_id = self.hir.add_definition_binding(
-                    name.text(self.db).to_string(),
-                    type_id,
-                    *span,
-                );
+        levels: &[Vec<(DefinitionKey, Ty, TextRange)>],
+        target_key: &DefinitionKey,
+    ) -> (Self, DefinitionBindingId) {
+        let mut own_binding_id = None;
+        for level in levels {
+            self.symbol_table.enter_scope(ScopeKind::Normal);
+            for (key, ty, span) in level {
+                let name = Symbol::new(self.db, key.segment.name.clone());
+                let type_id = self.type_interner.intern(ty.clone());
+                let definition_binding_id =
+                    self.hir
+                        .add_definition_binding(name.text(self.db).to_string(), type_id, *span);
                 let _ = self
                     .symbol_table
                     .add_binding(name, definition_binding_id.into());
-                (key.clone(), definition_binding_id)
-            })
-            .collect();
-        (self, binding_ids)
+                if key == target_key {
+                    own_binding_id = Some(definition_binding_id);
+                }
+            }
+        }
+        let own_binding_id =
+            own_binding_id.expect("target_key must appear in the last entry of `levels`");
+        (self, own_binding_id)
     }
 
-    /// Just the signature-collection phase (no bodies type-checked) -- cheap,
-    /// file-scoped, and shared by every `typecheck_one` call for this file.
-    /// The returned `SymbolTable`'s top-level scope is left open (never
-    /// exited) so `resume` + `typecheck_one` can pick it straight up. The
-    /// returned `Vec<(DefinitionKey, DefinitionBindingId)>` has one entry per
-    /// definition -- `DefinitionKey` identifies *which* one independent of its
-    /// name resolving correctly (two definitions can share a name), so
-    /// `typecheck_one` never has to rediscover "my own signature" through a
-    /// name lookup that could resolve to a same-named sibling instead.
     pub(crate) fn collect_signatures(
         mut self,
-    ) -> (
-        HirBuilder,
-        SymbolTable<'db>,
-        Vec<(DefinitionKey, DefinitionBindingId)>,
-        Vec<SemanticDiagnostic>,
-    ) {
+    ) -> (Vec<(DefinitionKey, Ty, TextRange)>, Vec<SemanticDiagnostic>) {
         self.symbol_table.enter_scope(ScopeKind::Normal);
         let binding_ids = self.collect_top_level_definitions();
-        (self.hir, self.symbol_table, binding_ids, self.diagnostics)
+        let signatures = binding_ids
+            .into_iter()
+            .map(|(key, binding_id)| {
+                let binding_view = self.hir.get_definition_binding(binding_id);
+                let ty = self
+                    .type_interner
+                    .resolve(binding_view.ty())
+                    .expect("just interned")
+                    .clone();
+                (key, ty, binding_view.text_range())
+            })
+            .collect();
+        (signatures, self.diagnostics)
     }
 
+    pub(crate) fn collect_scope_at(
+        mut self,
+        scope: &ScopeId,
+    ) -> (
+        Vec<(DefinitionKey, Ty, TextRange)>,
+        Vec<BlockId>,
+        Vec<SemanticDiagnostic>,
+    ) {
+        let syntax = self.locate_scope_syntax(scope);
+        let (found_definitions, found_blocks) = self.collect_scope(syntax);
+
+        let definitions = found_definitions
+            .into_iter()
+            .map(|found| {
+                let binding_view = self.hir.get_definition_binding(found.binding_id);
+                let ty = self
+                    .type_interner
+                    .resolve(binding_view.ty())
+                    .expect("just interned")
+                    .clone();
+                let span = binding_view.text_range();
+                let key = DefinitionKey {
+                    parent: Box::new(scope.clone()),
+                    segment: found.segment,
+                };
+                (key, ty, span)
+            })
+            .collect();
+
+        let blocks = found_blocks
+            .into_iter()
+            .map(|found| BlockId {
+                parent: Box::new(scope.clone()),
+                index: found.index,
+            })
+            .collect();
+
+        (definitions, blocks, self.diagnostics)
+    }
+
+    fn collect_scope(&mut self, syntax: ScopeSyntax) -> (Vec<FoundDefinition>, Vec<FoundBlock>) {
+        let (raw_definitions, raw_blocks) = Self::locate_direct_children(&syntax);
+
+        self.symbol_table.enter_scope(ScopeKind::Normal);
+        let mut seen_counts: HashMap<String, usize> = HashMap::new();
+        let definitions = raw_definitions
+            .into_iter()
+            .map(|def| {
+                let name = Self::definition_name(&def);
+                let disambiguator = *seen_counts
+                    .entry(name.clone())
+                    .and_modify(|count| *count += 1)
+                    .or_insert(0);
+                let binding_id = self.collect_definition(def, false);
+                FoundDefinition {
+                    segment: DefinitionKeySegment { name, disambiguator },
+                    binding_id,
+                }
+            })
+            .collect();
+        self.symbol_table.exit_scope();
+
+        let blocks = raw_blocks
+            .into_iter()
+            .enumerate()
+            .map(|(index, _block)| FoundBlock { index })
+            .collect();
+
+        (definitions, blocks)
+    }
+
+    fn definition_name(def: &Definition) -> String {
+        let name_token = match def {
+            Definition::FunctionDefinition(def) => def
+                .name()
+                .expect("parser guarantees a name on every well-formed FunctionDefinition"),
+            Definition::ConstantDefinition(def) => def
+                .name()
+                .expect("parser guarantees a name on every well-formed ConstantDefinition"),
+        };
+        name_token.lexeme().to_string()
+    }
+
+    fn collect_top_level_definitions(&mut self) -> Vec<(DefinitionKey, DefinitionBindingId)> {
+        let file = self.ast.clone();
+        let mut seen_counts: HashMap<String, usize> = HashMap::new();
+        file.definitions()
+            .map(|def| {
+                let name = Self::definition_name(&def);
+                let disambiguator = *seen_counts
+                    .entry(name.clone())
+                    .and_modify(|count| *count += 1)
+                    .or_insert(0);
+                let binding_id = self.collect_definition(def, true);
+                (
+                    DefinitionKey {
+                        parent: Box::new(ScopeId::File),
+                        segment: DefinitionKeySegment { name, disambiguator },
+                    },
+                    binding_id,
+                )
+            })
+            .collect()
+    }
+
+    fn locate_definition(&self, key: &DefinitionKey) -> Definition {
+        match &*key.parent {
+            ScopeId::File => {
+                let file = self.ast.clone();
+                let mut seen = 0;
+                for def in file.definitions() {
+                    if Self::definition_name(&def) == key.segment.name {
+                        if seen == key.segment.disambiguator {
+                            return def;
+                        }
+                        seen += 1;
+                    }
+                }
+                panic!("no definition in this file matches {key:?}");
+            }
+            parent => {
+                let parent_syntax = self.locate_scope_syntax(parent);
+                let (definitions, _blocks) = Self::locate_direct_children(&parent_syntax);
+                let mut seen = 0;
+                for def in definitions {
+                    if Self::definition_name(&def) == key.segment.name {
+                        if seen == key.segment.disambiguator {
+                            return def;
+                        }
+                        seen += 1;
+                    }
+                }
+                panic!("no definition in this file matches {key:?}");
+            }
+        }
+    }
+
+    fn locate_scope_syntax(&self, scope: &ScopeId) -> ScopeSyntax {
+        match scope {
+            ScopeId::File => unreachable!(
+                "ScopeId::File has no single ScopeSyntax -- top-level lookups go through \
+                 locate_definition's own File arm"
+            ),
+            ScopeId::Definition(key) => {
+                let def = self.locate_definition(key);
+                match def {
+                    Definition::FunctionDefinition(d) => ScopeSyntax::Block(d.body().expect(
+                        "parser guarantees a Block body on every well-formed FunctionDefinition \
+                         that owns a nested scope",
+                    )),
+                    Definition::ConstantDefinition(d) => ScopeSyntax::Expr(d.value().expect(
+                        "parser guarantees a value on every well-formed ConstantDefinition that \
+                         owns a nested scope",
+                    )),
+                }
+            }
+            ScopeId::Block(block_id) => {
+                let parent_syntax = self.locate_scope_syntax(&block_id.parent);
+                let (_definitions, blocks) = Self::locate_direct_children(&parent_syntax);
+                let block = blocks
+                    .into_iter()
+                    .nth(block_id.index)
+                    .unwrap_or_else(|| panic!("no block in this file matches {block_id:?}"));
+                ScopeSyntax::Block(block)
+            }
+        }
+    }
+
+    fn locate_direct_children(syntax: &ScopeSyntax) -> (Vec<Definition>, Vec<Block>) {
+        let mut definitions = Vec::new();
+        let mut blocks = Vec::new();
+        match syntax {
+            ScopeSyntax::Block(block) => {
+                for stmt in block.clone().statements() {
+                    Self::locate_in_statement(stmt, &mut definitions, &mut blocks);
+                }
+            }
+            ScopeSyntax::Expr(expr) => {
+                Self::locate_in_expr(expr, &mut definitions, &mut blocks);
+            }
+        }
+        (definitions, blocks)
+    }
+
+    fn locate_in_statement(
+        stmt: Statement,
+        definitions: &mut Vec<Definition>,
+        blocks: &mut Vec<Block>,
+    ) {
+        match stmt {
+            Statement::DefinitionStatement(dstmt) => {
+                if let Some(def) = dstmt.definition() {
+                    definitions.push(def);
+                }
+            }
+            Statement::ExpressionStatement(estmt) => {
+                if let Some(expr) = estmt.expression() {
+                    Self::locate_in_expr(&expr, definitions, blocks);
+                }
+            }
+            Statement::LetStatement(lstmt) => {
+                if let Some(value) = lstmt.value() {
+                    Self::locate_in_expr(&value, definitions, blocks);
+                }
+            }
+        }
+    }
+
+    fn locate_in_expr(expr: &Expression, definitions: &mut Vec<Definition>, blocks: &mut Vec<Block>) {
+        match expr.clone() {
+            Expression::Block(b) => blocks.push(b),
+            Expression::ParenthesizedExpression(e) => {
+                if let Some(inner) = e.expression() {
+                    Self::locate_in_expr(&inner, definitions, blocks);
+                }
+            }
+            Expression::UnaryOperation(e) => {
+                if let Some(o) = e.operand() {
+                    Self::locate_in_expr(&o, definitions, blocks);
+                }
+            }
+            Expression::BinaryOperation(e) => {
+                if let Some(l) = e.lhs() {
+                    Self::locate_in_expr(&l, definitions, blocks);
+                }
+                if let Some(r) = e.rhs() {
+                    Self::locate_in_expr(&r, definitions, blocks);
+                }
+            }
+            Expression::Assignment(e) => {
+                if let Some(t) = e.target() {
+                    Self::locate_in_expr(&t, definitions, blocks);
+                }
+                if let Some(v) = e.value() {
+                    Self::locate_in_expr(&v, definitions, blocks);
+                }
+            }
+            Expression::Call(e) => {
+                if let Some(callee) = e.callee() {
+                    Self::locate_in_expr(&callee, definitions, blocks);
+                }
+                if let Some(args) = e.arguments() {
+                    for arg in args.arguments() {
+                        if let Some(v) = arg.value() {
+                            Self::locate_in_expr(&v, definitions, blocks);
+                        }
+                    }
+                }
+            }
+            Expression::IfExpression(e) => {
+                if let Some(c) = e.condition() {
+                    Self::locate_in_expr(&c, definitions, blocks);
+                }
+                if let Some(then) = e.then_branch() {
+                    blocks.push(then);
+                }
+                match e.else_branch() {
+                    Some(ElseBranch::Block(b)) => blocks.push(b),
+                    Some(ElseBranch::IfExpression(nested)) => {
+                        Self::locate_in_expr(&Expression::IfExpression(nested), definitions, blocks);
+                    }
+                    None => {}
+                }
+            }
+            Expression::WhileLoop(e) => {
+                if let Some(c) = e.condition() {
+                    Self::locate_in_expr(&c, definitions, blocks);
+                }
+                if let Some(b) = e.body() {
+                    blocks.push(b);
+                }
+            }
+            Expression::InfiniteLoop(e) => {
+                if let Some(b) = e.body() {
+                    blocks.push(b);
+                }
+            }
+            Expression::Return(e) => {
+                if let Some(v) = e.value() {
+                    Self::locate_in_expr(&v, definitions, blocks);
+                }
+            }
+            Expression::Break(e) => {
+                if let Some(v) = e.value() {
+                    Self::locate_in_expr(&v, definitions, blocks);
+                }
+            }
+            Expression::Continue(_)
+            | Expression::Variable(_)
+            | Expression::IntegerLiteral(_)
+            | Expression::BooleanLiteral(_)
+            | Expression::UnitLiteral(_) => {}
+        }
+    }
+
+    /* OLD fused shape+type-check pass -- kept for reference while rewriting
+       per rust-analyzer's split (pure shape lowering, then a separate
+       unification pass over the already-built shape). See typecheck_one.
     pub(crate) fn typecheck_one(
         mut self,
         key: &DefinitionKey,
         own_binding_id: DefinitionBindingId,
-    ) -> (Hir, HirSourceMaps, Vec<SemanticDiagnostic>) {
-        let file = self.ast.clone();
-        let def = Self::find_definition_by_key(&file, key);
+    ) -> (Hir, HirSourceMaps, ResolvedTypes<'db>, Vec<SemanticDiagnostic>) {
+        let def = self.locate_definition(key);
         self.hir.set_anchor(def.text_range().start());
 
         let definition_id = match def {
@@ -143,55 +474,8 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         self.solve_constraints();
         self.substitute();
 
-        let (hir, source_maps) = self.hir.finish();
-        (hir, source_maps, self.diagnostics)
-    }
-
-    fn definition_name(def: &Definition) -> String {
-        let name_token = match def {
-            Definition::FunctionDefinition(def) => def
-                .name()
-                .expect("parser guarantees a name on every well-formed FunctionDefinition"),
-            Definition::ConstantDefinition(def) => def
-                .name()
-                .expect("parser guarantees a name on every well-formed ConstantDefinition"),
-        };
-        name_token.lexeme().to_string()
-    }
-
-    fn find_definition_by_key(file: &File, key: &DefinitionKey) -> Definition {
-        let mut seen = 0;
-        for def in file.definitions() {
-            if Self::definition_name(&def) == key.name {
-                if seen == key.disambiguator {
-                    return def;
-                }
-                seen += 1;
-            }
-        }
-        panic!("no definition in this file matches {key:?}");
-    }
-
-    fn collect_top_level_definitions(&mut self) -> Vec<(DefinitionKey, DefinitionBindingId)> {
-        let file = self.ast.clone();
-        let mut seen_counts: HashMap<String, usize> = HashMap::new();
-        file.definitions()
-            .map(|def| {
-                let name = Self::definition_name(&def);
-                let disambiguator = *seen_counts
-                    .entry(name.clone())
-                    .and_modify(|count| *count += 1)
-                    .or_insert(0);
-                let binding_id = self.collect_definition(def);
-                (
-                    DefinitionKey {
-                        name,
-                        disambiguator,
-                    },
-                    binding_id,
-                )
-            })
-            .collect()
+        let (hir, source_maps, resolved_types) = self.hir.finish(self.db, &self.type_interner);
+        (hir, source_maps, resolved_types, self.diagnostics)
     }
 
     fn solve_constraints(&mut self) {
@@ -208,8 +492,8 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             {
                 let e_resolved = self.shallow_resolve(e);
                 let a_resolved = self.shallow_resolve(a);
-                let e_str = self.ctx.type_interner.to_string(e_resolved);
-                let a_str = self.ctx.type_interner.to_string(a_resolved);
+                let e_str = self.type_interner.to_string(e_resolved);
+                let a_str = self.type_interner.to_string(a_resolved);
                 let diagnostic = match provenance {
                     Provenance::TypeMismatch { span } => SemanticDiagnostic::TypeMismatch {
                         expected: e_str,
@@ -285,37 +569,23 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
 
     fn substitute(&mut self) {
         // unresolved IntVar defaults to i32, unresolved TyVar becomes error
-        let tys: Vec<_> = self
-            .hir
-            .hir
-            .body
-            .expressions
-            .values()
-            .map(|expression| expression.ty)
-            .collect();
+        let tys: Vec<_> = self.hir.local_types.expression_types.clone();
         let tys: Vec<_> = tys.iter().map(|&ty| self.shallow_resolve(ty)).collect();
-        for (expression, ty) in self.hir.hir.body.expressions.values_mut().zip(tys) {
-            expression.ty = match self.ctx.type_interner.resolve(ty).unwrap() {
-                Ty::Infer(InferTy::IntVar(_)) => self.ctx.type_interner.i32_id,
-                Ty::Infer(InferTy::TyVar(_)) => self.ctx.type_interner.error_id,
+        for (slot, ty) in self.hir.local_types.expression_types.iter_mut().zip(tys) {
+            *slot = match self.type_interner.resolve(ty).unwrap() {
+                Ty::Infer(InferTy::IntVar(_)) => self.type_interner.i32_id,
+                Ty::Infer(InferTy::TyVar(_)) => self.type_interner.error_id,
                 _ => ty,
             };
         }
 
         // same for local bindings
-        let tys: Vec<_> = self
-            .hir
-            .hir
-            .body
-            .local_bindings
-            .values()
-            .map(|b| b.ty)
-            .collect();
+        let tys: Vec<_> = self.hir.local_types.local_binding_types.clone();
         let tys: Vec<_> = tys.iter().map(|&ty| self.shallow_resolve(ty)).collect();
-        for (binding, ty) in self.hir.hir.body.local_bindings.values_mut().zip(tys) {
-            binding.ty = match self.ctx.type_interner.resolve(ty).unwrap() {
-                Ty::Infer(InferTy::IntVar(_)) => self.ctx.type_interner.i32_id,
-                Ty::Infer(InferTy::TyVar(_)) => self.ctx.type_interner.error_id,
+        for (slot, ty) in self.hir.local_types.local_binding_types.iter_mut().zip(tys) {
+            *slot = match self.type_interner.resolve(ty).unwrap() {
+                Ty::Infer(InferTy::IntVar(_)) => self.type_interner.i32_id,
+                Ty::Infer(InferTy::TyVar(_)) => self.type_interner.error_id,
                 _ => ty,
             };
         }
@@ -334,8 +604,9 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         };
         (statements, tail)
     }
+    */
 
-    fn collect_definition(&mut self, def: Definition) -> DefinitionBindingId {
+    fn collect_definition(&mut self, def: Definition, diagnose: bool) -> DefinitionBindingId {
         match def {
             Definition::FunctionDefinition(def) => {
                 let params: Vec<Parameter> = def
@@ -355,7 +626,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
 
                 let return_ty = def
                     .return_type()
-                    .map_or(self.ctx.type_interner.unit_id, |annotation| {
+                    .map_or(self.type_interner.unit_id, |annotation| {
                         self.resolve_type_annotation(annotation)
                     });
 
@@ -370,7 +641,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
 
                 let definition_binding_id = self.hir.add_definition_binding(
                     name.text(self.db).to_string(),
-                    self.ctx.type_interner.intern(Ty::Function {
+                    self.type_interner.intern(Ty::Function {
                         parameter_type_ids: parameters_ty,
                         return_type_id: return_ty,
                     }),
@@ -380,15 +651,17 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     .symbol_table
                     .add_binding(name, definition_binding_id.into())
                 {
-                    self.diagnostics
-                        .push(SemanticDiagnostic::DuplicateDefinition {
-                            name: name.text(self.db).to_string(),
-                            span,
-                            previous_span: self
-                                .hir
-                                .get_definition_binding(previous_binding_id.as_definition().unwrap())
-                                .text_range(),
-                        });
+                    if diagnose {
+                        self.diagnostics
+                            .push(SemanticDiagnostic::DuplicateDefinition {
+                                name: name.text(self.db).to_string(),
+                                span,
+                                previous_span: self
+                                    .hir
+                                    .get_definition_binding(previous_binding_id.as_definition().unwrap())
+                                    .text_range(),
+                            });
+                    }
                 }
                 definition_binding_id
             }
@@ -413,21 +686,43 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     .symbol_table
                     .add_binding(name, definition_binding_id.into())
                 {
-                    self.diagnostics
-                        .push(SemanticDiagnostic::DuplicateDefinition {
-                            name: name.text(self.db).to_string(),
-                            span,
-                            previous_span: self
-                                .hir
-                                .get_definition_binding(previous_binding_id.as_definition().unwrap())
-                                .text_range(),
-                        });
+                    if diagnose {
+                        self.diagnostics
+                            .push(SemanticDiagnostic::DuplicateDefinition {
+                                name: name.text(self.db).to_string(),
+                                span,
+                                previous_span: self
+                                    .hir
+                                    .get_definition_binding(previous_binding_id.as_definition().unwrap())
+                                    .text_range(),
+                            });
+                    }
                 }
                 definition_binding_id
             }
         }
     }
 
+    // Still live: shared by `collect_definition` (kept, above) for
+    // resolving a signature's type-annotation syntax into a `TypeId` --
+    // not part of the fused body typecheck pass being rewritten below.
+    fn resolve_type_annotation(&mut self, type_expr: TypeExpression) -> TypeId {
+        let name = type_expr
+            .name()
+            .expect("parser guarantees an Identifier on every well-formed Type");
+        let symbol = Symbol::new(self.db, name.lexeme().to_string());
+        if let Some(ty) = self.type_interner.builtin_type_id(symbol, self.db) {
+            return ty;
+        }
+        // TODO: try resolve user-defined types here
+        self.diagnostics.push(SemanticDiagnostic::UnknownType {
+            name: symbol.text(self.db).to_string(),
+            span: name.text_range(),
+        });
+        self.type_interner.error_id
+    }
+
+    /* OLD fused pass, continued -- see the comment above typecheck_one.
     fn typecheck_function_definition(
         &mut self,
         def: FunctionDefinition,
@@ -435,7 +730,6 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
     ) -> DefinitionId {
         let func_ty = self.hir.get_definition_binding(binding_id).ty();
         let (parameter_tys, return_ty) = self
-            .ctx
             .type_interner
             .as_func(func_ty)
             .map(|(params, ret)| (params.to_vec(), ret))
@@ -494,7 +788,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             Some(body) => self.analyze_block(body, Some(return_ty)),
             None => self.hir.add_expression(
                 ExpressionKind::Missing,
-                self.ctx.type_interner.error_id,
+                self.type_interner.error_id,
                 def.text_range(),
             ),
         };
@@ -545,15 +839,6 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         expression_id
     }
 
-    /// Returns one `DefinitionBindingId` per `Statement::DefinitionStatement`
-    /// directly in this block, in the order `block.statements()` encounters
-    /// them -- consumed by `typecheck_statement`'s second pass over the same
-    /// statements, in the same order, so each nested definition gets *its
-    /// own* binding id back rather than re-deriving it by name (see
-    /// `typecheck_one`'s doc comment for why that's wrong when names
-    /// collide). No cross-call stability is needed here, unlike
-    /// `DefinitionKey` for top-level definitions: both passes happen inside
-    /// one `analyze_block` call, never across a salsa query boundary.
     fn collect_block_statements(&mut self, block: Block) -> Vec<DefinitionBindingId> {
         let stmts: Vec<Statement> = block.statements().collect();
         stmts
@@ -565,7 +850,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 let def = stmt.definition().expect(
                     "parser guarantees a Definition on every well-formed DefinitionStatement",
                 );
-                Some(self.collect_definition(def))
+                Some(self.collect_definition(def, true))
             })
             .collect()
     }
@@ -598,17 +883,17 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 )
             }
             (None, _) if self.last_statement_diverges(&statement_ids) => {
-                (None, self.ctx.type_interner.bottom_id)
+                (None, self.type_interner.bottom_id)
             }
             (None, Some(expected)) => {
                 self.constrain(Constraint::Equality {
                     expected_id: expected,
-                    actual_id: self.ctx.type_interner.unit_id,
+                    actual_id: self.type_interner.unit_id,
                     provenance: Provenance::BlockMissingTail { span: block_span },
                 });
-                (None, self.ctx.type_interner.unit_id)
+                (None, self.type_interner.unit_id)
             }
-            (None, None) => (None, self.ctx.type_interner.unit_id),
+            (None, None) => (None, self.type_interner.unit_id),
         };
 
         self.hir.add_expression(
@@ -634,7 +919,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             StatementKind::Let { value_id: None, .. } => return false,
             StatementKind::Definition { .. } => return false,
         };
-        self.hir.get_expression(expression_id).ty() == self.ctx.type_interner.bottom_id
+        self.hir.get_expression(expression_id).ty() == self.type_interner.bottom_id
     }
 
     fn typecheck_statement(
@@ -658,24 +943,22 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 )
             }
             Statement::DefinitionStatement(stmt) => {
-                let def = stmt.definition().expect(
-                    "parser guarantees a Definition on every well-formed DefinitionStatement",
-                );
-                let own_binding_id = nested_binding_ids.next().expect(
+                // Doesn't lower the nested definition's body at all -- it
+                // has its own independent DefinitionKey/BlockId identity
+                // now (see ScopeId) and gets its own Body via its own
+                // body_hir_of call when something actually needs it. Just
+                // reference the binding registered by collect_block_statements.
+                let definition_binding_id = nested_binding_ids.next().expect(
                     "collect_block_statements produced one binding id per \
                      DefinitionStatement, in the same order typecheck_statement \
                      encounters them",
                 );
-                let definition_id = match def {
-                    Definition::FunctionDefinition(def) => {
-                        self.typecheck_function_definition(def, own_binding_id)
-                    }
-                    Definition::ConstantDefinition(def) => {
-                        self.typecheck_constant_definition(def, own_binding_id)
-                    }
-                };
-                self.hir
-                    .add_statement(StatementKind::Definition { definition_id }, stmt.text_range())
+                self.hir.add_statement(
+                    StatementKind::Definition {
+                        definition_binding_id,
+                    },
+                    stmt.text_range(),
+                )
             }
             Statement::LetStatement(stmt) => {
                 let annotated_ty = stmt
@@ -694,7 +977,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     (None, None) => {
                         self.diagnostics
                             .push(SemanticDiagnostic::LetMissingTypeOrValue { span: stmt.text_range() });
-                        (None, self.ctx.type_interner.error_id)
+                        (None, self.type_interner.error_id)
                     }
                 };
 
@@ -768,7 +1051,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
     }
 
     fn check(&mut self, expr: Expression, ty: TypeId) -> ExpressionId {
-        match (expr.clone(), self.ctx.type_interner.resolve(ty).unwrap()) {
+        match (expr.clone(), self.type_interner.resolve(ty).unwrap()) {
             (Expression::IntegerLiteral(int), Ty::Signed(_) | Ty::Unsigned(_)) => {
                 match self.integer_literal_value(int.clone()) {
                     Some(value) => {
@@ -777,7 +1060,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     }
                     None => self.hir.add_expression(
                         ExpressionKind::Integer(0),
-                        self.ctx.type_interner.error_id,
+                        self.type_interner.error_id,
                         int.text_range(),
                     ),
                 }
@@ -849,25 +1132,17 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         }
     }
 
-    /// Infers an expression position that the grammar can legitimately leave
-    /// empty under recovery -- `nud()`'s fallback records a diagnostic and
-    /// produces no node at all, rather than a `NodeKind::Error` placeholder,
-    /// so the various `Option<Expression>` accessors can genuinely come back empty
-    /// here. Falls back to a `Missing`, error-typed expression instead of
-    /// panicking.
     fn expect_expr(&mut self, expr: Option<Expression>, fallback_span: TextRange) -> ExpressionId {
         match expr {
             Some(expr) => self.infer(expr),
             None => self.hir.add_expression(
                 ExpressionKind::Missing,
-                self.ctx.type_interner.error_id,
+                self.type_interner.error_id,
                 fallback_span,
             ),
         }
     }
 
-    /// `expect_expr`'s counterpart for a position checked against an
-    /// expected type rather than inferred.
     fn expect_expr_checked(
         &mut self,
         expr: Option<Expression>,
@@ -878,7 +1153,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             Some(expr) => self.check(expr, ty),
             None => self.hir.add_expression(
                 ExpressionKind::Missing,
-                self.ctx.type_interner.error_id,
+                self.type_interner.error_id,
                 fallback_span,
             ),
         }
@@ -888,7 +1163,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         match expr {
             Expression::UnitLiteral(e) => self.hir.add_expression(
                 ExpressionKind::Unit,
-                self.ctx.type_interner.unit_id,
+                self.type_interner.unit_id,
                 e.text_range(),
             ),
             Expression::BooleanLiteral(e) => {
@@ -897,7 +1172,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     .expect("parser guarantees a True or False token on every well-formed BooleanLiteral");
                 self.hir.add_expression(
                     ExpressionKind::Boolean(value),
-                    self.ctx.type_interner.bool_id,
+                    self.type_interner.bool_id,
                     e.text_range(),
                 )
             }
@@ -909,7 +1184,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 }
                 None => self.hir.add_expression(
                     ExpressionKind::Integer(0),
-                    self.ctx.type_interner.error_id,
+                    self.type_interner.error_id,
                     e.text_range(),
                 ),
             },
@@ -944,7 +1219,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     .push(SemanticDiagnostic::NonConstantValue { span });
                 return self.hir.add_expression(
                     ExpressionKind::Variable(BindingId::ERROR),
-                    self.ctx.type_interner.error_id,
+                    self.type_interner.error_id,
                     span,
                 );
             }
@@ -953,7 +1228,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     .push(SemanticDiagnostic::CaptureInFunction { span });
                 return self.hir.add_expression(
                     ExpressionKind::Variable(BindingId::ERROR),
-                    self.ctx.type_interner.error_id,
+                    self.type_interner.error_id,
                     span,
                 );
             }
@@ -965,7 +1240,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 });
                 return self.hir.add_expression(
                     ExpressionKind::Variable(BindingId::ERROR),
-                    self.ctx.type_interner.error_id,
+                    self.type_interner.error_id,
                     span,
                 );
             }
@@ -998,14 +1273,14 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         let ty = match operator {
             UnOp::Not => {
                 self.constrain(Constraint::Equality {
-                    expected_id: self.ctx.type_interner.bool_id,
+                    expected_id: self.type_interner.bool_id,
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::UnaryOperandMismatch {
                         operator: operator.to_string(),
                         span: self.hir.get_expression(rhs_id).text_range(),
                     },
                 });
-                self.ctx.type_interner.bool_id
+                self.type_interner.bool_id
             }
             UnOp::Neg => {
                 let int_ty = self.fresh_int_var();
@@ -1077,24 +1352,24 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                         span: self.hir.get_expression(lhs_id).text_range(),
                     },
                 });
-                self.ctx.type_interner.bool_id
+                self.type_interner.bool_id
             }
             BinOp::And | BinOp::Or => {
                 self.constrain(Constraint::Equality {
-                    expected_id: self.ctx.type_interner.bool_id,
+                    expected_id: self.type_interner.bool_id,
                     actual_id: self.hir.get_expression(lhs_id).ty(),
                     provenance: Provenance::BinaryOperandNotBool {
                         span: self.hir.get_expression(lhs_id).text_range(),
                     },
                 });
                 self.constrain(Constraint::Equality {
-                    expected_id: self.ctx.type_interner.bool_id,
+                    expected_id: self.type_interner.bool_id,
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::BinaryOperandNotBool {
                         span: self.hir.get_expression(rhs_id).text_range(),
                     },
                 });
-                self.ctx.type_interner.bool_id
+                self.type_interner.bool_id
             }
             BinOp::Eq | BinOp::Ne => {
                 self.constrain(Constraint::Equality {
@@ -1105,7 +1380,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                         rhs_span: self.hir.get_expression(rhs_id).text_range(),
                     },
                 });
-                self.ctx.type_interner.bool_id
+                self.type_interner.bool_id
             }
         };
 
@@ -1149,7 +1424,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             }
         };
 
-        let value_id = if target_is_error || target_view.ty() == self.ctx.type_interner.error_id {
+        let value_id = if target_is_error || target_view.ty() == self.type_interner.error_id {
             self.expect_expr(value, assign.text_range())
         } else {
             self.expect_expr_checked(value, target_view.ty(), assign.text_range())
@@ -1160,7 +1435,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 target_id,
                 value_id,
             },
-            self.ctx.type_interner.unit_id,
+            self.type_interner.unit_id,
             assign.text_range(),
         )
     }
@@ -1183,7 +1458,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         let callee_id = self.infer(callee);
         let callee_view = self.hir.get_expression(callee_id);
 
-        if callee_view.ty() == self.ctx.type_interner.error_id {
+        if callee_view.ty() == self.type_interner.error_id {
             for argument in arguments.iter().cloned() {
                 self.infer(argument); // surface errors inside arguments
             }
@@ -1192,7 +1467,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     callee_id,
                     argument_id_span: ExpressionIdSpan { start: 0, len: 0 },
                 },
-                self.ctx.type_interner.error_id,
+                self.type_interner.error_id,
                 call.text_range(),
             );
         }
@@ -1200,10 +1475,10 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         let Ty::Function {
             parameter_type_ids: parameters,
             return_type_id: ret,
-        } = self.ctx.type_interner.resolve(callee_view.ty()).unwrap()
+        } = self.type_interner.resolve(callee_view.ty()).unwrap()
         else {
             self.diagnostics.push(SemanticDiagnostic::NotCallable {
-                found: self.ctx.type_interner.to_string(callee_view.ty()),
+                found: self.type_interner.to_string(callee_view.ty()),
                 callee_span: callee_view.text_range(),
                 call_span: call.text_range(),
             });
@@ -1215,7 +1490,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     callee_id,
                     argument_id_span: ExpressionIdSpan { start: 0, len: 0 },
                 },
-                self.ctx.type_interner.error_id,
+                self.type_interner.error_id,
                 call.text_range(),
             );
         };
@@ -1248,7 +1523,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         let argument_id_span = self.hir.add_expression_ids(&argument_ids);
 
         let ty = if arguments.len() != parameter_tys.len() {
-            self.ctx.type_interner.error_id
+            self.type_interner.error_id
         } else {
             return_ty
         };
@@ -1273,7 +1548,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 .push(SemanticDiagnostic::ReturnOutsideFunction { span });
             return self.hir.add_expression(
                 ExpressionKind::Return { value_id },
-                self.ctx.type_interner.error_id,
+                self.type_interner.error_id,
                 span,
             );
         }
@@ -1285,7 +1560,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             None => {
                 self.constrain(Constraint::Equality {
                     expected_id: return_ty,
-                    actual_id: self.ctx.type_interner.unit_id,
+                    actual_id: self.type_interner.unit_id,
                     provenance: Provenance::ReturnMissingValue { span },
                 });
                 None
@@ -1294,7 +1569,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
 
         self.hir.add_expression(
             ExpressionKind::Return { value_id },
-            self.ctx.type_interner.bottom_id,
+            self.type_interner.bottom_id,
             span,
         )
     }
@@ -1302,7 +1577,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
     fn typecheck_if_expression(&mut self, if_expression: IfExpression) -> ExpressionId {
         let condition_id = self.expect_expr_checked(
             if_expression.condition(),
-            self.ctx.type_interner.bool_id,
+            self.type_interner.bool_id,
             if_expression.text_range(),
         );
         let then_branch = if_expression.then_branch();
@@ -1315,7 +1590,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             Some(then_branch) => self.analyze_block(then_branch, None),
             None => self.hir.add_expression(
                 ExpressionKind::Missing,
-                self.ctx.type_interner.error_id,
+                self.type_interner.error_id,
                 if_expression.text_range(),
             ),
         };
@@ -1339,12 +1614,12 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             None => {
                 self.constrain(Constraint::Equality {
                     expected_id: self.hir.get_expression(then_branch_id).ty(),
-                    actual_id: self.ctx.type_interner.unit_id,
+                    actual_id: self.type_interner.unit_id,
                     provenance: Provenance::IfWithoutElse {
                         span: self.hir.get_expression(then_branch_id).text_range(),
                     },
                 });
-                (None, self.ctx.type_interner.unit_id)
+                (None, self.type_interner.unit_id)
             }
         };
 
@@ -1369,12 +1644,12 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         // placeholder rather than allocating a fresh, unused type variable.
         self.loop_frames.push(LoopFrame {
             source: LoopSource::While,
-            result_ty: self.ctx.type_interner.unit_id,
+            result_ty: self.type_interner.unit_id,
             has_break: false,
         });
 
         let condition_id =
-            self.expect_expr_checked(condition, self.ctx.type_interner.bool_id, while_expr.text_range());
+            self.expect_expr_checked(condition, self.type_interner.bool_id, while_expr.text_range());
         let condition_span = self.hir.get_expression(condition_id).text_range();
 
         // `if not condition { break; }`
@@ -1383,12 +1658,12 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 operator: UnOp::Not,
                 operand_id: condition_id,
             },
-            self.ctx.type_interner.bool_id,
+            self.type_interner.bool_id,
             condition_span,
         );
         let break_id = self.hir.add_expression(
             ExpressionKind::Break { value_id: None },
-            self.ctx.type_interner.bottom_id,
+            self.type_interner.bottom_id,
             condition_span,
         );
         let guard_id = self.hir.add_expression(
@@ -1397,7 +1672,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 then_branch_id: break_id,
                 else_branch_id: None,
             },
-            self.ctx.type_interner.unit_id,
+            self.type_interner.unit_id,
             condition_span,
         );
         let guard_statement_id = self.hir.add_statement(
@@ -1413,7 +1688,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             Some(body) => self.analyze_block(body, None),
             None => self.hir.add_expression(
                 ExpressionKind::Missing,
-                self.ctx.type_interner.error_id,
+                self.type_interner.error_id,
                 while_expr.text_range(),
             ),
         };
@@ -1433,7 +1708,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
 
         self.constrain(Constraint::Equality {
             expected_id: self.hir.get_expression(body_id).ty(),
-            actual_id: self.ctx.type_interner.unit_id,
+            actual_id: self.type_interner.unit_id,
             provenance: Provenance::LoopBodyNotUnit {
                 source: LoopSource::While,
                 span: body_span,
@@ -1445,7 +1720,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 body_id,
                 source: LoopSource::While,
             },
-            self.ctx.type_interner.unit_id,
+            self.type_interner.unit_id,
             while_expr.text_range(),
         )
     }
@@ -1464,7 +1739,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             Some(body) => self.analyze_block(body, None),
             None => self.hir.add_expression(
                 ExpressionKind::Missing,
-                self.ctx.type_interner.error_id,
+                self.type_interner.error_id,
                 loop_expr.text_range(),
             ),
         };
@@ -1476,7 +1751,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
 
         self.constrain(Constraint::Equality {
             expected_id: self.hir.get_expression(body_id).ty(),
-            actual_id: self.ctx.type_interner.unit_id,
+            actual_id: self.type_interner.unit_id,
             provenance: Provenance::LoopBodyNotUnit {
                 source: LoopSource::Loop,
                 span: self.hir.get_expression(body_id).text_range(),
@@ -1486,7 +1761,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         let ty = if frame.has_break {
             result_ty
         } else {
-            self.ctx.type_interner.bottom_id
+            self.type_interner.bottom_id
         };
 
         self.hir.add_expression(
@@ -1512,7 +1787,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 .push(SemanticDiagnostic::BreakOutsideLoop { span });
             return self.hir.add_expression(
                 ExpressionKind::Break { value_id },
-                self.ctx.type_interner.error_id,
+                self.type_interner.error_id,
                 span,
             );
         };
@@ -1530,7 +1805,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                     .push(SemanticDiagnostic::BreakWithValueFromWhile { span });
                 return self.hir.add_expression(
                     ExpressionKind::Break { value_id: None },
-                    self.ctx.type_interner.bottom_id,
+                    self.type_interner.bottom_id,
                     span,
                 );
             }
@@ -1538,7 +1813,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             (None, _) => {
                 self.constrain(Constraint::Equality {
                     expected_id: result_ty,
-                    actual_id: self.ctx.type_interner.unit_id,
+                    actual_id: self.type_interner.unit_id,
                     provenance: Provenance::TypeMismatch { span },
                 });
                 None
@@ -1547,7 +1822,7 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
 
         self.hir.add_expression(
             ExpressionKind::Break { value_id },
-            self.ctx.type_interner.bottom_id,
+            self.type_interner.bottom_id,
             span,
         )
     }
@@ -1557,28 +1832,12 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         let ty = if self.loop_frames.is_empty() {
             self.diagnostics
                 .push(SemanticDiagnostic::ContinueOutsideLoop { span });
-            self.ctx.type_interner.error_id
+            self.type_interner.error_id
         } else {
-            self.ctx.type_interner.bottom_id
+            self.type_interner.bottom_id
         };
 
         self.hir.add_expression(ExpressionKind::Continue, ty, span)
-    }
-
-    fn resolve_type_annotation(&mut self, type_expr: TypeExpression) -> TypeId {
-        let name = type_expr
-            .name()
-            .expect("parser guarantees an Identifier on every well-formed Type");
-        let symbol = Symbol::new(self.db, name.lexeme().to_string());
-        if let Some(ty) = self.ctx.type_interner.builtin_type_id(symbol, self.db) {
-            return ty;
-        }
-        // TODO: try resolve user-defined types here
-        self.diagnostics.push(SemanticDiagnostic::UnknownType {
-            name: symbol.text(self.db).to_string(),
-            span: name.text_range(),
-        });
-        self.ctx.type_interner.error_id
     }
 
     fn constrain(&mut self, constraint: Constraint) {
@@ -1588,8 +1847,8 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
             ..
         } = &constraint;
         // don't constrain error types, but poison silently
-        if *expected_id == self.ctx.type_interner.error_id
-            || *actual_id == self.ctx.type_interner.error_id
+        if *expected_id == self.type_interner.error_id
+            || *actual_id == self.type_interner.error_id
         {
             return;
         }
@@ -1597,13 +1856,12 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
     }
 
     fn shallow_resolve(&mut self, ty: TypeId) -> TypeId {
-        match self.ctx.type_interner.resolve(ty).unwrap() {
+        match self.type_interner.resolve(ty).unwrap() {
             Ty::Infer(InferTy::TyVar(vid)) => {
                 let root = self.substitutions.find_type_var(*vid);
                 match self.substitutions.get_concrete_type_var(root) {
                     Some(concrete) => self.shallow_resolve(concrete),
                     None => self
-                        .ctx
                         .type_interner
                         .intern(Ty::Infer(InferTy::TyVar(root))),
                 }
@@ -1613,7 +1871,6 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
                 match self.substitutions.get_concrete_int_var(root) {
                     Some(concrete) => self.shallow_resolve(concrete),
                     None => self
-                        .ctx
                         .type_interner
                         .intern(Ty::Infer(InferTy::IntVar(root))),
                 }
@@ -1640,15 +1897,15 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
         // `Bottom` needs to short-circuit compatibility from either side,
         // mirroring how the `TyVar` arms below are already handled in both
         // orders rather than just one.
-        if expected == self.ctx.type_interner.bottom_id
-            || actual == self.ctx.type_interner.bottom_id
+        if expected == self.type_interner.bottom_id
+            || actual == self.type_interner.bottom_id
         {
             return Ok(());
         }
 
         match (
-            self.ctx.type_interner.resolve(expected).unwrap(),
-            self.ctx.type_interner.resolve(actual).unwrap(),
+            self.type_interner.resolve(expected).unwrap(),
+            self.type_interner.resolve(actual).unwrap(),
         ) {
             (Ty::Infer(InferTy::TyVar(vid1)), Ty::Infer(InferTy::TyVar(vid2))) => {
                 self.substitutions.union_type_vars(*vid1, *vid2);
@@ -1683,15 +1940,16 @@ impl<'ctx, 'db> SemanticAnalyzer<'ctx, 'db> {
 
     fn fresh_ty_var(&mut self) -> TypeId {
         let vid = self.substitutions.make_type_var_set();
-        self.ctx
-            .type_interner
+        self.type_interner
             .intern(Ty::Infer(InferTy::TyVar(vid)))
     }
 
     fn fresh_int_var(&mut self) -> TypeId {
         let vid = self.substitutions.make_int_var_set();
-        self.ctx
-            .type_interner
+        self.type_interner
             .intern(Ty::Infer(InferTy::IntVar(vid)))
     }
+    */
 }
+*/
+*/

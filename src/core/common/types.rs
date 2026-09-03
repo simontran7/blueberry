@@ -1,3 +1,6 @@
+/* Old Ty/TypeInterner design -- being redesigned from scratch alongside
+   the new HIR. Kept here for reference during the rewrite. */
+/*
 use std::collections::HashMap;
 
 use crate::core::common::symbol::Symbol;
@@ -36,7 +39,7 @@ pub(crate) enum InferTy {
     IntVar(IntVarId),
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct TypeInterner {
     types: Vec<Ty>,
     handles: HashMap<Ty, TypeId>,
@@ -153,3 +156,83 @@ impl TypeInterner {
         }
     }
 }
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
+pub(crate) enum ResolvedTy<'db> {
+    Unit,
+    Bottom,
+    Bool,
+    Signed(SignedIntTy),
+    Unsigned(UnsignedIntTy),
+    Function {
+        parameters: Vec<ResolvedTypeId<'db>>,
+        return_type: ResolvedTypeId<'db>,
+    },
+    Error,
+}
+
+#[salsa::interned(debug)]
+pub(crate) struct ResolvedTypeId<'db> {
+    pub(crate) ty: ResolvedTy<'db>,
+}
+
+impl<'db> ResolvedTypeId<'db> {
+    pub(crate) fn to_display_string(self, db: &'db dyn crate::Db) -> String {
+        match self.ty(db) {
+            ResolvedTy::Unit => "()".to_string(),
+            ResolvedTy::Bottom => "Bottom".to_string(),
+            ResolvedTy::Bool => "Bool".to_string(),
+            ResolvedTy::Signed(SignedIntTy::I32) => "I32".to_string(),
+            ResolvedTy::Signed(SignedIntTy::I64) => "I64".to_string(),
+            ResolvedTy::Unsigned(UnsignedIntTy::U32) => "U32".to_string(),
+            ResolvedTy::Unsigned(UnsignedIntTy::U64) => "U64".to_string(),
+            ResolvedTy::Function {
+                parameters,
+                return_type,
+            } => {
+                let parameters: Vec<String> = parameters
+                    .iter()
+                    .map(|parameter| parameter.to_display_string(db))
+                    .collect();
+                format!(
+                    "({}) -> {}",
+                    parameters.join(", "),
+                    return_type.to_display_string(db)
+                )
+            }
+            ResolvedTy::Error => "Error".to_string(),
+        }
+    }
+}
+
+pub(crate) fn resolve_ty<'db>(
+    db: &'db dyn crate::Db,
+    interner: &TypeInterner,
+    type_id: TypeId,
+) -> ResolvedTypeId<'db> {
+    let resolved = match interner.resolve(type_id).unwrap() {
+        Ty::Unit => ResolvedTy::Unit,
+        Ty::Bottom => ResolvedTy::Bottom,
+        Ty::Bool => ResolvedTy::Bool,
+        Ty::Signed(s) => ResolvedTy::Signed(*s),
+        Ty::Unsigned(u) => ResolvedTy::Unsigned(*u),
+        Ty::Function {
+            parameter_type_ids,
+            return_type_id,
+        } => ResolvedTy::Function {
+            parameters: parameter_type_ids
+                .iter()
+                .map(|&id| resolve_ty(db, interner, id))
+                .collect(),
+            return_type: resolve_ty(db, interner, *return_type_id),
+        },
+        Ty::Error => ResolvedTy::Error,
+        Ty::Infer(_) => unreachable!(
+            "`resolve_ty()` called on an unresolved TypeId. The caller must shallow-resolve and default first"
+        ),
+    };
+    ResolvedTypeId::new(db, resolved)
+}
+
+
+*/

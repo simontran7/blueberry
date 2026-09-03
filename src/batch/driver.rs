@@ -7,11 +7,9 @@ use crate::batch::arg_parser::EmitKind;
 use crate::batch::diagnostic_render::render_diagnostic;
 use crate::core::common::diagnostic::DiagnosticAccumulator;
 use crate::core::db::BlueberryDatabase;
-use crate::core::file_scanning::SourceFile;
+use crate::core::source_file::SourceFile;
 use crate::core::lexical_analysis::token_stream_dumper::TokenDumper;
 use crate::core::lexical_analysis::tokens_of;
-use crate::core::semantic_analysis::hir_dumper::HirDumper;
-use crate::core::semantic_analysis::{body_hir_of, definition_keys_of, hir_of};
 use crate::core::syntactic_analysis::cst_dumper::CstDumper;
 use crate::core::syntactic_analysis::cst_of;
 
@@ -71,21 +69,9 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     }
 
     // ---- Stage 3: Semantic Analysis ----
-    hir_of(&db, file);
-    let semantic_diagnostics = hir_of::accumulated::<DiagnosticAccumulator>(&db, file);
-    if !semantic_diagnostics.is_empty() {
-        for semantic_diagnostic in semantic_diagnostics {
-            render_diagnostic(&semantic_diagnostic.0, &file_stem, file.contents(&db));
-        }
-        return;
-    }
-    if emit.contains(&EmitKind::Hir) {
-        for key in definition_keys_of(&db, file) {
-            let (hir, _, ctx) = body_hir_of(&db, file, key.clone());
-            let dumper = HirDumper::new(hir, ctx);
-            println!("{}", dumper.dump().unwrap());
-        }
-    }
+    // TODO: semantic analysis is being rebuilt from scratch to mirror
+    // rust-analyzer's HIR split (see semantic_analysis.rs/semantic_analyzer.rs/
+    // hir_dumper.rs, all commented out pending the rewrite).
 
     // print compile time
     println!(

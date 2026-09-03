@@ -1,3 +1,6 @@
+/* Being redesigned from scratch alongside the new HIR -- kept here for
+   reference during the rewrite. */
+/*
 use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
 use crate::core::common::text_size::TextRange;
 use crate::core::semantic_analysis::hir::LoopSource;
@@ -134,7 +137,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0201",
                 message: "mismatched types".to_string(),
-                anchor: *span,
+                span: *span,
                 labels: vec![label(
                     *span,
                     format!("expected `{expected}`, found `{found}`"),
@@ -173,7 +176,7 @@ impl SemanticDiagnostic {
                         found,
                         if *found == 1 { "was" } else { "were" },
                     ),
-                    anchor: *call_span,
+                    span: *call_span,
                     labels,
                 }
             }
@@ -184,7 +187,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0204",
                 message: format!("the name `{name}` is defined multiple times"),
-                anchor: *span,
+                span: *span,
                 labels: vec![
                     label(
                         *span,
@@ -201,7 +204,7 @@ impl SemanticDiagnostic {
             Self::UnknownType { name, span } => DiagnosticDescription {
                 code: "E0205",
                 message: format!("cannot find type `{name}` in this scope"),
-                anchor: *span,
+                span: *span,
                 labels: vec![label(
                     *span,
                     "not found in this scope",
@@ -211,7 +214,7 @@ impl SemanticDiagnostic {
             Self::UnresolvedName { name, span } => DiagnosticDescription {
                 code: "E0203",
                 message: format!("cannot find value `{name}` in this scope"),
-                anchor: *span,
+                span: *span,
                 labels: vec![label(
                     *span,
                     "not found in this scope",
@@ -225,7 +228,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0207",
                 message: format!("expected function, found `{found}`"),
-                anchor: *call_span,
+                span: *call_span,
                 labels: vec![
                     label(
                         *callee_span,
@@ -242,7 +245,7 @@ impl SemanticDiagnostic {
             Self::InvalidAssignTarget { span } => DiagnosticDescription {
                 code: "E0216",
                 message: "invalid left-hand side of assignment".to_string(),
-                anchor: *span,
+                span: *span,
                 labels: vec![label(
                     *span,
                     "cannot assign to this expression",
@@ -257,7 +260,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0209",
                 message: "if and else branches have incompatible types".to_string(),
-                anchor: *then_span,
+                span: *then_span,
                 labels: vec![
                     label(
                         *then_span,
@@ -274,7 +277,7 @@ impl SemanticDiagnostic {
             Self::IfWithoutElse { found, then_span } => DiagnosticDescription {
                 code: "E0210",
                 message: "if without else must evaluate to `()`".to_string(),
-                anchor: *then_span,
+                span: *then_span,
                 labels: vec![label(
                     *then_span,
                     format!("found type `{found}`, expected `()`"),
@@ -289,7 +292,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0211",
                 message: "binary operation applied to mismatched types".to_string(),
-                anchor: *lhs_span,
+                span: *lhs_span,
                 labels: vec![
                     label(
                         *lhs_span,
@@ -309,7 +312,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0212",
                 message: "binary operator requires integer operands".to_string(),
-                anchor: *operand_span,
+                span: *operand_span,
                 labels: vec![label(
                     *operand_span,
                     format!("found type `{found}`"),
@@ -323,7 +326,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0206",
                 message: "binary operator requires boolean operands".to_string(),
-                anchor: *operand_span,
+                span: *operand_span,
                 labels: vec![label(
                     *operand_span,
                     format!("expected `{expected}`, found `{found}`"),
@@ -338,7 +341,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0213",
                 message: format!("cannot apply unary operator `{operator}` to type `{found}`"),
-                anchor: *operand_span,
+                span: *operand_span,
                 labels: vec![label(
                     *operand_span,
                     format!("expected `{expected}`, found `{found}`"),
@@ -351,7 +354,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0214",
                 message: format!("block is missing a tail expression of type `{expected}`"),
-                anchor: *block_span,
+                span: *block_span,
                 labels: vec![label(
                     *block_span,
                     format!("expected `{expected}`, found `()`"),
@@ -364,7 +367,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0215",
                 message: format!("return without value in function expecting `{expected}`"),
-                anchor: *return_span,
+                span: *return_span,
                 labels: vec![label(
                     *return_span,
                     format!("expected `{expected}`"),
@@ -374,19 +377,19 @@ impl SemanticDiagnostic {
             Self::ReturnOutsideFunction { span } => DiagnosticDescription {
                 code: "E0217",
                 message: "return statement outside of function body".to_string(),
-                anchor: *span,
+                span: *span,
                 labels: vec![unlabeled(*span, LabelSeverity::Primary)],
             },
             Self::NonConstantValue { span } => DiagnosticDescription {
                 code: "E0218",
                 message: "attempt to use a non-constant value in a constant".to_string(),
-                anchor: *span,
+                span: *span,
                 labels: vec![label(*span, "non-constant value", LabelSeverity::Primary)],
             },
             Self::CaptureInFunction { span } => DiagnosticDescription {
                 code: "E0219",
                 message: "cannot capture variable from enclosing function".to_string(),
-                anchor: *span,
+                span: *span,
                 labels: vec![label(
                     *span,
                     "not accessible inside nested function",
@@ -400,7 +403,7 @@ impl SemanticDiagnostic {
             } => DiagnosticDescription {
                 code: "E0220",
                 message: format!("{} body must evaluate to `()`", source.diagnostic_name()),
-                anchor: *body_span,
+                span: *body_span,
                 labels: vec![label(
                     *body_span,
                     format!("found type `{found}`, expected `()`"),
@@ -410,19 +413,19 @@ impl SemanticDiagnostic {
             Self::BreakOutsideLoop { span } => DiagnosticDescription {
                 code: "E0221",
                 message: "`break` outside of a loop".to_string(),
-                anchor: *span,
+                span: *span,
                 labels: vec![unlabeled(*span, LabelSeverity::Primary)],
             },
             Self::ContinueOutsideLoop { span } => DiagnosticDescription {
                 code: "E0222",
                 message: "`continue` outside of a loop".to_string(),
-                anchor: *span,
+                span: *span,
                 labels: vec![unlabeled(*span, LabelSeverity::Primary)],
             },
             Self::BreakWithValueFromWhile { span } => DiagnosticDescription {
                 code: "E0223",
                 message: "`break` with value from a `while` loop".to_string(),
-                anchor: *span,
+                span: *span,
                 labels: vec![label(
                     *span,
                     "can only break with a value inside `loop`",
@@ -432,7 +435,7 @@ impl SemanticDiagnostic {
             Self::LetMissingTypeOrValue { span } => DiagnosticDescription {
                 code: "E0224",
                 message: "cannot infer type for this binding".to_string(),
-                anchor: *span,
+                span: *span,
                 labels: vec![label(
                     *span,
                     "needs a type annotation or an initializer",
@@ -442,7 +445,7 @@ impl SemanticDiagnostic {
             Self::InvalidIntegerLiteral { found, span } => DiagnosticDescription {
                 code: "E0225",
                 message: format!("invalid integer literal `{found}`"),
-                anchor: *span,
+                span: *span,
                 labels: vec![label(
                     *span,
                     "digits invalid for this literal's base, or too large to fit",
@@ -452,3 +455,5 @@ impl SemanticDiagnostic {
         }
     }
 }
+
+*/

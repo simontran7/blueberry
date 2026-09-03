@@ -1,3 +1,6 @@
+/* Being redesigned from scratch alongside the new HIR -- kept here for
+   reference during the rewrite. */
+/*
 use crate::core::common::text_size::TextRange;
 use crate::core::common::types::TypeId;
 use crate::core::semantic_analysis::hir::LoopSource;
@@ -46,3 +49,5 @@ pub(crate) enum Constraint {
         provenance: Provenance,
     },
 }
+
+*/

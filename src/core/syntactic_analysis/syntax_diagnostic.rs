@@ -34,7 +34,7 @@ impl SyntaxDiagnostic {
         DiagnosticDescription {
             code: "E0101",
             message: format!("expected `{expected}`, found `{found}`"),
-            anchor: span,
+            span: span,
             labels: vec![DiagnosticLabel {
                 span,
                 message: Some(format!("expected `{expected}`")),

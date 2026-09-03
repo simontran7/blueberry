@@ -1,6 +1,7 @@
 use crate::core::common::text_size::TextRange;
 use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
-use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
+// TODO: bring back once semantic_diagnostic.rs is rebuilt.
+// use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
 use crate::core::syntactic_analysis::syntax_diagnostic::SyntaxDiagnostic;
 
 #[salsa::accumulator]
@@ -10,7 +11,7 @@ pub(crate) struct DiagnosticAccumulator(pub(crate) Diagnostic);
 pub(crate) enum Diagnostic {
     Lexical(LexicalDiagnostic),
     Syntax(SyntaxDiagnostic),
-    Semantic(SemanticDiagnostic),
+    // Semantic(SemanticDiagnostic),
 }
 
 impl Diagnostic {
@@ -18,7 +19,7 @@ impl Diagnostic {
         match self {
             Self::Lexical(diagnostic) => diagnostic.describe(),
             Self::Syntax(diagnostic) => diagnostic.describe(),
-            Self::Semantic(diagnostic) => diagnostic.describe(),
+            // Self::Semantic(diagnostic) => diagnostic.describe(),
         }
     }
 }
@@ -26,7 +27,7 @@ impl Diagnostic {
 pub(crate) struct DiagnosticDescription {
     pub(crate) code: &'static str,
     pub(crate) message: String,
-    pub(crate) anchor: TextRange,
+    pub(crate) span: TextRange,
     pub(crate) labels: Vec<DiagnosticLabel>,
 }
 

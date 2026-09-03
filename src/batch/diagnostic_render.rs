@@ -8,7 +8,7 @@ pub(crate) fn render_diagnostic(diagnostic: &Diagnostic, filename: &str, source:
     let mut report = Report::build(
         ReportKind::Error,
         filename,
-        usize::from(description.anchor.start()),
+        usize::from(description.span.start()),
     )
     .with_code(description.code)
     .with_message(description.message);
