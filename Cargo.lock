@@ -44,7 +44,6 @@ name = "blueberry"
 version = "0.1.0"
 dependencies = [
  "ariadne",
- "handlemap",
  "inkwell",
  "insta",
  "salsa",
@@ -219,11 +218,6 @@ dependencies = [
  "regex-automata",
  "regex-syntax",
 ]
-
-[[package]]
-name = "handlemap"
-version = "0.1.0"
-source = "git+https://github.com/simontran7/handlemap#fc9060baba4c3bc757f2b88c8fdd90e2d8425506"
 
 [[package]]
 name = "hashbrown"

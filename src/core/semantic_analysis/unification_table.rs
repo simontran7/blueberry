@@ -1,8 +1,7 @@
 /* Being redesigned from scratch alongside the new HIR -- kept here for
    reference during the rewrite. */
 /*
-use handlemap::{Handle, HandleMap};
-
+use crate::core::common::handlemap::{self, Handle, HandleMap};
 use crate::core::common::types::TypeId;
 
 handlemap::handle_impl!(pub(crate) TypeVarId);

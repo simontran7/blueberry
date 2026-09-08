@@ -1,4 +1,4 @@
-use crate::core::common::text_size::TextSize;
+use crate::core::common::span::TextSize;
 use core::fmt;
 
 #[derive(Clone, PartialEq, Eq)]

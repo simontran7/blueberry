@@ -1,4 +1,4 @@
-use crate::core::common::text_size::TextRange;
+use crate::core::common::span::Span;
 use crate::core::syntactic_analysis::ast::support::{child, children, nth_child, token};
 use crate::core::syntactic_analysis::cst::{RedChild, RedNode, RedToken, SyntaxKind};
 
@@ -13,8 +13,8 @@ pub(crate) trait AstNode {
 
     fn red(&self) -> &RedNode;
 
-    fn text_range(&self) -> TextRange {
-        self.red().text_range()
+    fn span(&self) -> Span {
+        self.red().span()
     }
 }
 

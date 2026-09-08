@@ -4,7 +4,7 @@ use super::cst::{GreenChild, GreenNode};
 use super::parser::Event;
 use crate::core::lexical_analysis::token_stream::TokenStream;
 use crate::core::syntactic_analysis::syntax_diagnostic::SyntaxDiagnostic;
-use crate::core::common::text_size::{TextRange, TextSize};
+use crate::core::common::span::{Span, TextSize};
 use crate::core::syntactic_analysis::cst::GreenToken;
 use crate::core::syntactic_analysis::cst::SyntaxKind;
 
@@ -99,7 +99,7 @@ impl<'src> CstBuilder<'src> {
                             .peek()
                             .map_or(0, |(_, width)| usize::from(*width));
                     diagnostics[index]
-                        .resolve(TextRange::new(TextSize::new(offset), TextSize::new(end)));
+                        .resolve(Span::new(TextSize::new(offset), TextSize::new(end)));
                 }
             }
 

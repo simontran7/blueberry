@@ -1,10 +1,10 @@
 use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
-use crate::core::common::text_size::TextRange;
+use crate::core::common::span::Span;
 
 #[derive(Debug, Clone)]
 pub(crate) enum SyntaxDiagnostic {
     UnexpectedToken {
-        span: Option<TextRange>,
+        span: Option<Span>,
         expected: String,
         found: String,
     },
@@ -19,7 +19,7 @@ impl SyntaxDiagnostic {
         }
     }
 
-    pub(crate) fn resolve(&mut self, span: TextRange) {
+    pub(crate) fn resolve(&mut self, span: Span) {
         let Self::UnexpectedToken { span: s, .. } = self;
         *s = Some(span);
     }

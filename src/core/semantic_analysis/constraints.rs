@@ -1,44 +1,44 @@
 /* Being redesigned from scratch alongside the new HIR -- kept here for
    reference during the rewrite. */
 /*
-use crate::core::common::text_size::TextRange;
+use crate::core::common::span::Span;
 use crate::core::common::types::TypeId;
 use crate::core::semantic_analysis::hir::LoopSource;
 
 pub(crate) enum Provenance {
     TypeMismatch {
-        span: TextRange,
+        span: Span,
     },
     IfBranchMismatch {
-        then_span: TextRange,
-        else_span: TextRange,
+        then_span: Span,
+        else_span: Span,
     },
     IfWithoutElse {
-        span: TextRange,
+        span: Span,
     },
     BinaryOperandMismatch {
-        lhs_span: TextRange,
-        rhs_span: TextRange,
+        lhs_span: Span,
+        rhs_span: Span,
     },
     BinaryOperandNotNumeric {
-        span: TextRange,
+        span: Span,
     },
     BinaryOperandNotBool {
-        span: TextRange,
+        span: Span,
     },
     UnaryOperandMismatch {
         operator: String,
-        span: TextRange,
+        span: Span,
     },
     BlockMissingTail {
-        span: TextRange,
+        span: Span,
     },
     ReturnMissingValue {
-        span: TextRange,
+        span: Span,
     },
     LoopBodyNotUnit {
         source: LoopSource,
-        span: TextRange,
+        span: Span,
     },
 }
 

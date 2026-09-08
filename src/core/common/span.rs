@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Range, Sub};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub(crate) struct TextSize(u32);
 
 impl TextSize {
@@ -38,12 +38,12 @@ impl Sub for TextSize {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub(crate) struct TextRange {
+pub(crate) struct Span {
     start: TextSize,
     end: TextSize,
 }
 
-impl TextRange {
+impl Span {
     pub(crate) fn new(start: TextSize, end: TextSize) -> Self {
         Self { start, end }
     }
@@ -55,16 +55,20 @@ impl TextRange {
     pub(crate) fn end(&self) -> TextSize {
         self.end
     }
+
+    pub(crate) fn contains(&self, other: Span) -> bool {
+        self.start <= other.start && other.end <= self.end
+    }
 }
 
-impl From<TextRange> for Range<usize> {
-    fn from(range: TextRange) -> Self {
+impl From<Span> for Range<usize> {
+    fn from(range: Span) -> Self {
         usize::from(range.start)..usize::from(range.end)
     }
 }
 
-impl From<&TextRange> for Range<usize> {
-    fn from(range: &TextRange) -> Self {
+impl From<&Span> for Range<usize> {
+    fn from(range: &Span) -> Self {
         Range::from(*range)
     }
 }

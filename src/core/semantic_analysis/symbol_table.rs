@@ -1,5 +1,11 @@
-/* Being redesigned from scratch alongside the new HIR -- kept here for
-   reference during the rewrite. */
+use crate::core::semantic_analysis::hir::{ConstantKey, FunctionKey, LocalBindingHandle};
+
+enum Resolution<'db> {
+    Local(LocalBindingHandle),
+    Function(FunctionKey<'db>),
+    Constant(ConstantKey<'db>),
+}
+
 /*
 use std::collections::HashMap;
 

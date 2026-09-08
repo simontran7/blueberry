@@ -7,7 +7,7 @@ use crate::batch::arg_parser::EmitKind;
 use crate::batch::diagnostic_render::render_diagnostic;
 use crate::core::common::diagnostic::DiagnosticAccumulator;
 use crate::core::db::BlueberryDatabase;
-use crate::core::source_file::SourceFile;
+use crate::core::source_file_key::SourceFileKey;
 use crate::core::lexical_analysis::token_stream_dumper::TokenDumper;
 use crate::core::lexical_analysis::tokens_of;
 use crate::core::syntactic_analysis::cst_dumper::CstDumper;
@@ -33,7 +33,7 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
 
     // ---- Stage 0: Scanning ----
     let file = match fs::read_to_string(&path) {
-        Ok(contents) => SourceFile::new(&db, path, contents),
+        Ok(contents) => SourceFileKey::new(&db, path, contents),
         Err(error) => {
             eprintln!("Error reading file {}: {}", path.to_string_lossy().to_string(), error);
             std::process::exit(1);
@@ -69,9 +69,6 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     }
 
     // ---- Stage 3: Semantic Analysis ----
-    // TODO: semantic analysis is being rebuilt from scratch to mirror
-    // rust-analyzer's HIR split (see semantic_analysis.rs/semantic_analyzer.rs/
-    // hir_dumper.rs, all commented out pending the rewrite).
 
     // print compile time
     println!(

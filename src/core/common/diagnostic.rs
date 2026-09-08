@@ -1,4 +1,4 @@
-use crate::core::common::text_size::TextRange;
+use crate::core::common::span::Span;
 use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
 // TODO: bring back once semantic_diagnostic.rs is rebuilt.
 // use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
@@ -27,12 +27,12 @@ impl Diagnostic {
 pub(crate) struct DiagnosticDescription {
     pub(crate) code: &'static str,
     pub(crate) message: String,
-    pub(crate) span: TextRange,
+    pub(crate) span: Span,
     pub(crate) labels: Vec<DiagnosticLabel>,
 }
 
 pub(crate) struct DiagnosticLabel {
-    pub(crate) span: TextRange,
+    pub(crate) span: Span,
     pub(crate) message: Option<String>,
     pub(crate) severity: LabelSeverity,
 }

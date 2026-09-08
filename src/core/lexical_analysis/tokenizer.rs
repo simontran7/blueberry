@@ -4,7 +4,7 @@ use std::str::CharIndices;
 use super::token_stream::TokenKind;
 use super::token_stream::TokenStream;
 use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
-use crate::core::common::text_size::{TextRange, TextSize};
+use crate::core::common::span::{Span, TextSize};
 
 pub(crate) struct Tokenizer<'src> {
     source: &'src str,
@@ -128,7 +128,7 @@ impl<'src> Tokenizer<'src> {
         let width = TextSize::new(end - start);
         let diagnostic = (kind == TokenKind::Error).then(|| LexicalDiagnostic::UnknownToken {
             character: first,
-            span: TextRange::new(TextSize::new(start), TextSize::new(end)),
+            span: Span::new(TextSize::new(start), TextSize::new(end)),
         });
         (kind, width, diagnostic)
     }

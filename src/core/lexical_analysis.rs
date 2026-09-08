@@ -8,10 +8,10 @@ use salsa::Accumulator;
 use crate::core::common::diagnostic::{Diagnostic, DiagnosticAccumulator};
 use crate::core::lexical_analysis::token_stream::TokenStream;
 use crate::core::lexical_analysis::tokenizer::Tokenizer;
-use crate::core::source_file::SourceFile;
+use crate::core::source_file_key::SourceFileKey;
 
 #[salsa::tracked]
-pub(crate) fn tokens_of(db: &dyn crate::Db, file: SourceFile) -> TokenStream {
+pub(crate) fn tokens_of(db: &dyn crate::Db, file: SourceFileKey) -> TokenStream {
     let mut tokenizer = Tokenizer::new(file.contents(db));
     let (tokens, diagnostics) = tokenizer.tokenize();
     for diagnostic in diagnostics {

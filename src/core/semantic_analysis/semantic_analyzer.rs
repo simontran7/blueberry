@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::core::common::text_size::TextRange;
+use crate::core::common::span::Span;
 use crate::core::common::symbol::Symbol;
 use crate::core::common::types::{InferTy, Ty, TypeId, TypeInterner};
 use crate::core::semantic_analysis::constraints::{Constraint, Provenance};
@@ -109,7 +109,7 @@ impl<'db> SemanticAnalyzer<'db> {
 
     pub(crate) fn seed_signatures(
         mut self,
-        levels: &[Vec<(DefinitionKey, Ty, TextRange)>],
+        levels: &[Vec<(DefinitionKey, Ty, Span)>],
         target_key: &DefinitionKey,
     ) -> (Self, DefinitionBindingId) {
         let mut own_binding_id = None;
@@ -136,7 +136,7 @@ impl<'db> SemanticAnalyzer<'db> {
 
     pub(crate) fn collect_signatures(
         mut self,
-    ) -> (Vec<(DefinitionKey, Ty, TextRange)>, Vec<SemanticDiagnostic>) {
+    ) -> (Vec<(DefinitionKey, Ty, Span)>, Vec<SemanticDiagnostic>) {
         self.symbol_table.enter_scope(ScopeKind::Normal);
         let binding_ids = self.collect_top_level_definitions();
         let signatures = binding_ids
@@ -148,7 +148,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     .resolve(binding_view.ty())
                     .expect("just interned")
                     .clone();
-                (key, ty, binding_view.text_range())
+                (key, ty, binding_view.span())
             })
             .collect();
         (signatures, self.diagnostics)
@@ -158,7 +158,7 @@ impl<'db> SemanticAnalyzer<'db> {
         mut self,
         scope: &ScopeId,
     ) -> (
-        Vec<(DefinitionKey, Ty, TextRange)>,
+        Vec<(DefinitionKey, Ty, Span)>,
         Vec<BlockId>,
         Vec<SemanticDiagnostic>,
     ) {
@@ -174,7 +174,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     .resolve(binding_view.ty())
                     .expect("just interned")
                     .clone();
-                let span = binding_view.text_range();
+                let span = binding_view.span();
                 let key = DefinitionKey {
                     parent: Box::new(scope.clone()),
                     segment: found.segment,
@@ -458,7 +458,7 @@ impl<'db> SemanticAnalyzer<'db> {
         own_binding_id: DefinitionBindingId,
     ) -> (Hir, HirSourceMaps, ResolvedTypes<'db>, Vec<SemanticDiagnostic>) {
         let def = self.locate_definition(key);
-        self.hir.set_anchor(def.text_range().start());
+        self.hir.set_anchor(def.span().start());
 
         let definition_id = match def {
             Definition::FunctionDefinition(def) => {
@@ -637,7 +637,7 @@ impl<'db> SemanticAnalyzer<'db> {
                         .lexeme()
                         .to_string(),
                 );
-                let span = def.text_range();
+                let span = def.span();
 
                 let definition_binding_id = self.hir.add_definition_binding(
                     name.text(self.db).to_string(),
@@ -659,7 +659,7 @@ impl<'db> SemanticAnalyzer<'db> {
                                 previous_span: self
                                     .hir
                                     .get_definition_binding(previous_binding_id.as_definition().unwrap())
-                                    .text_range(),
+                                    .span(),
                             });
                     }
                 }
@@ -678,7 +678,7 @@ impl<'db> SemanticAnalyzer<'db> {
                         .lexeme()
                         .to_string(),
                 );
-                let span = def.text_range();
+                let span = def.span();
                 let definition_binding_id =
                     self.hir
                         .add_definition_binding(name.text(self.db).to_string(), ty, span);
@@ -694,7 +694,7 @@ impl<'db> SemanticAnalyzer<'db> {
                                 previous_span: self
                                     .hir
                                     .get_definition_binding(previous_binding_id.as_definition().unwrap())
-                                    .text_range(),
+                                    .span(),
                             });
                     }
                 }
@@ -717,7 +717,7 @@ impl<'db> SemanticAnalyzer<'db> {
         // TODO: try resolve user-defined types here
         self.diagnostics.push(SemanticDiagnostic::UnknownType {
             name: symbol.text(self.db).to_string(),
-            span: name.text_range(),
+            span: name.span(),
         });
         self.type_interner.error_id
     }
@@ -753,7 +753,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     .to_string(),
             );
             let mutable = false; // parameters aren't *yet* declared `mut` in this grammar
-            let span = param.text_range();
+            let span = param.span();
             let local_binding_id = self.hir.add_local_binding(
                 name.text(self.db).to_string(),
                 mutable,
@@ -771,7 +771,7 @@ impl<'db> SemanticAnalyzer<'db> {
                         previous_span: self
                             .hir
                             .get_local_binding(previous_binding_id.as_local().unwrap())
-                            .text_range(),
+                            .span(),
                     });
             }
 
@@ -789,7 +789,7 @@ impl<'db> SemanticAnalyzer<'db> {
             None => self.hir.add_expression(
                 ExpressionKind::Missing,
                 self.type_interner.error_id,
-                def.text_range(),
+                def.span(),
             ),
         };
 
@@ -804,7 +804,7 @@ impl<'db> SemanticAnalyzer<'db> {
                 parameter_id_span,
                 body_id,
             },
-            def.text_range(),
+            def.span(),
         )
     }
 
@@ -817,7 +817,7 @@ impl<'db> SemanticAnalyzer<'db> {
         let initializer_id = self.expect_expr_checked(
             def.value(),
             self.hir.get_definition_binding(binding_id).ty(),
-            def.text_range(),
+            def.span(),
         );
         self.symbol_table.exit_scope();
 
@@ -826,7 +826,7 @@ impl<'db> SemanticAnalyzer<'db> {
                 definition_binding_id: binding_id,
                 initializer_id,
             },
-            def.text_range(),
+            def.span(),
         )
     }
 
@@ -861,7 +861,7 @@ impl<'db> SemanticAnalyzer<'db> {
         expected_id: Option<TypeId>,
         nested_binding_ids: &mut impl Iterator<Item = DefinitionBindingId>,
     ) -> ExpressionId {
-        let block_span = block.text_range();
+        let block_span = block.span();
         let (stmt_nodes, tail_node) = Self::block_parts(block);
 
         let mut statement_ids: Vec<StatementId> = Vec::new();
@@ -939,7 +939,7 @@ impl<'db> SemanticAnalyzer<'db> {
                         expression_id,
                         has_semicolon,
                     },
-                    stmt.text_range(),
+                    stmt.span(),
                 )
             }
             Statement::DefinitionStatement(stmt) => {
@@ -957,7 +957,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     StatementKind::Definition {
                         definition_binding_id,
                     },
-                    stmt.text_range(),
+                    stmt.span(),
                 )
             }
             Statement::LetStatement(stmt) => {
@@ -976,7 +976,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     (None, Some(expected)) => (None, expected),
                     (None, None) => {
                         self.diagnostics
-                            .push(SemanticDiagnostic::LetMissingTypeOrValue { span: stmt.text_range() });
+                            .push(SemanticDiagnostic::LetMissingTypeOrValue { span: stmt.span() });
                         (None, self.type_interner.error_id)
                     }
                 };
@@ -994,7 +994,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     mutable,
                     annotated_ty,
                     ty,
-                    stmt.text_range(),
+                    stmt.span(),
                 );
                 if let Err(DefineError::AlreadyDefined { previous_binding_id }) =
                     self.symbol_table.add_binding(name, local_binding_id.into())
@@ -1002,11 +1002,11 @@ impl<'db> SemanticAnalyzer<'db> {
                     self.diagnostics
                         .push(SemanticDiagnostic::DuplicateDefinition {
                             name: name.text(self.db).to_string(),
-                            span: stmt.text_range(),
+                            span: stmt.span(),
                             previous_span: self
                                 .hir
                                 .get_local_binding(previous_binding_id.as_local().unwrap())
-                                .text_range(),
+                                .span(),
                         });
                 }
 
@@ -1015,7 +1015,7 @@ impl<'db> SemanticAnalyzer<'db> {
                         pattern_id: local_binding_id,
                         value_id,
                     },
-                    stmt.text_range(),
+                    stmt.span(),
                 )
             }
         }
@@ -1043,7 +1043,7 @@ impl<'db> SemanticAnalyzer<'db> {
                 self.diagnostics
                     .push(SemanticDiagnostic::InvalidIntegerLiteral {
                         found: raw.to_string(),
-                        span: expr.text_range(),
+                        span: expr.span(),
                     });
                 None
             }
@@ -1056,22 +1056,22 @@ impl<'db> SemanticAnalyzer<'db> {
                 match self.integer_literal_value(int.clone()) {
                     Some(value) => {
                         self.hir
-                            .add_expression(ExpressionKind::Integer(value), ty, int.text_range())
+                            .add_expression(ExpressionKind::Integer(value), ty, int.span())
                     }
                     None => self.hir.add_expression(
                         ExpressionKind::Integer(0),
                         self.type_interner.error_id,
-                        int.text_range(),
+                        int.span(),
                     ),
                 }
             }
             (Expression::UnitLiteral(unit), Ty::Unit) => {
                 self.hir
-                    .add_expression(ExpressionKind::Unit, ty, unit.text_range())
+                    .add_expression(ExpressionKind::Unit, ty, unit.span())
             }
             // grouping parens are purely syntactic -- check straight through
             (Expression::ParenthesizedExpression(paren), _) => {
-                self.expect_expr_checked(paren.expression(), ty, paren.text_range())
+                self.expect_expr_checked(paren.expression(), ty, paren.span())
             }
             (Expression::BinaryOperation(bin), _) => {
                 let operator = BinOp::from_syntax_kind(
@@ -1081,15 +1081,15 @@ impl<'db> SemanticAnalyzer<'db> {
                 );
                 match operator {
                     BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => {
-                        let lhs_id = self.expect_expr_checked(bin.lhs(), ty, bin.text_range());
-                        let rhs_id = self.expect_expr_checked(bin.rhs(), ty, bin.text_range());
+                        let lhs_id = self.expect_expr_checked(bin.lhs(), ty, bin.span());
+                        let rhs_id = self.expect_expr_checked(bin.rhs(), ty, bin.span());
 
                         let int_ty = self.fresh_int_var();
                         self.constrain(Constraint::Equality {
                             expected_id: int_ty,
                             actual_id: ty,
                             provenance: Provenance::BinaryOperandNotNumeric {
-                                span: self.hir.get_expression(lhs_id).text_range(),
+                                span: self.hir.get_expression(lhs_id).span(),
                             },
                         });
 
@@ -1100,7 +1100,7 @@ impl<'db> SemanticAnalyzer<'db> {
                                 rhs_id,
                             },
                             ty,
-                            bin.text_range(),
+                            bin.span(),
                         )
                     }
                     _ => {
@@ -1110,7 +1110,7 @@ impl<'db> SemanticAnalyzer<'db> {
                             expected_id: ty,
                             actual_id: expression_view.ty(),
                             provenance: Provenance::TypeMismatch {
-                                span: expression_view.text_range(),
+                                span: expression_view.span(),
                             },
                         });
                         expression_id
@@ -1124,7 +1124,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     expected_id: ty,
                     actual_id: expression_view.ty(),
                     provenance: Provenance::TypeMismatch {
-                        span: expression_view.text_range(),
+                        span: expression_view.span(),
                     },
                 });
                 expression_id
@@ -1132,7 +1132,7 @@ impl<'db> SemanticAnalyzer<'db> {
         }
     }
 
-    fn expect_expr(&mut self, expr: Option<Expression>, fallback_span: TextRange) -> ExpressionId {
+    fn expect_expr(&mut self, expr: Option<Expression>, fallback_span: Span) -> ExpressionId {
         match expr {
             Some(expr) => self.infer(expr),
             None => self.hir.add_expression(
@@ -1147,7 +1147,7 @@ impl<'db> SemanticAnalyzer<'db> {
         &mut self,
         expr: Option<Expression>,
         ty: TypeId,
-        fallback_span: TextRange,
+        fallback_span: Span,
     ) -> ExpressionId {
         match expr {
             Some(expr) => self.check(expr, ty),
@@ -1164,7 +1164,7 @@ impl<'db> SemanticAnalyzer<'db> {
             Expression::UnitLiteral(e) => self.hir.add_expression(
                 ExpressionKind::Unit,
                 self.type_interner.unit_id,
-                e.text_range(),
+                e.span(),
             ),
             Expression::BooleanLiteral(e) => {
                 let value = e
@@ -1173,25 +1173,25 @@ impl<'db> SemanticAnalyzer<'db> {
                 self.hir.add_expression(
                     ExpressionKind::Boolean(value),
                     self.type_interner.bool_id,
-                    e.text_range(),
+                    e.span(),
                 )
             }
             Expression::IntegerLiteral(e) => match self.integer_literal_value(e.clone()) {
                 Some(value) => {
                     let ty = self.fresh_int_var();
                     self.hir
-                        .add_expression(ExpressionKind::Integer(value), ty, e.text_range())
+                        .add_expression(ExpressionKind::Integer(value), ty, e.span())
                 }
                 None => self.hir.add_expression(
                     ExpressionKind::Integer(0),
                     self.type_interner.error_id,
-                    e.text_range(),
+                    e.span(),
                 ),
             },
             // grouping parens are purely syntactic -- infer straight through,
             // producing no HIR node of their own (same as today's AST, which
             // never represented them at all)
-            Expression::ParenthesizedExpression(e) => self.expect_expr(e.expression(), e.text_range()),
+            Expression::ParenthesizedExpression(e) => self.expect_expr(e.expression(), e.span()),
             Expression::Variable(e) => self.typecheck_variable(e),
             Expression::UnaryOperation(e) => self.typecheck_unary_operation(e),
             Expression::BinaryOperation(e) => self.typecheck_binary_operation(e),
@@ -1210,7 +1210,7 @@ impl<'db> SemanticAnalyzer<'db> {
     fn typecheck_variable(&mut self, var: Variable) -> ExpressionId {
         let name = var.name().expect("Variable always wraps an Identifier");
         let symbol = Symbol::new(self.db, name.lexeme().to_string());
-        let span = var.text_range();
+        let span = var.span();
 
         let binding_id = match self.symbol_table.find_binding(symbol) {
             Ok(binding_id) => binding_id,
@@ -1268,7 +1268,7 @@ impl<'db> SemanticAnalyzer<'db> {
                 .expect("parser guarantees an operator token on every well-formed UnaryOperation")
                 .kind(),
         );
-        let rhs_id = self.expect_expr(unary.operand(), unary.text_range());
+        let rhs_id = self.expect_expr(unary.operand(), unary.span());
 
         let ty = match operator {
             UnOp::Not => {
@@ -1277,7 +1277,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::UnaryOperandMismatch {
                         operator: operator.to_string(),
-                        span: self.hir.get_expression(rhs_id).text_range(),
+                        span: self.hir.get_expression(rhs_id).span(),
                     },
                 });
                 self.type_interner.bool_id
@@ -1289,7 +1289,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::UnaryOperandMismatch {
                         operator: operator.to_string(),
-                        span: self.hir.get_expression(rhs_id).text_range(),
+                        span: self.hir.get_expression(rhs_id).span(),
                     },
                 });
                 self.hir.get_expression(rhs_id).ty()
@@ -1302,7 +1302,7 @@ impl<'db> SemanticAnalyzer<'db> {
                 operand_id: rhs_id,
             },
             ty,
-            unary.text_range(),
+            unary.span(),
         )
     }
 
@@ -1312,8 +1312,8 @@ impl<'db> SemanticAnalyzer<'db> {
                 .expect("parser guarantees an operator token on every well-formed BinaryOperation")
                 .kind(),
         );
-        let lhs_id = self.expect_expr(bin.lhs(), bin.text_range());
-        let rhs_id = self.expect_expr(bin.rhs(), bin.text_range());
+        let lhs_id = self.expect_expr(bin.lhs(), bin.span());
+        let rhs_id = self.expect_expr(bin.rhs(), bin.span());
 
         let ty = match operator {
             BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div => {
@@ -1321,8 +1321,8 @@ impl<'db> SemanticAnalyzer<'db> {
                     expected_id: self.hir.get_expression(lhs_id).ty(),
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::BinaryOperandMismatch {
-                        lhs_span: self.hir.get_expression(lhs_id).text_range(),
-                        rhs_span: self.hir.get_expression(rhs_id).text_range(),
+                        lhs_span: self.hir.get_expression(lhs_id).span(),
+                        rhs_span: self.hir.get_expression(rhs_id).span(),
                     },
                 });
                 let int_ty = self.fresh_int_var();
@@ -1330,7 +1330,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     expected_id: int_ty,
                     actual_id: self.hir.get_expression(lhs_id).ty(),
                     provenance: Provenance::BinaryOperandNotNumeric {
-                        span: self.hir.get_expression(lhs_id).text_range(),
+                        span: self.hir.get_expression(lhs_id).span(),
                     },
                 });
                 self.hir.get_expression(lhs_id).ty()
@@ -1340,8 +1340,8 @@ impl<'db> SemanticAnalyzer<'db> {
                     expected_id: self.hir.get_expression(lhs_id).ty(),
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::BinaryOperandMismatch {
-                        lhs_span: self.hir.get_expression(lhs_id).text_range(),
-                        rhs_span: self.hir.get_expression(rhs_id).text_range(),
+                        lhs_span: self.hir.get_expression(lhs_id).span(),
+                        rhs_span: self.hir.get_expression(rhs_id).span(),
                     },
                 });
                 let int_ty = self.fresh_int_var();
@@ -1349,7 +1349,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     expected_id: int_ty,
                     actual_id: self.hir.get_expression(lhs_id).ty(),
                     provenance: Provenance::BinaryOperandNotNumeric {
-                        span: self.hir.get_expression(lhs_id).text_range(),
+                        span: self.hir.get_expression(lhs_id).span(),
                     },
                 });
                 self.type_interner.bool_id
@@ -1359,14 +1359,14 @@ impl<'db> SemanticAnalyzer<'db> {
                     expected_id: self.type_interner.bool_id,
                     actual_id: self.hir.get_expression(lhs_id).ty(),
                     provenance: Provenance::BinaryOperandNotBool {
-                        span: self.hir.get_expression(lhs_id).text_range(),
+                        span: self.hir.get_expression(lhs_id).span(),
                     },
                 });
                 self.constrain(Constraint::Equality {
                     expected_id: self.type_interner.bool_id,
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::BinaryOperandNotBool {
-                        span: self.hir.get_expression(rhs_id).text_range(),
+                        span: self.hir.get_expression(rhs_id).span(),
                     },
                 });
                 self.type_interner.bool_id
@@ -1376,8 +1376,8 @@ impl<'db> SemanticAnalyzer<'db> {
                     expected_id: self.hir.get_expression(lhs_id).ty(),
                     actual_id: self.hir.get_expression(rhs_id).ty(),
                     provenance: Provenance::BinaryOperandMismatch {
-                        lhs_span: self.hir.get_expression(lhs_id).text_range(),
-                        rhs_span: self.hir.get_expression(rhs_id).text_range(),
+                        lhs_span: self.hir.get_expression(lhs_id).span(),
+                        rhs_span: self.hir.get_expression(rhs_id).span(),
                     },
                 });
                 self.type_interner.bool_id
@@ -1391,12 +1391,12 @@ impl<'db> SemanticAnalyzer<'db> {
                 rhs_id,
             },
             ty,
-            bin.text_range(),
+            bin.span(),
         )
     }
 
     fn typecheck_assign(&mut self, assign: Assignment) -> ExpressionId {
-        let target_id = self.expect_expr(assign.target(), assign.text_range());
+        let target_id = self.expect_expr(assign.target(), assign.span());
         let value = assign.value();
         let target_view = self.hir.get_expression(target_id);
 
@@ -1410,7 +1410,7 @@ impl<'db> SemanticAnalyzer<'db> {
             Some(binding_id) if binding_id.as_definition().is_some() => {
                 self.diagnostics
                     .push(SemanticDiagnostic::InvalidAssignTarget {
-                        span: assign.text_range(),
+                        span: assign.span(),
                     });
                 true
             }
@@ -1418,16 +1418,16 @@ impl<'db> SemanticAnalyzer<'db> {
             None => {
                 self.diagnostics
                     .push(SemanticDiagnostic::InvalidAssignTarget {
-                        span: target_view.text_range(),
+                        span: target_view.span(),
                     });
                 true
             }
         };
 
         let value_id = if target_is_error || target_view.ty() == self.type_interner.error_id {
-            self.expect_expr(value, assign.text_range())
+            self.expect_expr(value, assign.span())
         } else {
-            self.expect_expr_checked(value, target_view.ty(), assign.text_range())
+            self.expect_expr_checked(value, target_view.ty(), assign.span())
         };
 
         self.hir.add_expression(
@@ -1436,7 +1436,7 @@ impl<'db> SemanticAnalyzer<'db> {
                 value_id,
             },
             self.type_interner.unit_id,
-            assign.text_range(),
+            assign.span(),
         )
     }
 
@@ -1468,7 +1468,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     argument_id_span: ExpressionIdSpan { start: 0, len: 0 },
                 },
                 self.type_interner.error_id,
-                call.text_range(),
+                call.span(),
             );
         }
 
@@ -1479,8 +1479,8 @@ impl<'db> SemanticAnalyzer<'db> {
         else {
             self.diagnostics.push(SemanticDiagnostic::NotCallable {
                 found: self.type_interner.to_string(callee_view.ty()),
-                callee_span: callee_view.text_range(),
-                call_span: call.text_range(),
+                callee_span: callee_view.span(),
+                call_span: call.span(),
             });
             for argument in arguments.iter().cloned() {
                 self.infer(argument); // surface errors inside arguments
@@ -1491,7 +1491,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     argument_id_span: ExpressionIdSpan { start: 0, len: 0 },
                 },
                 self.type_interner.error_id,
-                call.text_range(),
+                call.span(),
             );
         };
         let (parameter_tys, return_ty) = (parameters.to_vec(), *ret);
@@ -1500,14 +1500,14 @@ impl<'db> SemanticAnalyzer<'db> {
             self.diagnostics.push(SemanticDiagnostic::ArityMismatch {
                 expected: parameter_tys.len(),
                 found: arguments.len(),
-                callee_span: callee_view.text_range(),
-                call_span: call.text_range(),
+                callee_span: callee_view.span(),
+                call_span: call.span(),
                 // when there are too few arguments, extra_argument_spans is empty (no extra
                 // arguments to point to), and when there are too many, it correctly collects
                 // the spans of the surplus arguments.
                 extra_argument_spans: arguments[parameter_tys.len().min(arguments.len())..]
                     .iter()
-                    .map(Expression::text_range)
+                    .map(Expression::span)
                     .collect(),
             });
         }
@@ -1534,13 +1534,13 @@ impl<'db> SemanticAnalyzer<'db> {
                 argument_id_span,
             },
             ty,
-            call.text_range(),
+            call.span(),
         )
     }
 
     fn typecheck_return(&mut self, ret: Return) -> ExpressionId {
         let value = ret.value();
-        let span = ret.text_range();
+        let span = ret.span();
 
         if self.current_return_ty.is_none() {
             let value_id = value.map(|v| self.infer(v));
@@ -1578,7 +1578,7 @@ impl<'db> SemanticAnalyzer<'db> {
         let condition_id = self.expect_expr_checked(
             if_expression.condition(),
             self.type_interner.bool_id,
-            if_expression.text_range(),
+            if_expression.span(),
         );
         let then_branch = if_expression.then_branch();
         let else_branch = if_expression.else_branch().map(|else_branch| match else_branch {
@@ -1591,7 +1591,7 @@ impl<'db> SemanticAnalyzer<'db> {
             None => self.hir.add_expression(
                 ExpressionKind::Missing,
                 self.type_interner.error_id,
-                if_expression.text_range(),
+                if_expression.span(),
             ),
         };
 
@@ -1602,8 +1602,8 @@ impl<'db> SemanticAnalyzer<'db> {
                     expected_id: self.hir.get_expression(then_branch_id).ty(),
                     actual_id: self.hir.get_expression(else_expression_id).ty(),
                     provenance: Provenance::IfBranchMismatch {
-                        then_span: self.hir.get_expression(then_branch_id).text_range(),
-                        else_span: self.hir.get_expression(else_expression_id).text_range(),
+                        then_span: self.hir.get_expression(then_branch_id).span(),
+                        else_span: self.hir.get_expression(else_expression_id).span(),
                     },
                 });
                 (
@@ -1616,7 +1616,7 @@ impl<'db> SemanticAnalyzer<'db> {
                     expected_id: self.hir.get_expression(then_branch_id).ty(),
                     actual_id: self.type_interner.unit_id,
                     provenance: Provenance::IfWithoutElse {
-                        span: self.hir.get_expression(then_branch_id).text_range(),
+                        span: self.hir.get_expression(then_branch_id).span(),
                     },
                 });
                 (None, self.type_interner.unit_id)
@@ -1630,7 +1630,7 @@ impl<'db> SemanticAnalyzer<'db> {
                 else_branch_id,
             },
             ty,
-            if_expression.text_range(),
+            if_expression.span(),
         )
     }
 
@@ -1649,8 +1649,8 @@ impl<'db> SemanticAnalyzer<'db> {
         });
 
         let condition_id =
-            self.expect_expr_checked(condition, self.type_interner.bool_id, while_expr.text_range());
-        let condition_span = self.hir.get_expression(condition_id).text_range();
+            self.expect_expr_checked(condition, self.type_interner.bool_id, while_expr.span());
+        let condition_span = self.hir.get_expression(condition_id).span();
 
         // `if not condition { break; }`
         let negated_condition_id = self.hir.add_expression(
@@ -1689,10 +1689,10 @@ impl<'db> SemanticAnalyzer<'db> {
             None => self.hir.add_expression(
                 ExpressionKind::Missing,
                 self.type_interner.error_id,
-                while_expr.text_range(),
+                while_expr.span(),
             ),
         };
-        let body_span = self.hir.get_expression(original_body_id).text_range();
+        let body_span = self.hir.get_expression(original_body_id).span();
 
         // `{ if not condition { break; } <original body> }`
         let body_id = self.hir.add_expression(
@@ -1721,7 +1721,7 @@ impl<'db> SemanticAnalyzer<'db> {
                 source: LoopSource::While,
             },
             self.type_interner.unit_id,
-            while_expr.text_range(),
+            while_expr.span(),
         )
     }
 
@@ -1740,7 +1740,7 @@ impl<'db> SemanticAnalyzer<'db> {
             None => self.hir.add_expression(
                 ExpressionKind::Missing,
                 self.type_interner.error_id,
-                loop_expr.text_range(),
+                loop_expr.span(),
             ),
         };
 
@@ -1754,7 +1754,7 @@ impl<'db> SemanticAnalyzer<'db> {
             actual_id: self.type_interner.unit_id,
             provenance: Provenance::LoopBodyNotUnit {
                 source: LoopSource::Loop,
-                span: self.hir.get_expression(body_id).text_range(),
+                span: self.hir.get_expression(body_id).span(),
             },
         });
 
@@ -1770,13 +1770,13 @@ impl<'db> SemanticAnalyzer<'db> {
                 source: LoopSource::Loop,
             },
             ty,
-            loop_expr.text_range(),
+            loop_expr.span(),
         )
     }
 
     fn typecheck_break(&mut self, brk: Break) -> ExpressionId {
         let value = brk.value();
-        let span = brk.text_range();
+        let span = brk.span();
 
         let Some(&LoopFrame {
             source, result_ty, ..
@@ -1828,7 +1828,7 @@ impl<'db> SemanticAnalyzer<'db> {
     }
 
     fn typecheck_continue(&mut self, cont: Continue) -> ExpressionId {
-        let span = cont.text_range();
+        let span = cont.span();
         let ty = if self.loop_frames.is_empty() {
             self.diagnostics
                 .push(SemanticDiagnostic::ContinueOutsideLoop { span });

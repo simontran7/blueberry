@@ -2,7 +2,7 @@
    reference during the rewrite. */
 /*
 use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
-use crate::core::common::text_size::TextRange;
+use crate::core::common::span::Span;
 use crate::core::semantic_analysis::hir::LoopSource;
 
 #[derive(Debug, Clone)]
@@ -10,108 +10,108 @@ pub(crate) enum SemanticDiagnostic {
     TypeMismatch {
         expected: String,
         found: String,
-        span: TextRange,
+        span: Span,
     },
     ArityMismatch {
         expected: usize,
         found: usize,
-        call_span: TextRange,
-        callee_span: TextRange,
-        extra_argument_spans: Vec<TextRange>,
+        call_span: Span,
+        callee_span: Span,
+        extra_argument_spans: Vec<Span>,
     },
     DuplicateDefinition {
         name: String,
-        span: TextRange,
-        previous_span: TextRange,
+        span: Span,
+        previous_span: Span,
     },
     UnknownType {
         name: String,
-        span: TextRange,
+        span: Span,
     },
     UnresolvedName {
         name: String,
-        span: TextRange,
+        span: Span,
     },
     NotCallable {
         found: String,
-        callee_span: TextRange,
-        call_span: TextRange,
+        callee_span: Span,
+        call_span: Span,
     },
     InvalidAssignTarget {
-        span: TextRange,
+        span: Span,
     },
     IfBranchMismatch {
         then_ty: String,
         else_ty: String,
-        then_span: TextRange,
-        else_span: TextRange,
+        then_span: Span,
+        else_span: Span,
     },
     IfWithoutElse {
         found: String,
-        then_span: TextRange,
+        then_span: Span,
     },
     BinaryOperandMismatch {
         lhs_ty: String,
         rhs_ty: String,
-        lhs_span: TextRange,
-        rhs_span: TextRange,
+        lhs_span: Span,
+        rhs_span: Span,
     },
     BinaryOperandNotNumeric {
         found: String,
-        operand_span: TextRange,
+        operand_span: Span,
     },
     BinaryOperandNotBool {
         expected: String,
         found: String,
-        operand_span: TextRange,
+        operand_span: Span,
     },
     UnaryOperandMismatch {
         operator: String,
         expected: String,
         found: String,
-        operand_span: TextRange,
+        operand_span: Span,
     },
     BlockMissingTail {
         expected: String,
-        block_span: TextRange,
+        block_span: Span,
     },
     ReturnMissingValue {
         expected: String,
-        return_span: TextRange,
+        return_span: Span,
     },
     ReturnOutsideFunction {
-        span: TextRange,
+        span: Span,
     },
     NonConstantValue {
-        span: TextRange,
+        span: Span,
     },
     CaptureInFunction {
-        span: TextRange,
+        span: Span,
     },
     LoopBodyNotUnit {
         source: LoopSource,
         found: String,
-        body_span: TextRange,
+        body_span: Span,
     },
     BreakOutsideLoop {
-        span: TextRange,
+        span: Span,
     },
     ContinueOutsideLoop {
-        span: TextRange,
+        span: Span,
     },
     BreakWithValueFromWhile {
-        span: TextRange,
+        span: Span,
     },
     LetMissingTypeOrValue {
-        span: TextRange,
+        span: Span,
     },
     InvalidIntegerLiteral {
         found: String,
-        span: TextRange,
+        span: Span,
     },
 }
 
-fn label(span: TextRange, message: impl Into<String>, severity: LabelSeverity) -> DiagnosticLabel {
+fn label(span: Span, message: impl Into<String>, severity: LabelSeverity) -> DiagnosticLabel {
     DiagnosticLabel {
         span,
         message: Some(message.into()),
@@ -119,7 +119,7 @@ fn label(span: TextRange, message: impl Into<String>, severity: LabelSeverity) -
     }
 }
 
-fn unlabeled(span: TextRange, severity: LabelSeverity) -> DiagnosticLabel {
+fn unlabeled(span: Span, severity: LabelSeverity) -> DiagnosticLabel {
     DiagnosticLabel {
         span,
         message: None,

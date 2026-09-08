@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use smol_str::SmolStr;
 
-use crate::core::common::text_size::{TextRange, TextSize};
+use crate::core::common::span::{Span, TextSize};
 use crate::core::lexical_analysis::token_stream::TokenKind;
 
 pub(crate) type GreenChild = NodeOrToken<Arc<GreenNode>, Arc<GreenToken>>;
@@ -22,7 +22,7 @@ pub(crate) struct GreenToken {
     text: SmolStr,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub(crate) enum SyntaxKind {
     // --- token kinds ---
 
@@ -149,6 +149,7 @@ pub(crate) struct DescendantsIter {
     stack: Vec<RedNode>,
 }
 
+
 impl GreenNode {
     pub(crate) fn new(kind: SyntaxKind) -> Self {
         Self {
@@ -220,8 +221,8 @@ impl RedNode {
         self.offset
     }
 
-    pub(crate) fn text_range(&self) -> TextRange {
-        TextRange::new(self.offset, self.offset + self.green.width())
+    pub(crate) fn span(&self) -> Span {
+        Span::new(self.offset, self.offset + self.green.width())
     }
 
     pub(crate) fn parent(&self) -> Option<Arc<RedNode>> {
@@ -287,8 +288,8 @@ impl RedToken {
         self.offset
     }
 
-    pub(crate) fn text_range(&self) -> TextRange {
-        TextRange::new(self.offset, self.offset + self.green.width())
+    pub(crate) fn span(&self) -> Span {
+        Span::new(self.offset, self.offset + self.green.width())
     }
 
     pub(crate) fn parent(&self) -> &RedNode {
@@ -309,7 +310,6 @@ impl PartialEq for RedToken {
         self.offset == other.offset && Arc::ptr_eq(&self.green, &other.green)
     }
 }
-
 
 impl Iterator for SiblingsIter {
     type Item = RedChild;

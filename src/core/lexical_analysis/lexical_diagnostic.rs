@@ -1,9 +1,9 @@
 use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
-use crate::core::common::text_size::TextRange;
+use crate::core::common::span::Span;
 
 #[derive(Debug, Clone)]
 pub(crate) enum LexicalDiagnostic {
-    UnknownToken { character: char, span: TextRange },
+    UnknownToken { character: char, span: Span },
 }
 
 impl LexicalDiagnostic {

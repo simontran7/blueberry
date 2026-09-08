@@ -1,4 +1,5 @@
 pub(crate) mod diagnostic;
+pub(crate) mod handlemap;
 pub(crate) mod symbol;
-pub(crate) mod text_size;
+pub(crate) mod span;
 pub(crate) mod types;
