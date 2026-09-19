@@ -149,7 +149,6 @@ pub(crate) struct DescendantsIter {
     stack: Vec<RedNode>,
 }
 
-
 impl GreenNode {
     pub(crate) fn new(kind: SyntaxKind) -> Self {
         Self {
@@ -272,7 +271,6 @@ impl RedNode {
             current: Some(RedChild::Node(self.clone())),
         }
     }
-
 }
 
 impl RedToken {

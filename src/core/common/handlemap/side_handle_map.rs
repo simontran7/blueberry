@@ -46,7 +46,7 @@ impl<K: Handle, V> SideHandleMap<K, V> {
     pub(crate) fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
-    
+
     pub(crate) fn get(&self, key: K) -> Option<&V> {
         self.data.get(key.index())?.as_ref()
     }
@@ -58,7 +58,7 @@ impl<K: Handle, V> SideHandleMap<K, V> {
     pub(crate) fn contains_key(&self, key: K) -> bool {
         self.get(key).is_some()
     }
-    
+
     pub(crate) fn add(&mut self, key: K, value: V) -> Option<V> {
         let index = key.index();
         if index >= self.data.len() {
@@ -70,7 +70,7 @@ impl<K: Handle, V> SideHandleMap<K, V> {
     pub(crate) fn remove(&mut self, key: K) -> Option<V> {
         self.data.get_mut(key.index())?.take()
     }
-    
+
     pub(crate) fn resize(&mut self, n: usize) {
         self.data.resize_with(n, || None);
     }

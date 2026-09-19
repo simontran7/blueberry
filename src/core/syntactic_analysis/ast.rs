@@ -356,7 +356,11 @@ impl BinaryOperation {
 impl UnaryOperation {
     pub(crate) fn operator(&self) -> Option<RedToken> {
         self.red().children().find_map(|child| match child {
-            RedChild::Token(t) if matches!(t.kind(), SyntaxKind::Minus | SyntaxKind::LogicalNot) => Some(t),
+            RedChild::Token(t)
+                if matches!(t.kind(), SyntaxKind::Minus | SyntaxKind::LogicalNot) =>
+            {
+                Some(t)
+            }
             _ => None,
         })
     }
@@ -421,7 +425,11 @@ impl IntegerLiteral {
 
     pub(crate) fn value(&self) -> Option<i64> {
         let integer_token = self.token()?;
-        let digits: String = integer_token.lexeme().chars().filter(|&c| c != '_').collect();
+        let digits: String = integer_token
+            .lexeme()
+            .chars()
+            .filter(|&c| c != '_')
+            .collect();
         digits.parse().ok()
     }
 }
@@ -439,6 +447,13 @@ impl BooleanLiteral {
 impl Block {
     pub(crate) fn statements(&self) -> impl Iterator<Item = Statement> {
         children(self.red())
+    }
+
+    pub(crate) fn definitions(&self) -> impl Iterator<Item = Definition> {
+        self.statements().filter_map(|stmt| match stmt {
+            Statement::DefinitionStatement(stmt) => stmt.definition(),
+            Statement::LetStatement(_) | Statement::ExpressionStatement(_) => None,
+        })
     }
 }
 
@@ -475,6 +490,15 @@ impl AstNode for File {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl Definition {
+    pub(crate) fn name(&self) -> Option<RedToken> {
+        match self {
+            Self::FunctionDefinition(n) => n.name(),
+            Self::ConstantDefinition(n) => n.name(),
+        }
     }
 }
 
@@ -535,15 +559,21 @@ impl AstNode for Statement {
     fn can_cast(kind: SyntaxKind) -> bool {
         matches!(
             kind,
-            SyntaxKind::LetStatement | SyntaxKind::DefinitionStatement | SyntaxKind::ExpressionStatement
+            SyntaxKind::LetStatement
+                | SyntaxKind::DefinitionStatement
+                | SyntaxKind::ExpressionStatement
         )
     }
 
     fn cast(red: RedNode) -> Option<Self> {
         let result = match red.kind() {
             SyntaxKind::LetStatement => Self::LetStatement(LetStatement { red }),
-            SyntaxKind::DefinitionStatement => Self::DefinitionStatement(DefinitionStatement { red }),
-            SyntaxKind::ExpressionStatement => Self::ExpressionStatement(ExpressionStatement { red }),
+            SyntaxKind::DefinitionStatement => {
+                Self::DefinitionStatement(DefinitionStatement { red })
+            }
+            SyntaxKind::ExpressionStatement => {
+                Self::ExpressionStatement(ExpressionStatement { red })
+            }
             _ => return None,
         };
         Some(result)

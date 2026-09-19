@@ -1,5 +1,5 @@
 /* Being redesigned from scratch alongside the new HIR -- kept here for
-   reference during the rewrite. */
+reference during the rewrite. */
 /*
 use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
 use crate::core::common::span::Span;

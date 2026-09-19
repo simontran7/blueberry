@@ -1,5 +1,5 @@
 /* HirDumper matches the old ExpressionKind shape -- being redesigned
-   from scratch alongside the new HIR. Kept here for reference. */
+from scratch alongside the new HIR. Kept here for reference. */
 /*
 use crate::core::semantic_analysis::hir::{
     BindingId, BindingKind, DefinitionId, DefinitionKind, ExpressionId, ExpressionKind, Hir,

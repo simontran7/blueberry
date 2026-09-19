@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use super::cst::{GreenChild, GreenNode};
 use super::parser::Event;
-use crate::core::lexical_analysis::token_stream::TokenStream;
-use crate::core::syntactic_analysis::syntax_diagnostic::SyntaxDiagnostic;
 use crate::core::common::span::{Span, TextSize};
+use crate::core::lexical_analysis::token_stream::TokenStream;
 use crate::core::syntactic_analysis::cst::GreenToken;
 use crate::core::syntactic_analysis::cst::SyntaxKind;
+use crate::core::syntactic_analysis::syntax_diagnostic::SyntaxDiagnostic;
 
 pub(crate) struct CstBuilder<'src> {
     source: &'src str,

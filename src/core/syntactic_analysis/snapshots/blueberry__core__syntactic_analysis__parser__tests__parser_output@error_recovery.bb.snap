@@ -1,8 +1,7 @@
 ---
-source: src/syntactic_analysis/parser.rs
-assertion_line: 614
+source: src/core/syntactic_analysis/parser.rs
 expression: dump
-input_file: src/syntactic_analysis/snapshot_inputs/error_recovery.crw
+input_file: src/core/syntactic_analysis/snapshot_inputs/error_recovery.bb
 ---
 File
 ├─FunctionDefinition
@@ -221,6 +220,6 @@ File
 Span: [0, 95)
 
 --- diagnostics ---
-UnexpectedToken { span: Some(15..16), expected: "statement", found: ")" }
-UnexpectedToken { span: Some(16..17), expected: "statement", found: ";" }
-UnexpectedToken { span: Some(82..85), expected: ";", found: "let" }
+UnexpectedToken { span: Some(Span { start: TextSize(15), end: TextSize(16) }), expected: "statement", found: ")" }
+UnexpectedToken { span: Some(Span { start: TextSize(16), end: TextSize(17) }), expected: "statement", found: ";" }
+UnexpectedToken { span: Some(Span { start: TextSize(82), end: TextSize(85) }), expected: ";", found: "let" }

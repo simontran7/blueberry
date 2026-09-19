@@ -1,8 +1,7 @@
 ---
-source: src/syntactic_analysis/parser.rs
-assertion_line: 614
+source: src/core/syntactic_analysis/parser.rs
 expression: dump
-input_file: src/syntactic_analysis/snapshot_inputs/loop.crw
+input_file: src/core/syntactic_analysis/snapshot_inputs/loop.bb
 ---
 File
 ├─FunctionDefinition
@@ -141,18 +140,20 @@ File
     │ │   ├─Whitespace
     │ │   │   Lexeme: "\n        "
     │ │   │   Span: [66, 75)
-    │ │   ├─BreakExpression
-    │ │   │ ├─Break
-    │ │   │ │   Lexeme: "break"
-    │ │   │ │   Span: [75, 80)
-    │ │   │ ├─Whitespace
-    │ │   │ │   Lexeme: " "
-    │ │   │ │   Span: [80, 81)
-    │ │   │ ├─IntegerLiteral
-    │ │   │ │ └─Integer
-    │ │   │ │     Lexeme: "5"
-    │ │   │ │     Span: [81, 82)
-    │ │   │ │ Span: [81, 82)
+    │ │   ├─ExpressionStatement
+    │ │   │ ├─BreakExpression
+    │ │   │ │ ├─Break
+    │ │   │ │ │   Lexeme: "break"
+    │ │   │ │ │   Span: [75, 80)
+    │ │   │ │ ├─Whitespace
+    │ │   │ │ │   Lexeme: " "
+    │ │   │ │ │   Span: [80, 81)
+    │ │   │ │ └─IntegerLiteral
+    │ │   │ │   └─Integer
+    │ │   │ │       Lexeme: "5"
+    │ │   │ │       Span: [81, 82)
+    │ │   │ │   Span: [81, 82)
+    │ │   │ │ Span: [75, 82)
     │ │   │ ├─Semicolon
     │ │   │ │   Lexeme: ";"
     │ │   │ │   Span: [82, 83)

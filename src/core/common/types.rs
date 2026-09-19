@@ -1,5 +1,5 @@
 /* Old Ty/TypeInterner design -- being redesigned from scratch alongside
-   the new HIR. Kept here for reference during the rewrite. */
+the new HIR. Kept here for reference during the rewrite. */
 /*
 use std::collections::HashMap;
 

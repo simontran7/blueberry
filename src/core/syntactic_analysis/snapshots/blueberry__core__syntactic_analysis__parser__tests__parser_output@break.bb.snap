@@ -1,8 +1,7 @@
 ---
-source: src/syntactic_analysis/parser.rs
-assertion_line: 614
+source: src/core/syntactic_analysis/parser.rs
 expression: dump
-input_file: src/syntactic_analysis/snapshot_inputs/break.crw
+input_file: src/core/syntactic_analysis/snapshot_inputs/break.bb
 ---
 File
 └─FunctionDefinition
@@ -48,10 +47,12 @@ File
     │     ├─Whitespace
     │     │   Lexeme: "\n        "
     │     │   Span: [21, 30)
-    │     ├─BreakExpression
-    │     │ ├─Break
-    │     │ │   Lexeme: "break"
-    │     │ │   Span: [30, 35)
+    │     ├─ExpressionStatement
+    │     │ ├─BreakExpression
+    │     │ │ └─Break
+    │     │ │     Lexeme: "break"
+    │     │ │     Span: [30, 35)
+    │     │ │ Span: [30, 35)
     │     │ ├─Semicolon
     │     │ │   Lexeme: ";"
     │     │ │   Span: [35, 36)
@@ -59,34 +60,36 @@ File
     │     │     Lexeme: "\n        "
     │     │     Span: [36, 45)
     │     │ Span: [30, 45)
-    │     ├─BreakExpression
-    │     │ ├─Break
-    │     │ │   Lexeme: "break"
-    │     │ │   Span: [45, 50)
-    │     │ ├─Whitespace
-    │     │ │   Lexeme: " "
-    │     │ │   Span: [50, 51)
-    │     │ ├─BinaryOperation
-    │     │ │ ├─IntegerLiteral
-    │     │ │ │ ├─Integer
-    │     │ │ │ │   Lexeme: "1"
-    │     │ │ │ │   Span: [51, 52)
-    │     │ │ │ └─Whitespace
-    │     │ │ │     Lexeme: " "
-    │     │ │ │     Span: [52, 53)
-    │     │ │ │ Span: [51, 53)
-    │     │ │ ├─Plus
-    │     │ │ │   Lexeme: "+"
-    │     │ │ │   Span: [53, 54)
+    │     ├─ExpressionStatement
+    │     │ ├─BreakExpression
+    │     │ │ ├─Break
+    │     │ │ │   Lexeme: "break"
+    │     │ │ │   Span: [45, 50)
     │     │ │ ├─Whitespace
     │     │ │ │   Lexeme: " "
-    │     │ │ │   Span: [54, 55)
-    │     │ │ └─IntegerLiteral
-    │     │ │   └─Integer
-    │     │ │       Lexeme: "2"
-    │     │ │       Span: [55, 56)
-    │     │ │   Span: [55, 56)
-    │     │ │ Span: [51, 56)
+    │     │ │ │   Span: [50, 51)
+    │     │ │ └─BinaryOperation
+    │     │ │   ├─IntegerLiteral
+    │     │ │   │ ├─Integer
+    │     │ │   │ │   Lexeme: "1"
+    │     │ │   │ │   Span: [51, 52)
+    │     │ │   │ └─Whitespace
+    │     │ │   │     Lexeme: " "
+    │     │ │   │     Span: [52, 53)
+    │     │ │   │ Span: [51, 53)
+    │     │ │   ├─Plus
+    │     │ │   │   Lexeme: "+"
+    │     │ │   │   Span: [53, 54)
+    │     │ │   ├─Whitespace
+    │     │ │   │   Lexeme: " "
+    │     │ │   │   Span: [54, 55)
+    │     │ │   └─IntegerLiteral
+    │     │ │     └─Integer
+    │     │ │         Lexeme: "2"
+    │     │ │         Span: [55, 56)
+    │     │ │     Span: [55, 56)
+    │     │ │   Span: [51, 56)
+    │     │ │ Span: [45, 56)
     │     │ ├─Semicolon
     │     │ │   Lexeme: ";"
     │     │ │   Span: [56, 57)

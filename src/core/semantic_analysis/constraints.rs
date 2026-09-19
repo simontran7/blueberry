@@ -1,5 +1,5 @@
 /* Being redesigned from scratch alongside the new HIR -- kept here for
-   reference during the rewrite. */
+reference during the rewrite. */
 /*
 use crate::core::common::span::Span;
 use crate::core::common::types::TypeId;

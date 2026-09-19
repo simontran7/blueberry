@@ -3,8 +3,8 @@ use std::str::CharIndices;
 
 use super::token_stream::TokenKind;
 use super::token_stream::TokenStream;
-use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
 use crate::core::common::span::{Span, TextSize};
+use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
 
 pub(crate) struct Tokenizer<'src> {
     source: &'src str,

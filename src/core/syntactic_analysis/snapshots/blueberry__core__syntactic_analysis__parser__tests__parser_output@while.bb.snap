@@ -1,8 +1,7 @@
 ---
-source: src/syntactic_analysis/parser.rs
-assertion_line: 614
+source: src/core/syntactic_analysis/parser.rs
 expression: dump
-input_file: src/syntactic_analysis/snapshot_inputs/while.crw
+input_file: src/core/syntactic_analysis/snapshot_inputs/while.bb
 ---
 File
 └─FunctionDefinition
@@ -72,10 +71,12 @@ File
     │     ├─Whitespace
     │     │   Lexeme: "\n        "
     │     │   Span: [29, 38)
-    │     ├─BreakExpression
-    │     │ ├─Break
-    │     │ │   Lexeme: "break"
-    │     │ │   Span: [38, 43)
+    │     ├─ExpressionStatement
+    │     │ ├─BreakExpression
+    │     │ │ └─Break
+    │     │ │     Lexeme: "break"
+    │     │ │     Span: [38, 43)
+    │     │ │ Span: [38, 43)
     │     │ ├─Semicolon
     │     │ │   Lexeme: ";"
     │     │ │   Span: [43, 44)

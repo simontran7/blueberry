@@ -14,7 +14,8 @@ pub(crate) struct HandleRange<K> {
 impl<K: Handle> HandleRange<K> {
     pub(crate) fn new(range: Range<K>) -> Self {
         let start = u32::try_from(range.start.index()).expect("index too large");
-        let count = u32::try_from(range.end.index() - range.start.index() as usize).expect("range too large");
+        let count = u32::try_from(range.end.index() - range.start.index() as usize)
+            .expect("range too large");
         Self {
             start,
             count,
@@ -100,4 +101,3 @@ impl<K: Handle> DoubleEndedIterator for HandleRange<K> {
 impl<K: Handle> ExactSizeIterator for HandleRange<K> {}
 
 impl<K: Handle> FusedIterator for HandleRange<K> {}
-

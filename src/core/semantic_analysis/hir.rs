@@ -2,20 +2,20 @@ use std::fmt;
 
 use crate::core::common::handlemap::{self, HandleMap, HandleRange};
 use crate::core::common::symbol::Symbol;
-use crate::core::source_file_key::{SourceFileKey};
-use crate::core::syntactic_analysis::ast;
 use crate::core::semantic_analysis::red_node_directory::RedNodeId;
+use crate::core::source_file_key::SourceFileKey;
+use crate::core::syntactic_analysis::ast;
 use crate::core::syntactic_analysis::cst::SyntaxKind;
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
 pub(crate) enum DefinitionSource<'db> {
     File(SourceFileKey),
     Block(BlockKey<'db>),
 }
 
 #[salsa::interned(debug)]
-struct BlockKey<'db> {
-    id: RedNodeId<'db, ast::Block>,
+pub(crate) struct BlockKey<'db> {
+    pub(crate) id: RedNodeId<'db, ast::Block>,
 }
 
 #[salsa::interned(debug)]
@@ -32,12 +32,16 @@ pub(crate) struct ConstantKey<'db> {
 
 pub(crate) struct FunctionSignature<'db> {
     name: Symbol<'db>,
-    parameters: HandleRange<LocalBindingHandle>,
-    return_type_annotation: Option<TypeAnnotationHandle>,
+    parameters: Vec<Parameter<'db>>,
+    return_type_annotation: Option<TypeAnnotation<'db>>,
 }
 pub(crate) struct ConstantSignature<'db> {
     name: Symbol<'db>,
-    type_annotation: Option<TypeAnnotationHandle>,
+    type_annotation: Option<TypeAnnotation<'db>>,
+}
+pub(crate) struct Parameter<'db> {
+    name: Symbol<'db>,
+    type_annotation: Option<TypeAnnotation<'db>>,
 }
 pub(crate) struct DefinitionBody<'db> {
     root: ExpressionHandle,
@@ -215,4 +219,3 @@ impl fmt::Display for UnaryOperator {
         write!(f, "{s}")
     }
 }
-

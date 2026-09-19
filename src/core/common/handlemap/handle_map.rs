@@ -139,7 +139,7 @@ impl<K: Handle, V> IndexMut<K> for HandleMap<K, V> {
 // for `map[range]`
 impl<K: Handle, V> Index<HandleRange<K>> for HandleMap<K, V> {
     type Output = [V];
-    
+
     fn index(&self, range: HandleRange<K>) -> &[V] {
         &self.data[range.start().index()..range.end().index()]
     }

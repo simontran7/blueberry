@@ -1,8 +1,7 @@
 ---
-source: src/syntactic_analysis/parser.rs
-assertion_line: 614
+source: src/core/syntactic_analysis/parser.rs
 expression: dump
-input_file: src/syntactic_analysis/snapshot_inputs/continue.crw
+input_file: src/core/syntactic_analysis/snapshot_inputs/continue.bb
 ---
 File
 └─FunctionDefinition
@@ -72,10 +71,12 @@ File
     │     ├─Whitespace
     │     │   Lexeme: "\n        "
     │     │   Span: [29, 38)
-    │     ├─ContinueExpression
-    │     │ ├─Continue
-    │     │ │   Lexeme: "continue"
-    │     │ │   Span: [38, 46)
+    │     ├─ExpressionStatement
+    │     │ ├─ContinueExpression
+    │     │ │ └─Continue
+    │     │ │     Lexeme: "continue"
+    │     │ │     Span: [38, 46)
+    │     │ │ Span: [38, 46)
     │     │ ├─Semicolon
     │     │ │   Lexeme: ";"
     │     │ │   Span: [46, 47)

@@ -7,9 +7,9 @@ use crate::batch::arg_parser::EmitKind;
 use crate::batch::diagnostic_render::render_diagnostic;
 use crate::core::common::diagnostic::DiagnosticAccumulator;
 use crate::core::db::BlueberryDatabase;
-use crate::core::source_file_key::SourceFileKey;
 use crate::core::lexical_analysis::token_stream_dumper::TokenDumper;
 use crate::core::lexical_analysis::tokens_of;
+use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst_dumper::CstDumper;
 use crate::core::syntactic_analysis::cst_of;
 
@@ -28,14 +28,21 @@ pub fn check(path: PathBuf, emit: &HashSet<EmitKind>) {
 fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     // intialize
     let start = Instant::now();
-    let file_stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_string_lossy().into_owned());
+    let file_stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.to_string_lossy().into_owned());
     let db = BlueberryDatabase::default();
 
     // ---- Stage 0: Scanning ----
     let file = match fs::read_to_string(&path) {
         Ok(contents) => SourceFileKey::new(&db, path, contents),
         Err(error) => {
-            eprintln!("Error reading file {}: {}", path.to_string_lossy().to_string(), error);
+            eprintln!(
+                "Error reading file {}: {}",
+                path.to_string_lossy().to_string(),
+                error
+            );
             std::process::exit(1);
         }
     };
@@ -76,4 +83,3 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
         start.elapsed().as_secs_f64()
     );
 }
-

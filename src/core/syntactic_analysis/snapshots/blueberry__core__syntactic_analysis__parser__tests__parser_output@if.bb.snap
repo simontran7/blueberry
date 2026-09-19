@@ -1,8 +1,7 @@
 ---
-source: src/syntactic_analysis/parser.rs
-assertion_line: 614
+source: src/core/syntactic_analysis/parser.rs
 expression: dump
-input_file: src/syntactic_analysis/snapshot_inputs/if.crw
+input_file: src/core/syntactic_analysis/snapshot_inputs/if.bb
 ---
 File
 ├─FunctionDefinition
@@ -72,23 +71,25 @@ File
 │   │   │ ├─Whitespace
 │   │   │ │   Lexeme: "\n        "
 │   │   │ │   Span: [25, 34)
-│   │   │ ├─ReturnExpression
-│   │   │ │ ├─Return
-│   │   │ │ │   Lexeme: "return"
-│   │   │ │ │   Span: [34, 40)
-│   │   │ │ ├─Whitespace
-│   │   │ │ │   Lexeme: " "
-│   │   │ │ │   Span: [40, 41)
-│   │   │ │ ├─UnaryOperation
-│   │   │ │ │ ├─Minus
-│   │   │ │ │ │   Lexeme: "-"
-│   │   │ │ │ │   Span: [41, 42)
-│   │   │ │ │ └─Variable
-│   │   │ │ │   └─Identifier
-│   │   │ │ │       Lexeme: "a"
-│   │   │ │ │       Span: [42, 43)
-│   │   │ │ │   Span: [42, 43)
-│   │   │ │ │ Span: [41, 43)
+│   │   │ ├─ExpressionStatement
+│   │   │ │ ├─ReturnExpression
+│   │   │ │ │ ├─Return
+│   │   │ │ │ │   Lexeme: "return"
+│   │   │ │ │ │   Span: [34, 40)
+│   │   │ │ │ ├─Whitespace
+│   │   │ │ │ │   Lexeme: " "
+│   │   │ │ │ │   Span: [40, 41)
+│   │   │ │ │ └─UnaryOperation
+│   │   │ │ │   ├─Minus
+│   │   │ │ │   │   Lexeme: "-"
+│   │   │ │ │   │   Span: [41, 42)
+│   │   │ │ │   └─Variable
+│   │   │ │ │     └─Identifier
+│   │   │ │ │         Lexeme: "a"
+│   │   │ │ │         Span: [42, 43)
+│   │   │ │ │     Span: [42, 43)
+│   │   │ │ │   Span: [41, 43)
+│   │   │ │ │ Span: [34, 43)
 │   │   │ │ ├─Semicolon
 │   │   │ │ │   Lexeme: ";"
 │   │   │ │ │   Span: [43, 44)
@@ -147,18 +148,20 @@ File
 │   │     │ ├─Whitespace
 │   │     │ │   Lexeme: "\n        "
 │   │     │ │   Span: [67, 76)
-│   │     │ ├─ReturnExpression
-│   │     │ │ ├─Return
-│   │     │ │ │   Lexeme: "return"
-│   │     │ │ │   Span: [76, 82)
-│   │     │ │ ├─Whitespace
-│   │     │ │ │   Lexeme: " "
-│   │     │ │ │   Span: [82, 83)
-│   │     │ │ ├─IntegerLiteral
-│   │     │ │ │ └─Integer
-│   │     │ │ │     Lexeme: "0"
-│   │     │ │ │     Span: [83, 84)
-│   │     │ │ │ Span: [83, 84)
+│   │     │ ├─ExpressionStatement
+│   │     │ │ ├─ReturnExpression
+│   │     │ │ │ ├─Return
+│   │     │ │ │ │   Lexeme: "return"
+│   │     │ │ │ │   Span: [76, 82)
+│   │     │ │ │ ├─Whitespace
+│   │     │ │ │ │   Lexeme: " "
+│   │     │ │ │ │   Span: [82, 83)
+│   │     │ │ │ └─IntegerLiteral
+│   │     │ │ │   └─Integer
+│   │     │ │ │       Lexeme: "0"
+│   │     │ │ │       Span: [83, 84)
+│   │     │ │ │   Span: [83, 84)
+│   │     │ │ │ Span: [76, 84)
 │   │     │ │ ├─Semicolon
 │   │     │ │ │   Lexeme: ";"
 │   │     │ │ │   Span: [84, 85)
@@ -186,18 +189,20 @@ File
 │   │       ├─Whitespace
 │   │       │   Lexeme: "\n        "
 │   │       │   Span: [98, 107)
-│   │       ├─ReturnExpression
-│   │       │ ├─Return
-│   │       │ │   Lexeme: "return"
-│   │       │ │   Span: [107, 113)
-│   │       │ ├─Whitespace
-│   │       │ │   Lexeme: " "
-│   │       │ │   Span: [113, 114)
-│   │       │ ├─Variable
-│   │       │ │ └─Identifier
-│   │       │ │     Lexeme: "b"
-│   │       │ │     Span: [114, 115)
-│   │       │ │ Span: [114, 115)
+│   │       ├─ExpressionStatement
+│   │       │ ├─ReturnExpression
+│   │       │ │ ├─Return
+│   │       │ │ │   Lexeme: "return"
+│   │       │ │ │   Span: [107, 113)
+│   │       │ │ ├─Whitespace
+│   │       │ │ │   Lexeme: " "
+│   │       │ │ │   Span: [113, 114)
+│   │       │ │ └─Variable
+│   │       │ │   └─Identifier
+│   │       │ │       Lexeme: "b"
+│   │       │ │       Span: [114, 115)
+│   │       │ │   Span: [114, 115)
+│   │       │ │ Span: [107, 115)
 │   │       │ ├─Semicolon
 │   │       │ │   Lexeme: ";"
 │   │       │ │   Span: [115, 116)
@@ -410,23 +415,25 @@ File
     │     ├─Whitespace
     │     │   Lexeme: "\n        "
     │     │   Span: [195, 204)
-    │     ├─ReturnExpression
-    │     │ ├─Return
-    │     │ │   Lexeme: "return"
-    │     │ │   Span: [204, 210)
-    │     │ ├─Whitespace
-    │     │ │   Lexeme: " "
-    │     │ │   Span: [210, 211)
-    │     │ ├─UnaryOperation
-    │     │ │ ├─Minus
-    │     │ │ │   Lexeme: "-"
-    │     │ │ │   Span: [211, 212)
-    │     │ │ └─Variable
-    │     │ │   └─Identifier
-    │     │ │       Lexeme: "x"
-    │     │ │       Span: [212, 213)
-    │     │ │   Span: [212, 213)
-    │     │ │ Span: [211, 213)
+    │     ├─ExpressionStatement
+    │     │ ├─ReturnExpression
+    │     │ │ ├─Return
+    │     │ │ │   Lexeme: "return"
+    │     │ │ │   Span: [204, 210)
+    │     │ │ ├─Whitespace
+    │     │ │ │   Lexeme: " "
+    │     │ │ │   Span: [210, 211)
+    │     │ │ └─UnaryOperation
+    │     │ │   ├─Minus
+    │     │ │   │   Lexeme: "-"
+    │     │ │   │   Span: [211, 212)
+    │     │ │   └─Variable
+    │     │ │     └─Identifier
+    │     │ │         Lexeme: "x"
+    │     │ │         Span: [212, 213)
+    │     │ │     Span: [212, 213)
+    │     │ │   Span: [211, 213)
+    │     │ │ Span: [204, 213)
     │     │ ├─Semicolon
     │     │ │   Lexeme: ";"
     │     │ │   Span: [213, 214)
