@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use handlemap::handle_map::{Handle, SideHandleMap};
+use crate::core::common::handle_collections::handle_map::SideHandleMap;
+use crate::core::common::handle_collections::Handle;
 
 use crate::core::common::string_interner::Symbol;
 use crate::core::common::types::TypeId;
 use crate::front_end::semantic_analysis::hir::{DefinitionBindingId, LocalBindingId};
 use crate::front_end::syntactic_analysis::cst::operators::{BinOp, UnOp};
-use crate::middle_end::handle_list::{HandleList, HandleListSubAllocator};
+use crate::core::common::handle_collections::handle_list::{GrowableHandleList, GrowableHandleListAllocator};
 use crate::middle_end::mir::{
     BlockId, Cfg, FunctionReferenceId, Instruction, InstructionId, Signature, SignatureId, ValueId,
     ValueOrigin,
@@ -15,7 +16,7 @@ use crate::middle_end::mir::{
 pub(crate) struct CfgBuilder {
     cfg: Cfg,
     position: Position,
-    predecessor_edge_suballocator: HandleListSubAllocator<InstructionId>,
+    predecessor_edge_suballocator: GrowableHandleListAllocator<InstructionId>,
     current_defs: HashMap<(LocalBindingId, BlockId), ValueId>,
     incomplete_placeholders: HashMap<BlockId, Vec<(LocalBindingId, ValueId)>>,
     block_states: SideHandleMap<BlockId, BlockState>,
@@ -32,7 +33,7 @@ enum Position {
 // Clone: required by `SideHandleMap::add` for resize padding
 #[derive(Clone, Default)]
 struct BlockState {
-    predecessors: HandleList<InstructionId>,
+    predecessors: GrowableHandleList<InstructionId>,
     sealed: bool,
     status: BlockStatus,
 }
@@ -50,7 +51,7 @@ impl CfgBuilder {
         Self {
             cfg: Cfg::new(),
             position: Position::Nowhere,
-            predecessor_edge_suballocator: HandleListSubAllocator::new(),
+            predecessor_edge_suballocator: GrowableHandleListAllocator::new(),
             current_defs: HashMap::new(),
             incomplete_placeholders: HashMap::new(),
             block_states: SideHandleMap::new(),

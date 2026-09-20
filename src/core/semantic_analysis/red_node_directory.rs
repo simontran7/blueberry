@@ -73,15 +73,9 @@ impl<'a, 'db> RedNodeDirectoryBuilder<'a, 'db> {
                 child.kind(),
                 SyntaxKind::Block | SyntaxKind::FunctionDefinition | SyntaxKind::ConstantDefinition
             ) {
-                let name = {
-                    let token = ast::Definition::cast(child.clone())
-                        .and_then(|definition| definition.name());
-                    if let Some(token) = token {
-                        Some(Symbol::new(self.db, token.lexeme().to_string()))
-                    } else {
-                        None
-                    }
-                };
+                let name = ast::Definition::cast(child.clone())
+                    .and_then(|definition| definition.name())
+                    .map(|token| Symbol::new(self.db, token.lexeme().to_string()));
                 let collision_index = collisions.entry((child.kind(), name)).or_insert(0);
                 let id = RawRedNodeId::new(
                     self.db,
@@ -133,7 +127,7 @@ impl<'db, N: AstNode> RedNodeId<'db, N> {
 }
 
 impl RedNodeTag {
-    fn new(node: &RedNode) -> Self {
+    pub(crate) fn new(node: &RedNode) -> Self {
         Self {
             kind: node.kind(),
             span: node.span(),

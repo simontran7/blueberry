@@ -1,0 +1,13 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/assignment.bb
+---
+function main()
+└─ Block
+   └─ Expression ;
+      └─ Assignment
+         ├─ Path a
+         └─ Assignment
+            ├─ Path b
+            └─ Path c

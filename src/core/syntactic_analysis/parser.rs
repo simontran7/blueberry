@@ -81,6 +81,8 @@ impl<'a> Parser<'a> {
                 self.parse_function_definition();
             } else if self.cursor.at(TokenKind::Const) {
                 self.parse_constant_definition();
+            } else if self.cursor.at(TokenKind::Import) {
+                self.parse_import_declaration();
             } else {
                 self.advance_with_error(SyntaxDiagnostic::new(
                     TokenKind::Func.to_string(),
@@ -105,15 +107,69 @@ impl<'a> Parser<'a> {
         self.expect(TokenKind::Identifier);
         if self.cursor.at(TokenKind::OpenParen) {
             self.parse_parameter_list();
+        } else {
+            self.record_diagnostic(SyntaxDiagnostic::new(
+                "parameter list".to_string(),
+                self.cursor.peek().to_string(),
+            ));
         }
         if self.eat(TokenKind::ThinArrow) {
             self.parse_type_expression();
         }
         if self.cursor.at(TokenKind::OpenBrace) {
             self.parse_block();
+        } else {
+            self.record_diagnostic(SyntaxDiagnostic::new(
+                "function body".to_string(),
+                self.cursor.peek().to_string(),
+            ));
         }
 
         self.close(marker, SyntaxKind::FunctionDefinition);
+    }
+
+    fn parse_import_declaration(&mut self) {
+        assert!(self.cursor.at(TokenKind::Import));
+        let marker = self.open();
+
+        self.expect(TokenKind::Import);
+        if self.cursor.at(TokenKind::Identifier) {
+            self.parse_path();
+        } else {
+            self.expect(TokenKind::Identifier);
+        }
+        self.expect(TokenKind::Semicolon);
+
+        self.close(marker, SyntaxKind::ImportDeclaration);
+    }
+
+    fn parse_path(&mut self) {
+        assert!(self.cursor.at(TokenKind::Identifier));
+        let marker = self.open();
+
+        self.parse_path_segment();
+
+        let mut path = self.close(marker, SyntaxKind::Path);
+
+        while self.cursor.at(TokenKind::ColonColon) {
+            let marker = self.open_before(path);
+            self.expect(TokenKind::ColonColon);
+            if self.cursor.at(TokenKind::Identifier) {
+                self.parse_path_segment();
+            } else {
+                self.expect(TokenKind::Identifier);
+            }
+            path = self.close(marker, SyntaxKind::Path);
+        }
+    }
+
+    fn parse_path_segment(&mut self) {
+        assert!(self.cursor.at(TokenKind::Identifier));
+        let marker = self.open();
+
+        self.expect(TokenKind::Identifier);
+
+        self.close(marker, SyntaxKind::PathSegment);
     }
 
     fn parse_constant_definition(&mut self) {
@@ -299,7 +355,7 @@ impl<'a> Parser<'a> {
         match self.cursor.peek() {
             TokenKind::Integer => Some(self.parse_integer_literal()),
             TokenKind::True | TokenKind::False => Some(self.parse_boolean_literal()),
-            TokenKind::Identifier => Some(self.parse_variable()),
+            TokenKind::Identifier => Some(self.parse_path_expression()),
             TokenKind::OpenParen if self.cursor.peek_ahead(1) == TokenKind::CloseParen => {
                 Some(self.parse_unit_literal())
             }
@@ -333,11 +389,11 @@ impl<'a> Parser<'a> {
         self.close(marker, SyntaxKind::BooleanLiteral)
     }
 
-    fn parse_variable(&mut self) -> ClosedMarker {
+    fn parse_path_expression(&mut self) -> ClosedMarker {
         assert!(self.cursor.at(TokenKind::Identifier));
         let marker = self.open();
-        self.advance();
-        self.close(marker, SyntaxKind::Variable)
+        self.parse_path();
+        self.close(marker, SyntaxKind::PathExpression)
     }
 
     fn parse_unit_literal(&mut self) -> ClosedMarker {

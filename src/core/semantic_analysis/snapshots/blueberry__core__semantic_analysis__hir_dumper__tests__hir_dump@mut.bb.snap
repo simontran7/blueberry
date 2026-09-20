@@ -1,0 +1,18 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/mut.bb
+---
+function f()
+└─ Block
+   ├─ Let x
+   │  ├─ type: I32
+   │  └─ initializer: Integer 5
+   ├─ Let mut result
+   │  └─ initializer: Path x
+   └─ Expression ;
+      └─ Assignment
+         ├─ Path result
+         └─ Binary +
+            ├─ Path result
+            └─ Integer 1

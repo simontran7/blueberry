@@ -1,0 +1,12 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/parameters.bb
+---
+function add(x: I32, y: I32, z: I32) -> I32
+└─ Block
+   └─ tail: Binary +
+      ├─ Binary +
+      │  ├─ Path x
+      │  └─ Path y
+      └─ Path z

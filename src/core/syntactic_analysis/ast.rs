@@ -42,6 +42,27 @@ pub(crate) enum Definition {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+pub(crate) enum Item {
+    Definition(Definition),
+    Import(ImportDeclaration),
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct ImportDeclaration {
+    red: RedNode,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct Path {
+    red: RedNode,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct PathSegment {
+    red: RedNode,
+}
+
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct FunctionDefinition {
     red: RedNode,
 }
@@ -93,7 +114,7 @@ pub(crate) enum Expression {
     IntegerLiteral(IntegerLiteral),
     BooleanLiteral(BooleanLiteral),
     UnitLiteral(UnitLiteral),
-    Variable(Variable),
+    PathExpression(PathExpression),
     ParenthesizedExpression(ParenthesizedExpression),
     UnaryOperation(UnaryOperation),
     BinaryOperation(BinaryOperation),
@@ -165,7 +186,7 @@ pub(crate) struct ParenthesizedExpression {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(crate) struct Variable {
+pub(crate) struct PathExpression {
     red: RedNode,
 }
 
@@ -205,8 +226,41 @@ pub(crate) struct TypeExpression {
 }
 
 impl File {
-    pub(crate) fn definitions(&self) -> impl Iterator<Item = Definition> {
+    pub(crate) fn items(&self) -> impl Iterator<Item = Item> {
         children(self.red())
+    }
+}
+
+impl ImportDeclaration {
+    pub(crate) fn path(&self) -> Option<Path> {
+        child(self.red())
+    }
+}
+
+impl Path {
+    pub(crate) fn qualifier(&self) -> Option<Path> {
+        child(self.red())
+    }
+
+    pub(crate) fn segment(&self) -> Option<PathSegment> {
+        child(self.red())
+    }
+
+    pub(crate) fn segments(&self) -> Vec<PathSegment> {
+        let mut segments = Vec::new();
+        let mut path = Some(self.clone());
+        while let Some(current) = path {
+            segments.extend(current.segment());
+            path = current.qualifier();
+        }
+        segments.reverse();
+        segments
+    }
+}
+
+impl PathSegment {
+    pub(crate) fn name(&self) -> Option<RedToken> {
+        token(self.red(), SyntaxKind::Identifier)
     }
 }
 
@@ -412,9 +466,9 @@ impl ParenthesizedExpression {
     }
 }
 
-impl Variable {
-    pub(crate) fn name(&self) -> Option<RedToken> {
-        token(self.red(), SyntaxKind::Identifier)
+impl PathExpression {
+    pub(crate) fn path(&self) -> Option<Path> {
+        child(self.red())
     }
 }
 
@@ -423,14 +477,24 @@ impl IntegerLiteral {
         token(self.red(), SyntaxKind::Integer)
     }
 
-    pub(crate) fn value(&self) -> Option<i64> {
-        let integer_token = self.token()?;
-        let digits: String = integer_token
-            .lexeme()
-            .chars()
-            .filter(|&c| c != '_')
-            .collect();
-        digits.parse().ok()
+    pub(crate) fn value(&self) -> Result<u128, std::num::ParseIntError> {
+        let token = self
+            .token()
+            .expect("the parser only builds an `IntegerLiteral` around an Integer token");
+
+        let cleaned: String = token.lexeme().chars().filter(|&c| c != '_').collect();
+
+        let (digits, radix) = if let Some(rest) = cleaned.strip_prefix("0x") {
+            (rest, 16)
+        } else if let Some(rest) = cleaned.strip_prefix("0b") {
+            (rest, 2)
+        } else if let Some(rest) = cleaned.strip_prefix("0o") {
+            (rest, 8)
+        } else {
+            (cleaned.as_str(), 10)
+        };
+
+        u128::from_str_radix(digits, radix)
     }
 }
 
@@ -468,7 +532,7 @@ impl Parameter {
         token(self.red(), SyntaxKind::Identifier)
     }
 
-    pub(crate) fn type_annotation(&self) -> Option<TypeExpression> {
+    pub(crate) fn type_expression(&self) -> Option<TypeExpression> {
         child(self.red())
     }
 }
@@ -524,6 +588,68 @@ impl AstNode for Definition {
             Self::FunctionDefinition(n) => n.red(),
             Self::ConstantDefinition(n) => n.red(),
         }
+    }
+}
+
+impl AstNode for Item {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        Definition::can_cast(kind) || kind == SyntaxKind::ImportDeclaration
+    }
+
+    fn cast(red: RedNode) -> Option<Self> {
+        match red.kind() {
+            SyntaxKind::ImportDeclaration => Some(Self::Import(ImportDeclaration { red })),
+            _ => Definition::cast(red).map(Self::Definition),
+        }
+    }
+
+    fn red(&self) -> &RedNode {
+        match self {
+            Self::Definition(n) => n.red(),
+            Self::Import(n) => n.red(),
+        }
+    }
+}
+
+impl AstNode for ImportDeclaration {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ImportDeclaration
+    }
+
+    fn cast(red: RedNode) -> Option<Self> {
+        Self::can_cast(red.kind()).then(|| Self { red })
+    }
+
+    fn red(&self) -> &RedNode {
+        &self.red
+    }
+}
+
+impl AstNode for Path {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::Path
+    }
+
+    fn cast(red: RedNode) -> Option<Self> {
+        Self::can_cast(red.kind()).then(|| Self { red })
+    }
+
+    fn red(&self) -> &RedNode {
+        &self.red
+    }
+}
+
+impl AstNode for PathSegment {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::PathSegment
+    }
+
+    fn cast(red: RedNode) -> Option<Self> {
+        Self::can_cast(red.kind()).then(|| Self { red })
+    }
+
+    fn red(&self) -> &RedNode {
+        &self.red
     }
 }
 
@@ -679,7 +805,7 @@ impl AstNode for Expression {
             SyntaxKind::IntegerLiteral
                 | SyntaxKind::BooleanLiteral
                 | SyntaxKind::UnitLiteral
-                | SyntaxKind::Variable
+                | SyntaxKind::PathExpression
                 | SyntaxKind::ParenthesizedExpression
                 | SyntaxKind::UnaryOperation
                 | SyntaxKind::BinaryOperation
@@ -700,7 +826,7 @@ impl AstNode for Expression {
             SyntaxKind::IntegerLiteral => Self::IntegerLiteral(IntegerLiteral { red }),
             SyntaxKind::BooleanLiteral => Self::BooleanLiteral(BooleanLiteral { red }),
             SyntaxKind::UnitLiteral => Self::UnitLiteral(UnitLiteral { red }),
-            SyntaxKind::Variable => Self::Variable(Variable { red }),
+            SyntaxKind::PathExpression => Self::PathExpression(PathExpression { red }),
             SyntaxKind::ParenthesizedExpression => {
                 Self::ParenthesizedExpression(ParenthesizedExpression { red })
             }
@@ -725,7 +851,7 @@ impl AstNode for Expression {
             Self::IntegerLiteral(n) => n.red(),
             Self::BooleanLiteral(n) => n.red(),
             Self::UnitLiteral(n) => n.red(),
-            Self::Variable(n) => n.red(),
+            Self::PathExpression(n) => n.red(),
             Self::ParenthesizedExpression(n) => n.red(),
             Self::UnaryOperation(n) => n.red(),
             Self::BinaryOperation(n) => n.red(),
@@ -903,9 +1029,9 @@ impl AstNode for ParenthesizedExpression {
     }
 }
 
-impl AstNode for Variable {
+impl AstNode for PathExpression {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::Variable
+        kind == SyntaxKind::PathExpression
     }
 
     fn cast(red: RedNode) -> Option<Self> {
@@ -1049,5 +1175,73 @@ mod support {
             })
             .nth(index)
             .and_then(N::cast)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+    use crate::core::db::BlueberryDatabase;
+    use crate::core::source_file_key::SourceFileKey;
+    use crate::core::syntactic_analysis::cst_of;
+
+    fn root_of(db: &BlueberryDatabase, source: &str) -> File {
+        let file = SourceFileKey::new(db, PathBuf::from("test.bb"), source.to_string());
+        File::cast(RedNode::new(cst_of(db, file).clone())).unwrap()
+    }
+
+    fn path_names(path: &Path) -> Vec<String> {
+        path.segments()
+            .iter()
+            .map(|segment| segment.name().unwrap().lexeme().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn imports_in_source_order() {
+        let db = BlueberryDatabase::default();
+        let root = root_of(&db, "import a::b::c;\nfunc f() {}\nimport d;");
+
+        let mut kinds = Vec::new();
+        let mut modules = Vec::new();
+        for item in root.items() {
+            match item {
+                Item::Definition(_) => kinds.push("definition"),
+                Item::Import(declaration) => {
+                    kinds.push("import");
+                    modules.push(path_names(&declaration.path().unwrap()));
+                }
+            }
+        }
+
+        assert_eq!(kinds, ["import", "definition", "import"]);
+        assert_eq!(modules, [["a", "b", "c"].as_slice(), &["d"]]);
+    }
+
+    #[test]
+    fn broken_imports_never_have_nameless_segments() {
+        let db = BlueberryDatabase::default();
+        let root = root_of(&db, "import ;\nimport a::;\nimport a::b::;");
+
+        let modules: Vec<Option<Vec<String>>> = root
+            .items()
+            .map(|item| {
+                let Item::Import(declaration) = item else {
+                    panic!("expected an import");
+                };
+                declaration.path().map(|path| path_names(&path))
+            })
+            .collect();
+
+        assert_eq!(
+            modules,
+            [
+                None,
+                Some(vec!["a".to_string()]),
+                Some(vec!["a".to_string(), "b".to_string()]),
+            ]
+        );
     }
 }

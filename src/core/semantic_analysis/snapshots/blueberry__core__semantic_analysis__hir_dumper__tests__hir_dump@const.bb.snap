@@ -1,0 +1,16 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/const.bb
+---
+constant THRESHOLD: I32
+└─ Integer 10
+
+constant ENABLED: Bool
+└─ Boolean true
+
+function f()
+└─ Block
+   └─ Let x
+      ├─ type: I32
+      └─ initializer: Path THRESHOLD

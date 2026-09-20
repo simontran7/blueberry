@@ -1,9 +1,9 @@
-use super::Handle;
+use crate::core::common::handle_collections::Handle;
 use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 use std::{fmt, slice};
 
-#[derive(Clone)]
+#[derive(Clone, salsa::SalsaValue)]
 pub(crate) struct SideHandleMap<K, V> {
     data: Vec<Option<V>>,
     _marker: PhantomData<K>,

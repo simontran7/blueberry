@@ -1,13 +1,13 @@
 use std::slice;
 
-use handlemap::handle_map::HandleMap;
-use handlemap::handle_map::SideHandleMap;
+use crate::core::common::handle_collections::handle_impl;
+use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
 
 use crate::core::common::string_interner::Symbol;
 use crate::core::common::types::TypeId;
 use crate::front_end::semantic_analysis::hir::DefinitionBindingId;
 use crate::front_end::syntactic_analysis::cst::operators::{BinOp, UnOp};
-use crate::middle_end::handle_list::{HandleList, HandleListSubAllocator};
+use crate::core::common::handle_collections::handle_list::{GrowableHandleList, GrowableHandleListAllocator};
 
 pub(crate) struct Mir {
     functions: Vec<Function>,
@@ -55,7 +55,7 @@ pub(crate) enum ValueOrigin {
 }
 
 pub(crate) struct Block {
-    parameter_ids: HandleList<ValueId>,
+    parameter_ids: GrowableHandleList<ValueId>,
 }
 
 pub(crate) enum InstructionKind<T> {
@@ -101,7 +101,7 @@ pub(crate) enum InstructionKind<T> {
     Unreachable,
 }
 
-pub(crate) type Instruction = InstructionKind<HandleList<ValueId>>;
+pub(crate) type Instruction = InstructionKind<GrowableHandleList<ValueId>>;
 
 pub(crate) struct FunctionReference {
     pub(crate) definition_binding_id: DefinitionBindingId,
@@ -115,11 +115,11 @@ pub(crate) struct Signature {
 }
 
 // Opaque, 4-byte handles into the tables above.
-handlemap::handle_impl!(pub(crate) BlockId);
-handlemap::handle_impl!(pub(crate) InstructionId);
-handlemap::handle_impl!(pub(crate) FunctionReferenceId);
-handlemap::handle_impl!(pub(crate) SignatureId);
-handlemap::handle_impl!(pub(crate) ValueId);
+handle_impl!(pub(crate) BlockId);
+handle_impl!(pub(crate) InstructionId);
+handle_impl!(pub(crate) FunctionReferenceId);
+handle_impl!(pub(crate) SignatureId);
+handle_impl!(pub(crate) ValueId);
 
 pub(crate) struct BlockView<'a> {
     block_id: BlockId,
@@ -170,11 +170,11 @@ pub(crate) struct InstructionIter<'a> {
 struct DataFlowGraph {
     values: HandleMap<ValueId, Value>,
     instructions: HandleMap<InstructionId, Instruction>,
-    instruction_results: SideHandleMap<InstructionId, HandleList<ValueId>>,
+    instruction_results: SideHandleMap<InstructionId, GrowableHandleList<ValueId>>,
     blocks: HandleMap<BlockId, Block>,
     function_references: HandleMap<FunctionReferenceId, FunctionReference>,
     signatures: HandleMap<SignatureId, Signature>,
-    suballocator: HandleListSubAllocator<ValueId>,
+    suballocator: GrowableHandleListAllocator<ValueId>,
 }
 
 struct Layout {
@@ -211,7 +211,7 @@ impl Cfg {
 
     pub(crate) fn allocate_block(&mut self) -> BlockId {
         self.dfg.blocks.add(Block {
-            parameter_ids: HandleList::<ValueId>::new(),
+            parameter_ids: GrowableHandleList::<ValueId>::new(),
         })
     }
 
@@ -400,7 +400,7 @@ impl Cfg {
             .collect();
         self.dfg.instruction_results.add(
             instruction_id,
-            HandleList::<ValueId>::from(&mut self.dfg.suballocator, &result_ssa_ids),
+            GrowableHandleList::<ValueId>::from(&mut self.dfg.suballocator, &result_ssa_ids),
         );
         instruction_id
     }
@@ -575,7 +575,7 @@ impl Cfg {
     ) -> Instruction {
         Instruction::Jump {
             destination_id,
-            block_argument_ids: HandleList::<ValueId>::from(
+            block_argument_ids: GrowableHandleList::<ValueId>::from(
                 &mut self.dfg.suballocator,
                 block_argument_ids,
             ),
@@ -584,7 +584,7 @@ impl Cfg {
 
     pub(crate) fn allocate_return(&mut self, output_ids: &[ValueId]) -> Instruction {
         Instruction::Return {
-            output_ids: HandleList::<ValueId>::from(&mut self.dfg.suballocator, output_ids),
+            output_ids: GrowableHandleList::<ValueId>::from(&mut self.dfg.suballocator, output_ids),
         }
     }
 
@@ -595,7 +595,7 @@ impl Cfg {
     ) -> Instruction {
         Instruction::Call {
             callee_id,
-            argument_ids: HandleList::<ValueId>::from(&mut self.dfg.suballocator, argument_ids),
+            argument_ids: GrowableHandleList::<ValueId>::from(&mut self.dfg.suballocator, argument_ids),
         }
     }
 
@@ -610,12 +610,12 @@ impl Cfg {
         Instruction::ConditionalBranch {
             operand_id,
             true_block_id,
-            true_block_argument_ids: HandleList::<ValueId>::from(
+            true_block_argument_ids: GrowableHandleList::<ValueId>::from(
                 &mut self.dfg.suballocator,
                 true_block_argument_ids,
             ),
             false_block_id,
-            false_block_argument_ids: HandleList::<ValueId>::from(
+            false_block_argument_ids: GrowableHandleList::<ValueId>::from(
                 &mut self.dfg.suballocator,
                 false_block_argument_ids,
             ),
@@ -766,10 +766,10 @@ impl Cfg {
     }
 }
 
-impl InstructionKind<HandleList<ValueId>> {
+impl InstructionKind<GrowableHandleList<ValueId>> {
     fn rewrite_operands(
         &mut self,
-        suballocator: &mut HandleListSubAllocator<ValueId>,
+        suballocator: &mut GrowableHandleListAllocator<ValueId>,
         mut f: impl FnMut(ValueId) -> ValueId,
     ) {
         match self {
@@ -901,9 +901,9 @@ impl<'a> BlockViewMut<'a> {
         }
     }
 
-    pub(crate) fn detach_parameters(&mut self) -> HandleList<ValueId> {
+    pub(crate) fn detach_parameters(&mut self) -> GrowableHandleList<ValueId> {
         let params = self.cfg.dfg.blocks[self.block_id].parameter_ids;
-        self.cfg.dfg.blocks[self.block_id].parameter_ids = HandleList::<ValueId>::new();
+        self.cfg.dfg.blocks[self.block_id].parameter_ids = GrowableHandleList::<ValueId>::new();
         params
     }
 }
@@ -1201,7 +1201,7 @@ impl DataFlowGraph {
             blocks: HandleMap::new(),
             function_references: HandleMap::new(),
             signatures: HandleMap::new(),
-            suballocator: HandleListSubAllocator::<ValueId>::new(),
+            suballocator: GrowableHandleListAllocator::<ValueId>::new(),
         }
     }
 }

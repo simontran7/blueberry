@@ -1,0 +1,24 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/calls.bb
+---
+function main()
+└─ Block
+   ├─ Expression ;
+   │  └─ Binary +
+   │     ├─ Unary -
+   │     │  └─ Call
+   │     │     └─ callee: Path f
+   │     └─ Call
+   │        ├─ callee: Path g
+   │        ├─ argument: Path x
+   │        └─ argument: Path y
+   ├─ Expression ;
+   │  └─ Call
+   │     └─ callee: Call
+   │        └─ callee: Path h
+   └─ Expression ;
+      └─ Call
+         ├─ callee: Path k
+         └─ argument: Path x

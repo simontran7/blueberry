@@ -1,0 +1,9 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/integer_literal.bb
+---
+function f()
+└─ Block
+   └─ Expression ;
+      └─ Integer 42

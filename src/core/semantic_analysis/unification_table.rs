@@ -1,11 +1,12 @@
 /* Being redesigned from scratch alongside the new HIR -- kept here for
 reference during the rewrite. */
 /*
-use crate::core::common::handlemap::{self, Handle, HandleMap};
+use crate::core::common::handle_collections::handle_map::HandleMap;
+use crate::core::common::handle_collections::{handle_impl, Handle};
 use crate::core::common::types::TypeId;
 
-handlemap::handle_impl!(pub(crate) TypeVarId);
-handlemap::handle_impl!(pub(crate) IntVarId);
+handle_impl!(pub(crate) TypeVarId);
+handle_impl!(pub(crate) IntVarId);
 
 pub(crate) struct UnificationTable {
     type_var_parent: HandleMap<TypeVarId, TypeVarId>,

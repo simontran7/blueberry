@@ -1,212 +1,224 @@
 ---
-source: src/syntactic_analysis/parser.rs
-assertion_line: 614
+source: src/core/syntactic_analysis/parser.rs
+assertion_line: 700
 expression: dump
-input_file: src/syntactic_analysis/snapshot_inputs/nested_definitions.crw
+input_file: src/core/syntactic_analysis/snapshot_inputs/nested_definitions.bb
 ---
 File
-└─FunctionDefinition
-  ├─Func
-  │   Lexeme: "func"
-  │   Span: [0, 4)
-  ├─Whitespace
-  │   Lexeme: " "
-  │   Span: [4, 5)
-  ├─Identifier
-  │   Lexeme: "outer"
-  │   Span: [5, 10)
-  ├─ParameterList
-  │ ├─OpenParen
-  │ │   Lexeme: "("
-  │ │   Span: [10, 11)
-  │ ├─CloseParen
-  │ │   Lexeme: ")"
-  │ │   Span: [11, 12)
-  │ └─Whitespace
-  │     Lexeme: " "
-  │     Span: [12, 13)
-  │ Span: [10, 13)
-  └─Block
-    ├─OpenBrace
-    │   Lexeme: "{"
-    │   Span: [13, 14)
-    ├─Whitespace
-    │   Lexeme: "\n    "
-    │   Span: [14, 19)
-    ├─DefinitionStatement
-    │ └─ConstantDefinition
-    │   ├─Const
-    │   │   Lexeme: "const"
-    │   │   Span: [19, 24)
-    │   ├─Whitespace
-    │   │   Lexeme: " "
-    │   │   Span: [24, 25)
-    │   ├─Identifier
-    │   │   Lexeme: "LOCAL_THRESHOLD"
-    │   │   Span: [25, 40)
-    │   ├─Colon
-    │   │   Lexeme: ":"
-    │   │   Span: [40, 41)
-    │   ├─Whitespace
-    │   │   Lexeme: " "
-    │   │   Span: [41, 42)
-    │   ├─TypeExpression
-    │   │ ├─Identifier
-    │   │ │   Lexeme: "I32"
-    │   │ │   Span: [42, 45)
-    │   │ └─Whitespace
-    │   │     Lexeme: " "
-    │   │     Span: [45, 46)
-    │   │ Span: [42, 46)
-    │   ├─Equal
-    │   │   Lexeme: "="
-    │   │   Span: [46, 47)
-    │   ├─Whitespace
-    │   │   Lexeme: " "
-    │   │   Span: [47, 48)
-    │   ├─IntegerLiteral
-    │   │ └─Integer
-    │   │     Lexeme: "5"
-    │   │     Span: [48, 49)
-    │   │ Span: [48, 49)
-    │   ├─Semicolon
-    │   │   Lexeme: ";"
-    │   │   Span: [49, 50)
-    │   └─Whitespace
-    │       Lexeme: "\n\n    "
-    │       Span: [50, 56)
-    │   Span: [19, 56)
-    │ Span: [19, 56)
-    ├─DefinitionStatement
-    │ └─FunctionDefinition
-    │   ├─Func
-    │   │   Lexeme: "func"
-    │   │   Span: [56, 60)
-    │   ├─Whitespace
-    │   │   Lexeme: " "
-    │   │   Span: [60, 61)
-    │   ├─Identifier
-    │   │   Lexeme: "helper"
-    │   │   Span: [61, 67)
-    │   ├─ParameterList
-    │   │ ├─OpenParen
-    │   │ │   Lexeme: "("
-    │   │ │   Span: [67, 68)
-    │   │ ├─Parameter
-    │   │ │ ├─Identifier
-    │   │ │ │   Lexeme: "x"
-    │   │ │ │   Span: [68, 69)
-    │   │ │ ├─Colon
-    │   │ │ │   Lexeme: ":"
-    │   │ │ │   Span: [69, 70)
-    │   │ │ ├─Whitespace
-    │   │ │ │   Lexeme: " "
-    │   │ │ │   Span: [70, 71)
-    │   │ │ └─TypeExpression
-    │   │ │   └─Identifier
-    │   │ │       Lexeme: "I32"
-    │   │ │       Span: [71, 74)
-    │   │ │   Span: [71, 74)
-    │   │ │ Span: [68, 74)
-    │   │ ├─CloseParen
-    │   │ │   Lexeme: ")"
-    │   │ │   Span: [74, 75)
-    │   │ └─Whitespace
-    │   │     Lexeme: " "
-    │   │     Span: [75, 76)
-    │   │ Span: [67, 76)
-    │   ├─ThinArrow
-    │   │   Lexeme: "->"
-    │   │   Span: [76, 78)
-    │   ├─Whitespace
-    │   │   Lexeme: " "
-    │   │   Span: [78, 79)
-    │   ├─TypeExpression
-    │   │ ├─Identifier
-    │   │ │   Lexeme: "I32"
-    │   │ │   Span: [79, 82)
-    │   │ └─Whitespace
-    │   │     Lexeme: " "
-    │   │     Span: [82, 83)
-    │   │ Span: [79, 83)
-    │   └─Block
-    │     ├─OpenBrace
-    │     │   Lexeme: "{"
-    │     │   Span: [83, 84)
-    │     ├─Whitespace
-    │     │   Lexeme: "\n        "
-    │     │   Span: [84, 93)
-    │     ├─ExpressionStatement
-    │     │ └─BinaryOperation
-    │     │   ├─Variable
-    │     │   │ ├─Identifier
-    │     │   │ │   Lexeme: "x"
-    │     │   │ │   Span: [93, 94)
-    │     │   │ └─Whitespace
-    │     │   │     Lexeme: " "
-    │     │   │     Span: [94, 95)
-    │     │   │ Span: [93, 95)
-    │     │   ├─Plus
-    │     │   │   Lexeme: "+"
-    │     │   │   Span: [95, 96)
-    │     │   ├─Whitespace
-    │     │   │   Lexeme: " "
-    │     │   │   Span: [96, 97)
-    │     │   └─Variable
-    │     │     ├─Identifier
-    │     │     │   Lexeme: "LOCAL_THRESHOLD"
-    │     │     │   Span: [97, 112)
-    │     │     └─Whitespace
-    │     │         Lexeme: "\n    "
-    │     │         Span: [112, 117)
-    │     │     Span: [97, 117)
-    │     │   Span: [93, 117)
-    │     │ Span: [93, 117)
-    │     ├─CloseBrace
-    │     │   Lexeme: "}"
-    │     │   Span: [117, 118)
-    │     └─Whitespace
-    │         Lexeme: "\n\n    "
-    │         Span: [118, 124)
-    │     Span: [83, 124)
-    │   Span: [56, 124)
-    │ Span: [56, 124)
-    ├─ExpressionStatement
-    │ ├─Call
-    │ │ ├─Variable
-    │ │ │ └─Identifier
-    │ │ │     Lexeme: "helper"
-    │ │ │     Span: [124, 130)
-    │ │ │ Span: [124, 130)
-    │ │ └─ArgumentList
-    │ │   ├─OpenParen
-    │ │   │   Lexeme: "("
-    │ │   │   Span: [130, 131)
-    │ │   ├─Argument
-    │ │   │ └─IntegerLiteral
-    │ │   │   └─Integer
-    │ │   │       Lexeme: "1"
-    │ │   │       Span: [131, 132)
-    │ │   │   Span: [131, 132)
-    │ │   │ Span: [131, 132)
-    │ │   └─CloseParen
-    │ │       Lexeme: ")"
-    │ │       Span: [132, 133)
-    │ │   Span: [130, 133)
-    │ │ Span: [124, 133)
-    │ ├─Semicolon
-    │ │   Lexeme: ";"
-    │ │   Span: [133, 134)
-    │ └─Whitespace
-    │     Lexeme: "\n"
-    │     Span: [134, 135)
-    │ Span: [124, 135)
-    ├─CloseBrace
-    │   Lexeme: "}"
-    │   Span: [135, 136)
-    └─Whitespace
-        Lexeme: "\n"
-        Span: [136, 137)
-    Span: [13, 137)
-  Span: [0, 137)
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [0, 4)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [4, 5)
+│ ├─Identifier
+│ │   Lexeme: "outer"
+│ │   Span: [5, 10)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [10, 11)
+│ │ └─CloseParen
+│ │     Lexeme: ")"
+│ │     Span: [11, 12)
+│ │ Span: [10, 12)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [12, 13)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [13, 14)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [14, 19)
+│   ├─DefinitionStatement
+│   │ └─ConstantDefinition
+│   │   ├─Const
+│   │   │   Lexeme: "const"
+│   │   │   Span: [19, 24)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [24, 25)
+│   │   ├─Identifier
+│   │   │   Lexeme: "LOCAL_THRESHOLD"
+│   │   │   Span: [25, 40)
+│   │   ├─Colon
+│   │   │   Lexeme: ":"
+│   │   │   Span: [40, 41)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [41, 42)
+│   │   ├─TypeExpression
+│   │   │ └─Identifier
+│   │   │     Lexeme: "I32"
+│   │   │     Span: [42, 45)
+│   │   │ Span: [42, 45)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [45, 46)
+│   │   ├─Equal
+│   │   │   Lexeme: "="
+│   │   │   Span: [46, 47)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [47, 48)
+│   │   ├─IntegerLiteral
+│   │   │ └─Integer
+│   │   │     Lexeme: "5"
+│   │   │     Span: [48, 49)
+│   │   │ Span: [48, 49)
+│   │   └─Semicolon
+│   │       Lexeme: ";"
+│   │       Span: [49, 50)
+│   │   Span: [19, 50)
+│   │ Span: [19, 50)
+│   ├─Whitespace
+│   │   Lexeme: "\n\n    "
+│   │   Span: [50, 56)
+│   ├─DefinitionStatement
+│   │ └─FunctionDefinition
+│   │   ├─Func
+│   │   │   Lexeme: "func"
+│   │   │   Span: [56, 60)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [60, 61)
+│   │   ├─Identifier
+│   │   │   Lexeme: "helper"
+│   │   │   Span: [61, 67)
+│   │   ├─ParameterList
+│   │   │ ├─OpenParen
+│   │   │ │   Lexeme: "("
+│   │   │ │   Span: [67, 68)
+│   │   │ ├─Parameter
+│   │   │ │ ├─Identifier
+│   │   │ │ │   Lexeme: "x"
+│   │   │ │ │   Span: [68, 69)
+│   │   │ │ ├─Colon
+│   │   │ │ │   Lexeme: ":"
+│   │   │ │ │   Span: [69, 70)
+│   │   │ │ ├─Whitespace
+│   │   │ │ │   Lexeme: " "
+│   │   │ │ │   Span: [70, 71)
+│   │   │ │ └─TypeExpression
+│   │   │ │   └─Identifier
+│   │   │ │       Lexeme: "I32"
+│   │   │ │       Span: [71, 74)
+│   │   │ │   Span: [71, 74)
+│   │   │ │ Span: [68, 74)
+│   │   │ └─CloseParen
+│   │   │     Lexeme: ")"
+│   │   │     Span: [74, 75)
+│   │   │ Span: [67, 75)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [75, 76)
+│   │   ├─ThinArrow
+│   │   │   Lexeme: "->"
+│   │   │   Span: [76, 78)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [78, 79)
+│   │   ├─TypeExpression
+│   │   │ └─Identifier
+│   │   │     Lexeme: "I32"
+│   │   │     Span: [79, 82)
+│   │   │ Span: [79, 82)
+│   │   ├─Whitespace
+│   │   │   Lexeme: " "
+│   │   │   Span: [82, 83)
+│   │   └─Block
+│   │     ├─OpenBrace
+│   │     │   Lexeme: "{"
+│   │     │   Span: [83, 84)
+│   │     ├─Whitespace
+│   │     │   Lexeme: "\n        "
+│   │     │   Span: [84, 93)
+│   │     ├─ExpressionStatement
+│   │     │ └─BinaryOperation
+│   │     │   ├─PathExpression
+│   │     │   │ └─Path
+│   │     │   │   └─PathSegment
+│   │     │   │     └─Identifier
+│   │     │   │         Lexeme: "x"
+│   │     │   │         Span: [93, 94)
+│   │     │   │     Span: [93, 94)
+│   │     │   │   Span: [93, 94)
+│   │     │   │ Span: [93, 94)
+│   │     │   ├─Whitespace
+│   │     │   │   Lexeme: " "
+│   │     │   │   Span: [94, 95)
+│   │     │   ├─Plus
+│   │     │   │   Lexeme: "+"
+│   │     │   │   Span: [95, 96)
+│   │     │   ├─Whitespace
+│   │     │   │   Lexeme: " "
+│   │     │   │   Span: [96, 97)
+│   │     │   └─PathExpression
+│   │     │     └─Path
+│   │     │       └─PathSegment
+│   │     │         └─Identifier
+│   │     │             Lexeme: "LOCAL_THRESHOLD"
+│   │     │             Span: [97, 112)
+│   │     │         Span: [97, 112)
+│   │     │       Span: [97, 112)
+│   │     │     Span: [97, 112)
+│   │     │   Span: [93, 112)
+│   │     │ Span: [93, 112)
+│   │     ├─Whitespace
+│   │     │   Lexeme: "\n    "
+│   │     │   Span: [112, 117)
+│   │     └─CloseBrace
+│   │         Lexeme: "}"
+│   │         Span: [117, 118)
+│   │     Span: [83, 118)
+│   │   Span: [56, 118)
+│   │ Span: [56, 118)
+│   ├─Whitespace
+│   │   Lexeme: "\n\n    "
+│   │   Span: [118, 124)
+│   ├─ExpressionStatement
+│   │ ├─Call
+│   │ │ ├─PathExpression
+│   │ │ │ └─Path
+│   │ │ │   └─PathSegment
+│   │ │ │     └─Identifier
+│   │ │ │         Lexeme: "helper"
+│   │ │ │         Span: [124, 130)
+│   │ │ │     Span: [124, 130)
+│   │ │ │   Span: [124, 130)
+│   │ │ │ Span: [124, 130)
+│   │ │ └─ArgumentList
+│   │ │   ├─OpenParen
+│   │ │   │   Lexeme: "("
+│   │ │   │   Span: [130, 131)
+│   │ │   ├─Argument
+│   │ │   │ └─IntegerLiteral
+│   │ │   │   └─Integer
+│   │ │   │       Lexeme: "1"
+│   │ │   │       Span: [131, 132)
+│   │ │   │   Span: [131, 132)
+│   │ │   │ Span: [131, 132)
+│   │ │   └─CloseParen
+│   │ │       Lexeme: ")"
+│   │ │       Span: [132, 133)
+│   │ │   Span: [130, 133)
+│   │ │ Span: [124, 133)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [133, 134)
+│   │ Span: [124, 134)
+│   ├─Whitespace
+│   │   Lexeme: "\n"
+│   │   Span: [134, 135)
+│   └─CloseBrace
+│       Lexeme: "}"
+│       Span: [135, 136)
+│   Span: [13, 136)
+│ Span: [0, 136)
+└─Whitespace
+    Lexeme: "\n"
+    Span: [136, 137)
 Span: [0, 137)

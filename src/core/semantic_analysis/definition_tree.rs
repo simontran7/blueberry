@@ -28,6 +28,10 @@ impl<'db> DefinitionTree<'db> {
         }
     }
 
+    pub(crate) fn definitions(&self) -> &[Definition<'db>] {
+        &self.definitions
+    }
+
     pub(crate) fn add_definition(
         &mut self,
         db: &'db dyn crate::Db,

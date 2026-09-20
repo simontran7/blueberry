@@ -1,0 +1,32 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/precedence.bb
+---
+function main()
+└─ Block
+   └─ Expression ;
+      └─ Binary -
+         ├─ Binary +
+         │  ├─ Integer 1
+         │  └─ Binary *
+         │     ├─ Integer 2
+         │     └─ Integer 3
+         └─ Binary /
+            ├─ Integer 4
+            └─ Integer 2
+
+function g()
+└─ Block
+   ├─ Expression ;
+   │  └─ Binary ||
+   │     ├─ Binary <=
+   │     │  ├─ Path a
+   │     │  └─ Path b
+   │     └─ Binary >=
+   │        ├─ Path c
+   │        └─ Path d
+   └─ Expression ;
+      └─ Binary !=
+         ├─ Path a
+         └─ Path b

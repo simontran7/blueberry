@@ -1,0 +1,16 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/break.bb
+---
+function f()
+└─ Block
+   └─ tail: Loop Loop
+      └─ Block
+         ├─ Expression ;
+         │  └─ Break
+         └─ Expression ;
+            └─ Break
+               └─ Binary +
+                  ├─ Integer 1
+                  └─ Integer 2

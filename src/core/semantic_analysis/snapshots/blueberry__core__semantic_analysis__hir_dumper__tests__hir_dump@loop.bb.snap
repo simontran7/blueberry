@@ -1,0 +1,22 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/loop.bb
+---
+function main()
+└─ Block
+   ├─ Expression
+   │  └─ Loop Loop
+   │     └─ Block
+   └─ Expression ;
+      └─ Unary -
+         └─ Integer 1
+
+function g()
+└─ Block
+   └─ Let x
+      └─ initializer: Loop Loop
+         └─ Block
+            └─ Expression ;
+               └─ Break
+                  └─ Integer 5

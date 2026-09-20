@@ -79,9 +79,10 @@ pub(crate) enum SyntaxKind {
 
     // --- node kinds ---
 
-    // top-level definitions
+    // top-level items
     FunctionDefinition,
     ConstantDefinition,
+    ImportDeclaration,
 
     // statements
     ExpressionStatement,
@@ -94,7 +95,7 @@ pub(crate) enum SyntaxKind {
     UnitLiteral,
     IntegerLiteral,
     BooleanLiteral,
-    Variable,
+    PathExpression,
     UnaryOperation,
     BinaryOperation,
     IfExpression,
@@ -117,6 +118,8 @@ pub(crate) enum SyntaxKind {
     // miscellaneous
     ParameterList,
     Parameter,
+    Path,
+    PathSegment,
 }
 
 #[derive(Clone)]

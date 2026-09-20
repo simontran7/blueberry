@@ -1,238 +1,143 @@
-/* Old Ty/TypeInterner design -- being redesigned from scratch alongside
-the new HIR. Kept here for reference during the rewrite. */
-/*
-use std::collections::HashMap;
+use crate::core::common::handle_collections::handle_impl;
 
-use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::unification_table::{IntVarId, TypeVarId};
+handle_impl!(pub(crate) TypeVarId);
+handle_impl!(pub(crate) IntVarId);
 
-#[derive(Clone, Hash, Eq, PartialEq)]
-pub(crate) enum Ty {
+#[salsa::interned(debug)]
+pub(crate) struct Ty<'db> {
+    #[returns(ref)]
+    pub(crate) kind: TyKind<'db>,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
+pub(crate) enum TyKind<'db> {
     Unit,
     Bottom,
     Bool,
     Signed(SignedIntTy),
     Unsigned(UnsignedIntTy),
     Function {
-        parameter_type_ids: Vec<TypeId>,
-        return_type_id: TypeId,
+        parameters: Vec<Ty<'db>>,
+        return_type: Ty<'db>,
     },
     Infer(InferTy),
     Error,
 }
 
-#[derive(Clone, Copy, Hash, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
 pub(crate) enum SignedIntTy {
     I32,
     I64,
 }
 
-#[derive(Clone, Copy, Hash, Eq, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
 pub(crate) enum UnsignedIntTy {
     U32,
     U64,
 }
 
-#[derive(Clone, Copy, Hash, Eq, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
 pub(crate) enum InferTy {
     TyVar(TypeVarId),
     IntVar(IntVarId),
 }
 
-#[derive(Clone, PartialEq, Eq)]
-pub(crate) struct TypeInterner {
-    types: Vec<Ty>,
-    handles: HashMap<Ty, TypeId>,
-    pub(crate) unit_id: TypeId,
-    pub(crate) bottom_id: TypeId,
-    pub(crate) bool_id: TypeId,
-    pub(crate) u32_id: TypeId,
-    pub(crate) u64_id: TypeId,
-    pub(crate) i32_id: TypeId,
-    pub(crate) i64_id: TypeId,
-    pub(crate) error_id: TypeId,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(crate) struct TypeId(pub(crate) u32);
-
-impl TypeInterner {
-    pub(crate) fn new() -> Self {
-        let mut ti = Self {
-            types: Vec::new(),
-            handles: HashMap::new(),
-            unit_id: TypeId(0),
-            bottom_id: TypeId(0),
-            bool_id: TypeId(0),
-            u32_id: TypeId(0),
-            u64_id: TypeId(0),
-            i32_id: TypeId(0),
-            i64_id: TypeId(0),
-            error_id: TypeId(0),
-        };
-        ti.unit_id = ti.intern(Ty::Unit);
-        ti.bottom_id = ti.intern(Ty::Bottom);
-        ti.bool_id = ti.intern(Ty::Bool);
-        ti.u32_id = ti.intern(Ty::Unsigned(UnsignedIntTy::U32));
-        ti.u64_id = ti.intern(Ty::Unsigned(UnsignedIntTy::U64));
-        ti.i32_id = ti.intern(Ty::Signed(SignedIntTy::I32));
-        ti.i64_id = ti.intern(Ty::Signed(SignedIntTy::I64));
-        ti.error_id = ti.intern(Ty::Error);
-        ti
+impl<'db> Ty<'db> {
+    pub(crate) fn unit(db: &'db dyn crate::Db) -> Self {
+        Self::new(db, TyKind::Unit)
     }
 
-    pub(crate) fn intern(&mut self, ty: Ty) -> TypeId {
-        if let Some(&ty_id) = self.handles.get(&ty) {
-            return ty_id;
-        }
-        let ty_id = TypeId(self.types.len() as u32);
-        self.types.push(ty.clone());
-        self.handles.insert(ty, ty_id);
-        ty_id
+    pub(crate) fn bottom(db: &'db dyn crate::Db) -> Self {
+        Self::new(db, TyKind::Bottom)
     }
 
-    pub(crate) fn resolve(&self, type_id: TypeId) -> Option<&Ty> {
-        self.types.get(type_id.0 as usize)
+    pub(crate) fn bool(db: &'db dyn crate::Db) -> Self {
+        Self::new(db, TyKind::Bool)
     }
 
-    pub(crate) fn is_zero_sized(&self, type_id: TypeId) -> bool {
-        type_id == self.unit_id
+    pub(crate) fn error(db: &'db dyn crate::Db) -> Self {
+        Self::new(db, TyKind::Error)
     }
 
-    pub(crate) fn is_zero_sized_or_bottom(&self, type_id: TypeId) -> bool {
-        type_id == self.unit_id || type_id == self.bottom_id
+    pub(crate) fn signed(db: &'db dyn crate::Db, ty: SignedIntTy) -> Self {
+        Self::new(db, TyKind::Signed(ty))
     }
 
-    pub(crate) fn is_unsigned(&self, type_id: TypeId) -> bool {
-        matches!(self.resolve(type_id), Some(Ty::Unsigned(_)))
+    pub(crate) fn unsigned(db: &'db dyn crate::Db, ty: UnsignedIntTy) -> Self {
+        Self::new(db, TyKind::Unsigned(ty))
     }
 
-    pub(crate) fn builtin_type_id(&self, symbol: Symbol<'_>, db: &dyn crate::Db) -> Option<TypeId> {
-        match symbol.text(db) {
-            "Unit" => Some(self.unit_id),
-            "Bottom" => Some(self.bottom_id),
-            "Bool" => Some(self.bool_id),
-            "I32" => Some(self.i32_id),
-            "I64" => Some(self.i64_id),
-            "U32" => Some(self.u32_id),
-            "U64" => Some(self.u64_id),
-            _ => None,
-        }
+    pub(crate) fn function(
+        db: &'db dyn crate::Db,
+        parameters: Vec<Ty<'db>>,
+        return_type: Ty<'db>,
+    ) -> Self {
+        Self::new(
+            db,
+            TyKind::Function {
+                parameters,
+                return_type,
+            },
+        )
     }
 
-    pub(crate) fn as_func(&self, type_id: TypeId) -> Option<(&[TypeId], TypeId)> {
-        match self.resolve(type_id)? {
-            Ty::Function {
-                parameter_type_ids,
-                return_type_id,
-            } => Some((parameter_type_ids, *return_type_id)),
-            _ => None,
-        }
+    pub(crate) fn primitive(db: &'db dyn crate::Db, name: &str) -> Option<Self> {
+        Some(match name {
+            "Unit" => Self::unit(db),
+            "Bottom" => Self::bottom(db),
+            "Bool" => Self::bool(db),
+            "I32" => Self::signed(db, SignedIntTy::I32),
+            "I64" => Self::signed(db, SignedIntTy::I64),
+            "U32" => Self::unsigned(db, UnsignedIntTy::U32),
+            "U64" => Self::unsigned(db, UnsignedIntTy::U64),
+            _ => return None,
+        })
     }
 
-    pub(crate) fn to_string(&self, type_id: TypeId) -> String {
-        match self.resolve(type_id).unwrap() {
-            Ty::Unit => "()".to_string(),
-            Ty::Bottom => "Bottom".to_string(),
-            Ty::Bool => "Bool".to_string(),
-            Ty::Signed(SignedIntTy::I32) => "I32".to_string(),
-            Ty::Signed(SignedIntTy::I64) => "I64".to_string(),
-            Ty::Unsigned(UnsignedIntTy::U32) => "U32".to_string(),
-            Ty::Unsigned(UnsignedIntTy::U64) => "U64".to_string(),
-            Ty::Function {
-                parameter_type_ids,
-                return_type_id,
-            } => {
-                let parameters: Vec<String> = parameter_type_ids
-                    .iter()
-                    .map(|parameter_type_id| self.to_string(*parameter_type_id))
-                    .collect();
-                let return_value = self.to_string(*return_type_id);
-                format!("({}) -> {}", parameters.join(", "), return_value)
-            }
-            Ty::Infer(InferTy::IntVar(_)) => "Int".to_string(),
-            Ty::Infer(InferTy::TyVar(_)) => "unknown".to_string(),
-            Ty::Error => "Error".to_string(),
-        }
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
-pub(crate) enum ResolvedTy<'db> {
-    Unit,
-    Bottom,
-    Bool,
-    Signed(SignedIntTy),
-    Unsigned(UnsignedIntTy),
-    Function {
-        parameters: Vec<ResolvedTypeId<'db>>,
-        return_type: ResolvedTypeId<'db>,
-    },
-    Error,
-}
-
-#[salsa::interned(debug)]
-pub(crate) struct ResolvedTypeId<'db> {
-    pub(crate) ty: ResolvedTy<'db>,
-}
-
-impl<'db> ResolvedTypeId<'db> {
-    pub(crate) fn to_display_string(self, db: &'db dyn crate::Db) -> String {
-        match self.ty(db) {
-            ResolvedTy::Unit => "()".to_string(),
-            ResolvedTy::Bottom => "Bottom".to_string(),
-            ResolvedTy::Bool => "Bool".to_string(),
-            ResolvedTy::Signed(SignedIntTy::I32) => "I32".to_string(),
-            ResolvedTy::Signed(SignedIntTy::I64) => "I64".to_string(),
-            ResolvedTy::Unsigned(UnsignedIntTy::U32) => "U32".to_string(),
-            ResolvedTy::Unsigned(UnsignedIntTy::U64) => "U64".to_string(),
-            ResolvedTy::Function {
+    pub(crate) fn display(self, db: &'db dyn crate::Db) -> String {
+        match self.kind(db) {
+            TyKind::Unit => "()".to_string(),
+            TyKind::Bottom => "Bottom".to_string(),
+            TyKind::Bool => "Bool".to_string(),
+            TyKind::Signed(SignedIntTy::I32) => "I32".to_string(),
+            TyKind::Signed(SignedIntTy::I64) => "I64".to_string(),
+            TyKind::Unsigned(UnsignedIntTy::U32) => "U32".to_string(),
+            TyKind::Unsigned(UnsignedIntTy::U64) => "U64".to_string(),
+            TyKind::Function {
                 parameters,
                 return_type,
             } => {
                 let parameters: Vec<String> = parameters
                     .iter()
-                    .map(|parameter| parameter.to_display_string(db))
+                    .map(|parameter| parameter.display(db))
                     .collect();
-                format!(
-                    "({}) -> {}",
-                    parameters.join(", "),
-                    return_type.to_display_string(db)
-                )
+                format!("({}) -> {}", parameters.join(", "), return_type.display(db))
             }
-            ResolvedTy::Error => "Error".to_string(),
+            TyKind::Infer(InferTy::IntVar(_)) => "Int".to_string(),
+            TyKind::Infer(InferTy::TyVar(_)) => "unknown".to_string(),
+            TyKind::Error => "Error".to_string(),
         }
     }
 }
 
-pub(crate) fn resolve_ty<'db>(
-    db: &'db dyn crate::Db,
-    interner: &TypeInterner,
-    type_id: TypeId,
-) -> ResolvedTypeId<'db> {
-    let resolved = match interner.resolve(type_id).unwrap() {
-        Ty::Unit => ResolvedTy::Unit,
-        Ty::Bottom => ResolvedTy::Bottom,
-        Ty::Bool => ResolvedTy::Bool,
-        Ty::Signed(s) => ResolvedTy::Signed(*s),
-        Ty::Unsigned(u) => ResolvedTy::Unsigned(*u),
-        Ty::Function {
-            parameter_type_ids,
-            return_type_id,
-        } => ResolvedTy::Function {
-            parameters: parameter_type_ids
-                .iter()
-                .map(|&id| resolve_ty(db, interner, id))
-                .collect(),
-            return_type: resolve_ty(db, interner, *return_type_id),
-        },
-        Ty::Error => ResolvedTy::Error,
-        Ty::Infer(_) => unreachable!(
-            "`resolve_ty()` called on an unresolved TypeId. The caller must shallow-resolve and default first"
-        ),
-    };
-    ResolvedTypeId::new(db, resolved)
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::db::BlueberryDatabase;
+
+    #[test]
+    fn equal_types_intern_to_the_same_handle() {
+        let db = BlueberryDatabase::default();
+        assert_eq!(
+            Ty::primitive(&db, "I32"),
+            Some(Ty::signed(&db, SignedIntTy::I32))
+        );
+        assert_eq!(Ty::primitive(&db, "Nope"), None);
+        assert_ne!(Ty::bool(&db), Ty::unit(&db));
+
+        let function = Ty::function(&db, vec![Ty::bool(&db), Ty::bottom(&db)], Ty::unit(&db));
+        let same = Ty::function(&db, vec![Ty::bool(&db), Ty::bottom(&db)], Ty::unit(&db));
+        assert_eq!(function, same);
+        assert_eq!(function.display(&db), "(Bool, Bottom) -> ()");
+    }
 }
-
-
-*/

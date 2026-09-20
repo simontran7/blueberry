@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 use std::slice;
 
-use super::{Handle, HandleRange};
+use crate::core::common::handle_collections::Handle;
 
-#[derive(Clone)]
+#[derive(Clone, salsa::SalsaValue)]
 pub(crate) struct HandleMap<K, V> {
     data: Vec<V>,
     _marker: PhantomData<K>,
@@ -61,13 +61,6 @@ impl<K: Handle, V> HandleMap<K, V> {
         let index = self.data.len();
         self.data.push(value);
         K::new(index)
-    }
-
-    pub(crate) fn add_many<I: IntoIterator<Item = V>>(&mut self, values: I) -> HandleRange<K> {
-        let start = K::new(self.data.len());
-        self.data.extend(values);
-        let end = K::new(self.data.len());
-        HandleRange::new(start..end)
     }
 
     pub(crate) fn get(&self, key: K) -> Option<&V> {
@@ -133,15 +126,6 @@ impl<K: Handle, V> Index<K> for HandleMap<K, V> {
 impl<K: Handle, V> IndexMut<K> for HandleMap<K, V> {
     fn index_mut(&mut self, index: K) -> &mut V {
         &mut self.data[index.index()]
-    }
-}
-
-// for `map[range]`
-impl<K: Handle, V> Index<HandleRange<K>> for HandleMap<K, V> {
-    type Output = [V];
-
-    fn index(&self, range: HandleRange<K>) -> &[V] {
-        &self.data[range.start().index()..range.end().index()]
     }
 }
 

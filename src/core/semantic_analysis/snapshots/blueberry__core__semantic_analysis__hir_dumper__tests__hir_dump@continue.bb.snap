@@ -1,0 +1,17 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/continue.bb
+---
+function f()
+└─ Block
+   └─ tail: Loop While
+      └─ Block
+         └─ tail: If
+            ├─ condition: Binary <
+            │  ├─ Path x
+            │  └─ Integer 10
+            ├─ then: Block
+            │  └─ Expression ;
+            │     └─ Continue
+            └─ else: Break

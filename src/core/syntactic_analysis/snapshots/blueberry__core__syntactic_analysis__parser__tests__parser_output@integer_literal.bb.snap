@@ -1,57 +1,56 @@
 ---
-source: src/syntactic_analysis/parser.rs
-assertion_line: 614
+source: src/core/syntactic_analysis/parser.rs
 expression: dump
-input_file: src/syntactic_analysis/snapshot_inputs/integer_literal.crw
+input_file: src/core/syntactic_analysis/snapshot_inputs/integer_literal.bb
 ---
 File
-└─FunctionDefinition
-  ├─Func
-  │   Lexeme: "func"
-  │   Span: [0, 4)
-  ├─Whitespace
-  │   Lexeme: " "
-  │   Span: [4, 5)
-  ├─Identifier
-  │   Lexeme: "f"
-  │   Span: [5, 6)
-  ├─ParameterList
-  │ ├─OpenParen
-  │ │   Lexeme: "("
-  │ │   Span: [6, 7)
-  │ ├─CloseParen
-  │ │   Lexeme: ")"
-  │ │   Span: [7, 8)
-  │ └─Whitespace
-  │     Lexeme: " "
-  │     Span: [8, 9)
-  │ Span: [6, 9)
-  └─Block
-    ├─OpenBrace
-    │   Lexeme: "{"
-    │   Span: [9, 10)
-    ├─Whitespace
-    │   Lexeme: "\n    "
-    │   Span: [10, 15)
-    ├─ExpressionStatement
-    │ ├─IntegerLiteral
-    │ │ └─Integer
-    │ │     Lexeme: "42"
-    │ │     Span: [15, 17)
-    │ │ Span: [15, 17)
-    │ ├─Semicolon
-    │ │   Lexeme: ";"
-    │ │   Span: [17, 18)
-    │ └─Whitespace
-    │     Lexeme: "\n"
-    │     Span: [18, 19)
-    │ Span: [15, 19)
-    ├─CloseBrace
-    │   Lexeme: "}"
-    │   Span: [19, 20)
-    └─Whitespace
-        Lexeme: "\n"
-        Span: [20, 21)
-    Span: [9, 21)
-  Span: [0, 21)
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [0, 4)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [4, 5)
+│ ├─Identifier
+│ │   Lexeme: "f"
+│ │   Span: [5, 6)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [6, 7)
+│ │ └─CloseParen
+│ │     Lexeme: ")"
+│ │     Span: [7, 8)
+│ │ Span: [6, 8)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [8, 9)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [9, 10)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [10, 15)
+│   ├─ExpressionStatement
+│   │ ├─IntegerLiteral
+│   │ │ └─Integer
+│   │ │     Lexeme: "42"
+│   │ │     Span: [15, 17)
+│   │ │ Span: [15, 17)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [17, 18)
+│   │ Span: [15, 18)
+│   ├─Whitespace
+│   │   Lexeme: "\n"
+│   │   Span: [18, 19)
+│   └─CloseBrace
+│       Lexeme: "}"
+│       Span: [19, 20)
+│   Span: [9, 20)
+│ Span: [0, 20)
+└─Whitespace
+    Lexeme: "\n"
+    Span: [20, 21)
 Span: [0, 21)

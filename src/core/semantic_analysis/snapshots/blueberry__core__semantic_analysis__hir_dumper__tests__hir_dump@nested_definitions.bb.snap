@@ -1,0 +1,21 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/nested_definitions.bb
+---
+function outer()
+└─ Block
+   ├─ Definition
+   ├─ Definition
+   ├─ Expression ;
+   │  └─ Call
+   │     ├─ callee: Path helper
+   │     └─ argument: Integer 1
+   └─ definitions
+      ├─ constant LOCAL_THRESHOLD: I32
+      │  └─ Integer 5
+      └─ function helper(x: I32) -> I32
+         └─ Block
+            └─ tail: Binary +
+               ├─ Path x
+               └─ Path LOCAL_THRESHOLD

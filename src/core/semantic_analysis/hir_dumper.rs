@@ -1,360 +1,273 @@
-/* HirDumper matches the old ExpressionKind shape -- being redesigned
-from scratch alongside the new HIR. Kept here for reference. */
-/*
+use crate::core::semantic_analysis::definition_tree::Definition;
 use crate::core::semantic_analysis::hir::{
-    BindingId, BindingKind, DefinitionId, DefinitionKind, ExpressionId, ExpressionKind, Hir,
-    ResolvedTypes, StatementId, StatementKind,
+    DefinitionBody, Expression, ExpressionHandle, Statement, StatementHandle, TypeAnnotation,
 };
+use crate::core::semantic_analysis::{
+    block_definitions_of, constant_body_of, constant_signature_of, function_body_of,
+    function_signature_of, top_level_definitions_of,
+};
+use crate::core::source_file_key::SourceFileKey;
 
-use std::fmt::{self, Write};
+struct Node {
+    label: String,
+    children: Vec<Node>,
+}
 
-pub(crate) struct HirDumper<'a, 'db> {
-    hir: &'a Hir,
-    resolved_types: &'a ResolvedTypes<'db>,
+impl Node {
+    fn leaf(label: impl Into<String>) -> Self {
+        Self::new(label, Vec::new())
+    }
+
+    fn new(label: impl Into<String>, children: Vec<Node>) -> Self {
+        Self {
+            label: label.into(),
+            children,
+        }
+    }
+
+    fn labeled(mut self, name: &str) -> Self {
+        self.label = format!("{name}: {}", self.label);
+        self
+    }
+
+    fn write(&self, out: &mut String) {
+        out.push_str(&self.label);
+        out.push('\n');
+        self.write_children("", out);
+    }
+
+    fn write_children(&self, prefix: &str, out: &mut String) {
+        let last = self.children.len().saturating_sub(1);
+        for (index, child) in self.children.iter().enumerate() {
+            let is_last = index == last;
+            out.push_str(prefix);
+            out.push_str(if is_last { "└─ " } else { "├─ " });
+            out.push_str(&child.label);
+            out.push('\n');
+            let child_prefix = format!("{prefix}{}", if is_last { "   " } else { "│  " });
+            child.write_children(&child_prefix, out);
+        }
+    }
+}
+
+pub(crate) struct HirDumper<'db> {
     db: &'db dyn crate::Db,
 }
 
-impl<'a, 'db> HirDumper<'a, 'db> {
-    const INDENT: &'static str = "  ";
-
-    pub(crate) const fn new(
-        hir: &'a Hir,
-        resolved_types: &'a ResolvedTypes<'db>,
-        db: &'db dyn crate::Db,
-    ) -> Self {
-        HirDumper {
-            hir,
-            resolved_types,
-            db,
-        }
-    }
-
-    pub(crate) fn dump(&self) -> Result<String, fmt::Error> {
-        let mut hir_output = String::new();
-        for &definition_id in self
-            .hir
-            .get_definition_ids(self.hir.source_file.definition_id_span)
+impl<'db> HirDumper<'db> {
+    pub(crate) fn dump_file(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
+        let dumper = Self { db };
+        let mut out = String::new();
+        for (index, definition) in top_level_definitions_of(db, file)
+            .definitions()
+            .iter()
+            .enumerate()
         {
-            self.dump_definition(definition_id, 0, &mut hir_output)?;
-            hir_output.push('\n');
+            if index > 0 {
+                out.push('\n');
+            }
+            dumper.definition(*definition).write(&mut out);
         }
-        Ok(hir_output)
+        out
     }
 
-    fn dump_definition(
-        &self,
-        definition_id: DefinitionId,
-        depth: usize,
-        hir_output: &mut String,
-    ) -> fmt::Result {
-        let definition = self.hir.get_definition(definition_id);
-        let padding = Self::pad(depth);
-
-        match *definition.kind() {
-            DefinitionKind::Function {
-                definition_binding_id,
-                parameter_id_span,
-                body_id,
-            } => {
-                let binding_view = self.hir.get_definition_binding(definition_binding_id);
-                let name = binding_view.name();
-                let ty = self
-                    .resolved_types
-                    .resolved_definition_binding_type(definition_binding_id)
-                    .to_display_string(self.db);
-
-                // dump header
-                writeln!(hir_output, "{padding}func {name} : {ty}")?;
-
-                // dump parameter
-                for &local_binding_id in self.hir.get_parameter_binding_ids(parameter_id_span) {
-                    let local_binding_view = self.hir.get_local_binding(local_binding_id);
-                    let parameter_name = local_binding_view.name();
-                    writeln!(
-                        hir_output,
-                        "{}  parameter {parameter_name} : {}",
-                        padding,
-                        self.resolved_types
-                            .resolved_local_binding_type(local_binding_id)
-                            .to_display_string(self.db)
-                    )?;
-                }
-
-                // dump block
-                self.dump_expression(body_id, depth + 1, "", hir_output)?;
-            }
-            DefinitionKind::Constant {
-                definition_binding_id,
-                initializer_id,
-            } => {
-                let binding_view = self.hir.get_definition_binding(definition_binding_id);
-                let name = binding_view.name();
-                let ty = self
-                    .resolved_types
-                    .resolved_definition_binding_type(definition_binding_id)
-                    .to_display_string(self.db);
-
-                // dump header
-                writeln!(hir_output, "{padding}const {name} : {ty}")?;
-
-                // dump expression
-                self.dump_expression(initializer_id, depth + 1, "", hir_output)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn dump_statement(
-        &self,
-        statement_id: StatementId,
-        depth: usize,
-        label: &str,
-        hir_output: &mut String,
-    ) -> fmt::Result {
-        let statement = self.hir.get_statement(statement_id);
-        let padding = Self::pad(depth);
-
-        match *statement.kind() {
-            StatementKind::Expression { expression_id, .. } => {
-                self.dump_expression(expression_id, depth, label, hir_output)?;
-            }
-            StatementKind::Let {
-                pattern_id,
-                value_id,
-            } => {
-                let binding_view = self.hir.get_local_binding(pattern_id);
-                let name = binding_view.name();
-                let mutability = if binding_view.mutable() { "mut " } else { "" };
-                let ty = self
-                    .resolved_types
-                    .resolved_local_binding_type(pattern_id)
-                    .to_display_string(self.db);
-
-                // dump the whole statement inline or with the expression nested
-                match value_id {
-                    None => {
-                        writeln!(hir_output, "{padding}{label}let {mutability}{name} : {ty}")?;
-                    }
-                    Some(value_id) => {
-                        if let Some(v) = self.try_inline(value_id) {
-                            writeln!(
-                                hir_output,
-                                "{padding}{label}let {mutability}{name} : {ty} = {v}"
-                            )?;
-                        } else {
-                            writeln!(
-                                hir_output,
-                                "{padding}{label}let {mutability}{name} : {ty} ="
-                            )?;
-                            self.dump_expression(value_id, depth + 1, "", hir_output)?;
-                        }
-                    }
-                }
-            }
-            StatementKind::Definition {
-                definition_binding_id,
-            } => {
-                // No body embedded here -- the nested definition has its
-                // own independent identity/Body, dumped separately (see
-                // `driver.rs`'s loop over `definition_keys_of`, which now
-                // includes nested keys). Just reference it by name/type.
-                let name = self
-                    .hir
-                    .get_definition_binding(definition_binding_id)
-                    .name();
-                let ty = self
-                    .resolved_types
-                    .resolved_definition_binding_type(definition_binding_id)
-                    .to_display_string(self.db);
-                writeln!(hir_output, "{padding}local {name} : {ty}")?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn dump_expression(
-        &self,
-        expression_id: ExpressionId,
-        depth: usize,
-        label: &str,
-        hir_output: &mut String,
-    ) -> fmt::Result {
-        let expression = self.hir.get_expression(expression_id);
-        let padding = Self::pad(depth);
-        let ty = self
-            .resolved_types
-            .resolved_expression_type(expression_id)
-            .to_display_string(self.db);
-
-        match *expression.kind() {
-            ExpressionKind::Missing => {
-                writeln!(hir_output, "{padding}{label}<missing> : {ty}")?;
-            }
-            ExpressionKind::Block {
-                statement_id_span,
-                tail_id,
-            } => {
-                // dump header
-                writeln!(hir_output, "{padding}{label}Block : {ty}")?;
-
-                // dump statement
-                for &statement_id in self.hir.get_statement_ids(statement_id_span) {
-                    self.dump_statement(statement_id, depth + 1, "", hir_output)?;
-                }
-
-                // dump tail (if it exists)
-                if let Some(tail_id) = tail_id {
-                    self.dump_expression(tail_id, depth + 1, "[tail] ", hir_output)?;
-                }
-            }
-            ExpressionKind::Assign {
-                target_id,
-                value_id,
-            } => {
-                // dump header
-                writeln!(hir_output, "{padding}{label}assign : {ty}")?;
-
-                // dump target
-                self.dump_expression(target_id, depth + 1, "[target] ", hir_output)?;
-
-                // dump value
-                self.dump_expression(value_id, depth + 1, "[value] ", hir_output)?;
-            }
-            ExpressionKind::Integer(v) => {
-                writeln!(hir_output, "{padding}{label}{v} : {ty}")?;
-            }
-            ExpressionKind::Boolean(b) => {
-                writeln!(hir_output, "{padding}{label}{b} : {ty}")?;
-            }
-            ExpressionKind::Unit => {
-                writeln!(hir_output, "{padding}{label}() : {ty}")?;
-            }
-            ExpressionKind::Variable(binding_id) => {
-                let name = self.binding_name(binding_id);
-                writeln!(hir_output, "{padding}{label}{name} : {ty}")?;
-            }
-            ExpressionKind::Unary {
-                operator,
-                operand_id,
-            } => {
-                // dump header
-                writeln!(hir_output, "{padding}{label}`{operator}` : {ty}")?;
-
-                // dump operand
-                self.dump_expression(operand_id, depth + 1, "", hir_output)?;
-            }
-            ExpressionKind::Binary {
-                operator,
-                lhs_id,
-                rhs_id,
-            } => {
-                // dump header
-                writeln!(hir_output, "{padding}{label}`{operator}` : {ty}")?;
-
-                // dump lhs
-                self.dump_expression(lhs_id, depth + 1, "", hir_output)?;
-
-                // dump rhs
-                self.dump_expression(rhs_id, depth + 1, "", hir_output)?;
-            }
-            ExpressionKind::Call {
-                callee_id,
-                argument_id_span,
-            } => {
-                // dump header
-                writeln!(hir_output, "{padding}{label}call : {ty}")?;
-
-                // dump callee
-                self.dump_expression(callee_id, depth + 1, "[callee] ", hir_output)?;
-
-                // dump arguments
-                for &argument_id in self.hir.get_expression_ids(argument_id_span) {
-                    self.dump_expression(argument_id, depth + 1, "", hir_output)?;
-                }
-            }
-            ExpressionKind::If {
-                condition_id,
-                then_branch_id,
-                else_branch_id,
-            } => {
-                // dump header
-                writeln!(hir_output, "{padding}{label}if : {ty}")?;
-
-                // dump condition
-                self.dump_expression(condition_id, depth + 1, "[condition] ", hir_output)?;
-
-                // dump then branch
-                self.dump_expression(then_branch_id, depth + 1, "[then branch] ", hir_output)?;
-
-                // dump else branch (if it exists)
-                if let Some(else_branch_id) = else_branch_id {
-                    self.dump_expression(else_branch_id, depth + 1, "[else branch] ", hir_output)?;
-                }
-            }
-            ExpressionKind::Return { value_id } => {
-                // dump header
-                writeln!(hir_output, "{padding}{label}return : {ty}")?;
-
-                // dump value
-                if let Some(value_id) = value_id {
-                    self.dump_expression(value_id, depth + 1, "", hir_output)?;
-                }
-            }
-            ExpressionKind::Loop { body_id, source } => {
-                // dump header
-                writeln!(hir_output, "{padding}{label}{} : {ty}", source.keyword())?;
-
-                // dump body
-                self.dump_expression(body_id, depth + 1, "[body] ", hir_output)?;
-            }
-            ExpressionKind::Break { value_id } => {
-                // dump header
-                writeln!(hir_output, "{padding}{label}break : {ty}")?;
-
-                // dump value
-                if let Some(value_id) = value_id {
-                    self.dump_expression(value_id, depth + 1, "", hir_output)?;
-                }
-            }
-            ExpressionKind::Continue => {
-                writeln!(hir_output, "{padding}{label}continue : {ty}")?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn try_inline(&self, expression_id: ExpressionId) -> Option<String> {
-        match *self.hir.get_expression(expression_id).kind() {
-            ExpressionKind::Integer(v) => Some(v.to_string()),
-            ExpressionKind::Boolean(b) => Some(b.to_string()),
-            ExpressionKind::Unit => Some("()".to_string()),
-            ExpressionKind::Variable(binding_id) => Some(self.binding_name(binding_id)),
-            _ => None,
+    fn annotation_text(&self, annotation: &TypeAnnotation<'db>) -> String {
+        match annotation {
+            TypeAnnotation::Path(symbol) => symbol.text(self.db).to_string(),
+            TypeAnnotation::Hole => "_".to_string(),
         }
     }
 
-    fn binding_name(&self, binding_id: BindingId) -> String {
-        if binding_id.is_error() {
-            return "<error>".into();
+    fn definition(&self, definition: Definition<'db>) -> Node {
+        match definition {
+            Definition::Function(key) => {
+                let signature = function_signature_of(self.db, key);
+                let body = function_body_of(self.db, key);
+                let parameters: Vec<String> = body.binding_children[body.parameters]
+                    .iter()
+                    .zip(&signature.parameters)
+                    .map(|(binding, annotation)| {
+                        format!(
+                            "{}: {}",
+                            body.local_bindings[*binding].name.text(self.db),
+                            self.annotation_text(annotation)
+                        )
+                    })
+                    .collect();
+                let returns = signature
+                    .return_type_annotation
+                    .as_ref()
+                    .map_or_else(String::new, |ty| format!(" -> {}", self.annotation_text(ty)));
+                Node::new(
+                    format!(
+                        "function {}({}){returns}",
+                        signature.name.text(self.db),
+                        parameters.join(", ")
+                    ),
+                    vec![self.expression(&body, body.root)],
+                )
+            }
+            Definition::Constant(key) => {
+                let signature = constant_signature_of(self.db, key);
+                let body = constant_body_of(self.db, key);
+                let ty = signature
+                    .type_annotation
+                    .as_ref()
+                    .map_or_else(String::new, |ty| format!(": {}", self.annotation_text(ty)));
+                Node::new(
+                    format!("constant {}{ty}", signature.name.text(self.db)),
+                    vec![self.expression(&body, body.root)],
+                )
+            }
         }
-        let name = match binding_id.kind() {
-            BindingKind::Local => self
-                .hir
-                .get_local_binding(binding_id.as_local().unwrap())
-                .name(),
-            BindingKind::Definition => self
-                .hir
-                .get_definition_binding(binding_id.as_definition().unwrap())
-                .name(),
-        };
-        name.to_string()
     }
 
-    fn pad(level: usize) -> String {
-        Self::INDENT.repeat(level)
+    fn expression(&self, body: &DefinitionBody<'db>, handle: ExpressionHandle) -> Node {
+        match &body.expressions[handle] {
+            Expression::Unit => Node::leaf("Unit"),
+            Expression::Integer(value) => Node::leaf(format!("Integer {value}")),
+            Expression::Boolean(value) => Node::leaf(format!("Boolean {value}")),
+            Expression::Path(path) => {
+                let segments: Vec<&str> = path
+                    .segments
+                    .iter()
+                    .map(|segment| segment.text(self.db))
+                    .collect();
+                Node::leaf(format!("Path {}", segments.join("::")))
+            }
+            Expression::Hole => Node::leaf("Hole"),
+            Expression::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => {
+                let mut children = vec![
+                    self.expression(body, *condition).labeled("condition"),
+                    self.expression(body, *then_branch).labeled("then"),
+                ];
+                if let Some(else_branch) = else_branch {
+                    children.push(self.expression(body, *else_branch).labeled("else"));
+                }
+                Node::new("If", children)
+            }
+            Expression::Block {
+                key,
+                statements,
+                tail,
+            } => {
+                let mut children: Vec<Node> = body.statement_children[*statements]
+                    .iter()
+                    .map(|statement| self.statement(body, *statement))
+                    .collect();
+                if let Some(tail) = tail {
+                    children.push(self.expression(body, *tail).labeled("tail"));
+                }
+                if let Some(key) = key {
+                    children.push(Node::new(
+                        "definitions",
+                        block_definitions_of(self.db, *key)
+                            .definitions()
+                            .iter()
+                            .map(|definition| self.definition(*definition))
+                            .collect(),
+                    ));
+                }
+                Node::new("Block", children)
+            }
+            Expression::Loop {
+                source,
+                body: loop_body,
+            } => Node::new(
+                format!("Loop {source:?}"),
+                vec![self.expression(body, *loop_body)],
+            ),
+            Expression::Call { callee, arguments } => {
+                let mut children = vec![self.expression(body, *callee).labeled("callee")];
+                children.extend(
+                    body.expression_children[*arguments]
+                        .iter()
+                        .map(|argument| self.expression(body, *argument).labeled("argument")),
+                );
+                Node::new("Call", children)
+            }
+            Expression::Continue => Node::leaf("Continue"),
+            Expression::Break { value } => Node::new(
+                "Break",
+                value.iter().map(|v| self.expression(body, *v)).collect(),
+            ),
+            Expression::Return { value } => Node::new(
+                "Return",
+                value.iter().map(|v| self.expression(body, *v)).collect(),
+            ),
+            Expression::UnaryOperation { operand, operator } => Node::new(
+                format!("Unary {operator}"),
+                vec![self.expression(body, *operand)],
+            ),
+            Expression::BinaryOperation { lhs, operator, rhs } => {
+                let operator = operator.map_or_else(|| "?".to_string(), |op| op.to_string());
+                Node::new(
+                    format!("Binary {operator}"),
+                    vec![self.expression(body, *lhs), self.expression(body, *rhs)],
+                )
+            }
+            Expression::Assignment { target, value } => Node::new(
+                "Assignment",
+                vec![self.expression(body, *target), self.expression(body, *value)],
+            ),
+        }
+    }
+
+    fn statement(&self, body: &DefinitionBody<'db>, handle: StatementHandle) -> Node {
+        match &body.statements[handle] {
+            Statement::Let {
+                name,
+                annotation,
+                initializer,
+            } => {
+                let binding = &body.local_bindings[*name];
+                let mutability = if binding.mutable { "mut " } else { "" };
+                let mut children = Vec::new();
+                if let Some(annotation) = annotation {
+                    let text = self.annotation_text(&body.type_annotations[*annotation]);
+                    children.push(Node::leaf(format!("type: {text}")));
+                }
+                if let Some(initializer) = initializer {
+                    children.push(self.expression(body, *initializer).labeled("initializer"));
+                }
+                Node::new(
+                    format!("Let {mutability}{}", binding.name.text(self.db)),
+                    children,
+                )
+            }
+            Statement::Expression {
+                expression,
+                has_semicolon,
+            } => {
+                let semicolon = if *has_semicolon { " ;" } else { "" };
+                Node::new(
+                    format!("Expression{semicolon}"),
+                    vec![self.expression(body, *expression)],
+                )
+            }
+            Statement::Definition => Node::leaf("Definition"),
+        }
     }
 }
-*/
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+    use crate::core::db::BlueberryDatabase;
+
+    #[test]
+    fn test_hir_dump() {
+        insta::glob!("../syntactic_analysis/snapshot_inputs", "**/*.bb", |path| {
+            let input = fs::read_to_string(path).unwrap();
+            let db = BlueberryDatabase::default();
+            let file = SourceFileKey::new(&db, path.to_path_buf(), input);
+            insta::assert_snapshot!(HirDumper::dump_file(&db, file));
+        })
+    }
+}

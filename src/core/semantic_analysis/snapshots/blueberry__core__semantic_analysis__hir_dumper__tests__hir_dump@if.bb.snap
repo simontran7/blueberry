@@ -1,0 +1,53 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/if.bb
+---
+function f()
+└─ Block
+   ├─ Expression
+   │  └─ If
+   │     ├─ condition: Binary <
+   │     │  ├─ Path a
+   │     │  └─ Path b
+   │     ├─ then: Block
+   │     │  └─ Expression ;
+   │     │     └─ Return
+   │     │        └─ Unary -
+   │     │           └─ Path a
+   │     └─ else: If
+   │        ├─ condition: Binary ==
+   │        │  ├─ Path a
+   │        │  └─ Path b
+   │        ├─ then: Block
+   │        │  └─ Expression ;
+   │        │     └─ Return
+   │        │        └─ Integer 0
+   │        └─ else: Block
+   │           └─ Expression ;
+   │              └─ Return
+   │                 └─ Path b
+   └─ Let x
+      ├─ type: I32
+      └─ initializer: If
+         ├─ condition: Binary >
+         │  ├─ Path a
+         │  └─ Path b
+         ├─ then: Block
+         │  └─ tail: Path a
+         └─ else: Block
+            └─ tail: Path b
+
+function g()
+└─ Block
+   ├─ Expression
+   │  └─ If
+   │     ├─ condition: Binary <
+   │     │  ├─ Path x
+   │     │  └─ Integer 0
+   │     └─ then: Block
+   │        └─ Expression ;
+   │           └─ Return
+   │              └─ Unary -
+   │                 └─ Path x
+   └─ tail: Path x

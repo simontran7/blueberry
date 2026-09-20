@@ -1,0 +1,23 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/function.bb
+---
+function f()
+└─ Block
+
+function g() -> I32
+└─ Block
+   └─ tail: Integer 1
+
+function no_params()
+└─ Block
+
+function no_body()
+└─ Hole
+
+function neither()
+└─ Hole
+
+function last()
+└─ Block

@@ -1,0 +1,200 @@
+---
+source: src/core/syntactic_analysis/parser.rs
+expression: dump
+input_file: src/core/syntactic_analysis/snapshot_inputs/function.bb
+---
+File
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [0, 4)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [4, 5)
+│ ├─Identifier
+│ │   Lexeme: "f"
+│ │   Span: [5, 6)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [6, 7)
+│ │ └─CloseParen
+│ │     Lexeme: ")"
+│ │     Span: [7, 8)
+│ │ Span: [6, 8)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [8, 9)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [9, 10)
+│   └─CloseBrace
+│       Lexeme: "}"
+│       Span: [10, 11)
+│   Span: [9, 11)
+│ Span: [0, 11)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [11, 12)
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [12, 16)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [16, 17)
+│ ├─Identifier
+│ │   Lexeme: "g"
+│ │   Span: [17, 18)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [18, 19)
+│ │ └─CloseParen
+│ │     Lexeme: ")"
+│ │     Span: [19, 20)
+│ │ Span: [18, 20)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [20, 21)
+│ ├─ThinArrow
+│ │   Lexeme: "->"
+│ │   Span: [21, 23)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [23, 24)
+│ ├─TypeExpression
+│ │ └─Identifier
+│ │     Lexeme: "I32"
+│ │     Span: [24, 27)
+│ │ Span: [24, 27)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [27, 28)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [28, 29)
+│   ├─Whitespace
+│   │   Lexeme: " "
+│   │   Span: [29, 30)
+│   ├─ExpressionStatement
+│   │ └─IntegerLiteral
+│   │   └─Integer
+│   │       Lexeme: "1"
+│   │       Span: [30, 31)
+│   │   Span: [30, 31)
+│   │ Span: [30, 31)
+│   ├─Whitespace
+│   │   Lexeme: " "
+│   │   Span: [31, 32)
+│   └─CloseBrace
+│       Lexeme: "}"
+│       Span: [32, 33)
+│   Span: [28, 33)
+│ Span: [12, 33)
+├─Whitespace
+│   Lexeme: "\n\n"
+│   Span: [33, 35)
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [35, 39)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [39, 40)
+│ ├─Identifier
+│ │   Lexeme: "no_params"
+│ │   Span: [40, 49)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [49, 50)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [50, 51)
+│   └─CloseBrace
+│       Lexeme: "}"
+│       Span: [51, 52)
+│   Span: [50, 52)
+│ Span: [35, 52)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [52, 53)
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [53, 57)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [57, 58)
+│ ├─Identifier
+│ │   Lexeme: "no_body"
+│ │   Span: [58, 65)
+│ └─ParameterList
+│   ├─OpenParen
+│   │   Lexeme: "("
+│   │   Span: [65, 66)
+│   └─CloseParen
+│       Lexeme: ")"
+│       Span: [66, 67)
+│   Span: [65, 67)
+│ Span: [53, 67)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [67, 68)
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [68, 72)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [72, 73)
+│ └─Identifier
+│     Lexeme: "neither"
+│     Span: [73, 80)
+│ Span: [68, 80)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [80, 81)
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [81, 85)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [85, 86)
+│ ├─Identifier
+│ │   Lexeme: "last"
+│ │   Span: [86, 90)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [90, 91)
+│ │ └─CloseParen
+│ │     Lexeme: ")"
+│ │     Span: [91, 92)
+│ │ Span: [90, 92)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [92, 93)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [93, 94)
+│   └─CloseBrace
+│       Lexeme: "}"
+│       Span: [94, 95)
+│   Span: [93, 95)
+│ Span: [81, 95)
+└─Whitespace
+    Lexeme: "\n"
+    Span: [95, 96)
+Span: [0, 96)
+
+--- diagnostics ---
+UnexpectedToken { span: Some(Span { start: TextSize(50), end: TextSize(51) }), expected: "parameter list", found: "{" }
+UnexpectedToken { span: Some(Span { start: TextSize(68), end: TextSize(72) }), expected: "function body", found: "func" }
+UnexpectedToken { span: Some(Span { start: TextSize(81), end: TextSize(85) }), expected: "parameter list", found: "func" }
+UnexpectedToken { span: Some(Span { start: TextSize(81), end: TextSize(85) }), expected: "function body", found: "func" }

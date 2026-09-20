@@ -1,0 +1,337 @@
+---
+source: src/core/syntactic_analysis/parser.rs
+expression: dump
+input_file: src/core/syntactic_analysis/snapshot_inputs/import.bb
+---
+File
+├─ImportDeclaration
+│ ├─Import
+│ │   Lexeme: "import"
+│ │   Span: [0, 6)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [6, 7)
+│ ├─Path
+│ │ └─PathSegment
+│ │   └─Identifier
+│ │       Lexeme: "foo"
+│ │       Span: [7, 10)
+│ │   Span: [7, 10)
+│ │ Span: [7, 10)
+│ └─Semicolon
+│     Lexeme: ";"
+│     Span: [10, 11)
+│ Span: [0, 11)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [11, 12)
+├─ImportDeclaration
+│ ├─Import
+│ │   Lexeme: "import"
+│ │   Span: [12, 18)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [18, 19)
+│ ├─Path
+│ │ ├─Path
+│ │ │ ├─Path
+│ │ │ │ └─PathSegment
+│ │ │ │   └─Identifier
+│ │ │ │       Lexeme: "a"
+│ │ │ │       Span: [19, 20)
+│ │ │ │   Span: [19, 20)
+│ │ │ │ Span: [19, 20)
+│ │ │ ├─ColonColon
+│ │ │ │   Lexeme: "::"
+│ │ │ │   Span: [20, 22)
+│ │ │ └─PathSegment
+│ │ │   └─Identifier
+│ │ │       Lexeme: "b"
+│ │ │       Span: [22, 23)
+│ │ │   Span: [22, 23)
+│ │ │ Span: [19, 23)
+│ │ ├─ColonColon
+│ │ │   Lexeme: "::"
+│ │ │   Span: [23, 25)
+│ │ └─PathSegment
+│ │   └─Identifier
+│ │       Lexeme: "c"
+│ │       Span: [25, 26)
+│ │   Span: [25, 26)
+│ │ Span: [19, 26)
+│ └─Semicolon
+│     Lexeme: ";"
+│     Span: [26, 27)
+│ Span: [12, 27)
+├─Whitespace
+│   Lexeme: "\n\n"
+│   Span: [27, 29)
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [29, 33)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [33, 34)
+│ ├─Identifier
+│ │   Lexeme: "main"
+│ │   Span: [34, 38)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [38, 39)
+│ │ └─CloseParen
+│ │     Lexeme: ")"
+│ │     Span: [39, 40)
+│ │ Span: [38, 40)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [40, 41)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [41, 42)
+│   └─CloseBrace
+│       Lexeme: "}"
+│       Span: [42, 43)
+│   Span: [41, 43)
+│ Span: [29, 43)
+├─Whitespace
+│   Lexeme: "\n\n"
+│   Span: [43, 45)
+├─ImportDeclaration
+│ ├─Import
+│ │   Lexeme: "import"
+│ │   Span: [45, 51)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [51, 52)
+│ ├─Path
+│ │ ├─Path
+│ │ │ └─PathSegment
+│ │ │   └─Identifier
+│ │ │       Lexeme: "late"
+│ │ │       Span: [52, 56)
+│ │ │   Span: [52, 56)
+│ │ │ Span: [52, 56)
+│ │ ├─ColonColon
+│ │ │   Lexeme: "::"
+│ │ │   Span: [56, 58)
+│ │ └─PathSegment
+│ │   └─Identifier
+│ │       Lexeme: "declaration"
+│ │       Span: [58, 69)
+│ │   Span: [58, 69)
+│ │ Span: [52, 69)
+│ └─Semicolon
+│     Lexeme: ";"
+│     Span: [69, 70)
+│ Span: [45, 70)
+├─Whitespace
+│   Lexeme: "\n\n"
+│   Span: [70, 72)
+├─ImportDeclaration
+│ ├─Import
+│ │   Lexeme: "import"
+│ │   Span: [72, 78)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [78, 79)
+│ └─Semicolon
+│     Lexeme: ";"
+│     Span: [79, 80)
+│ Span: [72, 80)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [80, 81)
+├─ImportDeclaration
+│ ├─Import
+│ │   Lexeme: "import"
+│ │   Span: [81, 87)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [87, 88)
+│ ├─Path
+│ │ ├─Path
+│ │ │ └─PathSegment
+│ │ │   └─Identifier
+│ │ │       Lexeme: "foo"
+│ │ │       Span: [88, 91)
+│ │ │   Span: [88, 91)
+│ │ │ Span: [88, 91)
+│ │ └─ColonColon
+│ │     Lexeme: "::"
+│ │     Span: [91, 93)
+│ │ Span: [88, 93)
+│ └─Semicolon
+│     Lexeme: ";"
+│     Span: [93, 94)
+│ Span: [81, 94)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [94, 95)
+├─ImportDeclaration
+│ └─Import
+│     Lexeme: "import"
+│     Span: [95, 101)
+│ Span: [95, 101)
+├─Whitespace
+│   Lexeme: " "
+│   Span: [101, 102)
+├─Error
+│ └─Integer
+│     Lexeme: "5"
+│     Span: [102, 103)
+│ Span: [102, 103)
+├─Error
+│ └─Semicolon
+│     Lexeme: ";"
+│     Span: [103, 104)
+│ Span: [103, 104)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [104, 105)
+├─ImportDeclaration
+│ ├─Import
+│ │   Lexeme: "import"
+│ │   Span: [105, 111)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [111, 112)
+│ └─Path
+│   └─PathSegment
+│     └─Identifier
+│         Lexeme: "a"
+│         Span: [112, 113)
+│     Span: [112, 113)
+│   Span: [112, 113)
+│ Span: [105, 113)
+├─Error
+│ └─Comma
+│     Lexeme: ","
+│     Span: [113, 114)
+│ Span: [113, 114)
+├─Whitespace
+│   Lexeme: " "
+│   Span: [114, 115)
+├─Error
+│ └─Identifier
+│     Lexeme: "b"
+│     Span: [115, 116)
+│ Span: [115, 116)
+├─Error
+│ └─Semicolon
+│     Lexeme: ";"
+│     Span: [116, 117)
+│ Span: [116, 117)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [117, 118)
+├─ImportDeclaration
+│ ├─Import
+│ │   Lexeme: "import"
+│ │   Span: [118, 124)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [124, 125)
+│ └─Path
+│   └─PathSegment
+│     └─Identifier
+│         Lexeme: "a"
+│         Span: [125, 126)
+│     Span: [125, 126)
+│   Span: [125, 126)
+│ Span: [118, 126)
+├─Whitespace
+│   Lexeme: " "
+│   Span: [126, 127)
+├─Error
+│ └─Identifier
+│     Lexeme: "as"
+│     Span: [127, 129)
+│ Span: [127, 129)
+├─Whitespace
+│   Lexeme: " "
+│   Span: [129, 130)
+├─Error
+│ └─Identifier
+│     Lexeme: "b"
+│     Span: [130, 131)
+│ Span: [130, 131)
+├─Error
+│ └─Semicolon
+│     Lexeme: ";"
+│     Span: [131, 132)
+│ Span: [131, 132)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [132, 133)
+├─ImportDeclaration
+│ ├─Import
+│ │   Lexeme: "import"
+│ │   Span: [133, 139)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [139, 140)
+│ └─Path
+│   └─PathSegment
+│     └─Identifier
+│         Lexeme: "bar"
+│         Span: [140, 143)
+│     Span: [140, 143)
+│   Span: [140, 143)
+│ Span: [133, 143)
+├─Whitespace
+│   Lexeme: "\n"
+│   Span: [143, 144)
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [144, 148)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [148, 149)
+│ ├─Identifier
+│ │   Lexeme: "g"
+│ │   Span: [149, 150)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [150, 151)
+│ │ └─CloseParen
+│ │     Lexeme: ")"
+│ │     Span: [151, 152)
+│ │ Span: [150, 152)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [152, 153)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [153, 154)
+│   └─CloseBrace
+│       Lexeme: "}"
+│       Span: [154, 155)
+│   Span: [153, 155)
+│ Span: [144, 155)
+└─Whitespace
+    Lexeme: "\n"
+    Span: [155, 156)
+Span: [0, 156)
+
+--- diagnostics ---
+UnexpectedToken { span: Some(Span { start: TextSize(79), end: TextSize(80) }), expected: "identifier", found: ";" }
+UnexpectedToken { span: Some(Span { start: TextSize(93), end: TextSize(94) }), expected: "identifier", found: ";" }
+UnexpectedToken { span: Some(Span { start: TextSize(102), end: TextSize(103) }), expected: "identifier", found: "integer" }
+UnexpectedToken { span: Some(Span { start: TextSize(102), end: TextSize(103) }), expected: ";", found: "integer" }
+UnexpectedToken { span: Some(Span { start: TextSize(102), end: TextSize(103) }), expected: "func", found: "integer" }
+UnexpectedToken { span: Some(Span { start: TextSize(103), end: TextSize(104) }), expected: "func", found: ";" }
+UnexpectedToken { span: Some(Span { start: TextSize(113), end: TextSize(114) }), expected: ";", found: "," }
+UnexpectedToken { span: Some(Span { start: TextSize(113), end: TextSize(114) }), expected: "func", found: "," }
+UnexpectedToken { span: Some(Span { start: TextSize(115), end: TextSize(116) }), expected: "func", found: "identifier" }
+UnexpectedToken { span: Some(Span { start: TextSize(116), end: TextSize(117) }), expected: "func", found: ";" }
+UnexpectedToken { span: Some(Span { start: TextSize(127), end: TextSize(129) }), expected: ";", found: "identifier" }
+UnexpectedToken { span: Some(Span { start: TextSize(127), end: TextSize(129) }), expected: "func", found: "identifier" }
+UnexpectedToken { span: Some(Span { start: TextSize(130), end: TextSize(131) }), expected: "func", found: "identifier" }
+UnexpectedToken { span: Some(Span { start: TextSize(131), end: TextSize(132) }), expected: "func", found: ";" }
+UnexpectedToken { span: Some(Span { start: TextSize(144), end: TextSize(148) }), expected: ";", found: "func" }

@@ -1,8 +1,11 @@
 use std::fmt;
 
-use crate::core::common::handlemap::{self, HandleMap, HandleRange};
+use crate::core::common::handle_collections::handle_impl;
+use crate::core::common::handle_collections::handle_list::{AppendOnlyHandleList, HandleRange};
+use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::red_node_directory::RedNodeId;
+use crate::core::common::types::Ty;
+use crate::core::semantic_analysis::red_node_directory::{RedNodeId, RedNodeTag};
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::ast;
 use crate::core::syntactic_analysis::cst::SyntaxKind;
@@ -30,32 +33,45 @@ pub(crate) struct ConstantKey<'db> {
     pub(crate) id: RedNodeId<'db, ast::ConstantDefinition>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct FunctionSignature<'db> {
-    name: Symbol<'db>,
-    parameters: Vec<Parameter<'db>>,
-    return_type_annotation: Option<TypeAnnotation<'db>>,
+    pub(crate) name: Symbol<'db>,
+    pub(crate) parameters: Vec<TypeAnnotation<'db>>,
+    pub(crate) return_type_annotation: Option<TypeAnnotation<'db>>,
 }
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct ConstantSignature<'db> {
-    name: Symbol<'db>,
-    type_annotation: Option<TypeAnnotation<'db>>,
+    pub(crate) name: Symbol<'db>,
+    pub(crate) type_annotation: Option<TypeAnnotation<'db>>,
 }
-pub(crate) struct Parameter<'db> {
-    name: Symbol<'db>,
-    type_annotation: Option<TypeAnnotation<'db>>,
-}
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct DefinitionBody<'db> {
-    root: ExpressionHandle,
-    expressions: HandleMap<ExpressionHandle, Expression<'db>>,
-    statements: HandleMap<StatementHandle, Statement>,
-    local_bindings: HandleMap<LocalBindingHandle, LocalBinding<'db>>,
-    type_annotations: HandleMap<TypeAnnotationHandle, TypeAnnotation<'db>>,
+    pub(crate) root: ExpressionHandle,
+    pub(crate) parameters: HandleRange<LocalBindingHandle>,
+    pub(crate) expressions: HandleMap<ExpressionHandle, Expression<'db>>,
+    pub(crate) statements: HandleMap<StatementHandle, Statement>,
+    pub(crate) local_bindings: HandleMap<LocalBindingHandle, LocalBinding<'db>>,
+    pub(crate) type_annotations: HandleMap<TypeAnnotationHandle, TypeAnnotation<'db>>,
+
+    pub(crate) binding_children: AppendOnlyHandleList<LocalBindingHandle>,
+    pub(crate) expression_children: AppendOnlyHandleList<ExpressionHandle>,
+    pub(crate) statement_children: AppendOnlyHandleList<StatementHandle>,
 }
 
-enum Expression<'db> {
+#[derive(Debug, Default, Clone, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) struct DefinitionBodySourceMap {
+    pub(crate) expressions: SideHandleMap<ExpressionHandle, RedNodeTag>,
+    pub(crate) statements: SideHandleMap<StatementHandle, RedNodeTag>,
+    pub(crate) local_bindings: SideHandleMap<LocalBindingHandle, RedNodeTag>,
+    pub(crate) type_annotations: SideHandleMap<TypeAnnotationHandle, RedNodeTag>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum Expression<'db> {
     Unit,
     Integer(u128),
     Boolean(bool),
-    Path(Symbol<'db>),
+    Path(Path<'db>),
     If {
         condition: ExpressionHandle,
         then_branch: ExpressionHandle,
@@ -83,8 +99,8 @@ enum Expression<'db> {
         value: Option<ExpressionHandle>,
     },
     UnaryOperation {
-        operand: ExpressionHandle,
         operator: UnaryOperator,
+        operand: ExpressionHandle,
     },
     BinaryOperation {
         lhs: ExpressionHandle,
@@ -98,7 +114,27 @@ enum Expression<'db> {
     Hole,
 }
 
-enum Statement {
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) struct Path<'db> {
+    pub(crate) segments: Vec<Symbol<'db>>,
+}
+
+impl<'db> Path<'db> {
+    pub(crate) fn lower(db: &'db dyn crate::Db, path: &ast::Path) -> Option<Self> {
+        let mut segments = Vec::new();
+        let mut current = Some(path.clone());
+        while let Some(path) = current {
+            let name = path.segment()?.name()?;
+            segments.push(Symbol::new(db, name.lexeme().to_string()));
+            current = path.qualifier();
+        }
+        segments.reverse();
+        Some(Self { segments })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum Statement {
     Let {
         name: LocalBindingHandle,
         annotation: Option<TypeAnnotationHandle>,
@@ -106,28 +142,52 @@ enum Statement {
     },
     Expression {
         expression: ExpressionHandle,
-        has_semi: bool,
+        has_semicolon: bool,
     },
     Definition,
 }
 
-struct LocalBinding<'db> {
-    name: Symbol<'db>,
-    mutable: bool,
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) struct LocalBinding<'db> {
+    pub(crate) name: Symbol<'db>,
+    pub(crate) mutable: bool,
 }
 
-enum TypeAnnotation<'db> {
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum TypeAnnotation<'db> {
     Path(Symbol<'db>),
     Hole,
 }
 
-enum LoopSource {
+impl<'db> TypeAnnotation<'db> {
+    pub(crate) fn from_type_expression(
+        db: &'db dyn crate::Db,
+        type_expression: &ast::TypeExpression,
+    ) -> Self {
+        match type_expression.name() {
+            Some(token) => Self::Path(Symbol::new(db, token.lexeme().to_string())),
+            None => Self::Hole,
+        }
+    }
+
+    pub(crate) fn to_ty(&self, db: &'db dyn crate::Db) -> Ty<'db> {
+        match self {
+            Self::Path(symbol) => {
+                Ty::primitive(db, symbol.text(db)).unwrap_or_else(|| Ty::error(db))
+            }
+            Self::Hole => Ty::error(db),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum LoopSource {
     Loop,
     While,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum BinaryOperator {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum BinaryOperator {
     Add,
     Sub,
     Mul,
@@ -142,19 +202,19 @@ enum BinaryOperator {
     Or,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum UnaryOperator {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum UnaryOperator {
     Neg,
     Not,
 }
 
-handlemap::handle_impl!(pub(crate) StatementHandle);
+handle_impl!(pub(crate) StatementHandle);
 
-handlemap::handle_impl!(pub(crate) ExpressionHandle);
+handle_impl!(pub(crate) ExpressionHandle);
 
-handlemap::handle_impl!(pub(crate) TypeAnnotationHandle);
+handle_impl!(pub(crate) TypeAnnotationHandle);
 
-handlemap::handle_impl!(pub(crate) LocalBindingHandle);
+handle_impl!(pub(crate) LocalBindingHandle);
 
 impl TryFrom<SyntaxKind> for BinaryOperator {
     type Error = SyntaxKind;

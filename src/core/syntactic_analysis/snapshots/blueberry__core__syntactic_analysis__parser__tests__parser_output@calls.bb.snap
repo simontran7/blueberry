@@ -1,181 +1,209 @@
 ---
-source: src/syntactic_analysis/parser.rs
-assertion_line: 614
+source: src/core/syntactic_analysis/parser.rs
+assertion_line: 700
 expression: dump
-input_file: src/syntactic_analysis/snapshot_inputs/calls.crw
+input_file: src/core/syntactic_analysis/snapshot_inputs/calls.bb
 ---
 File
-└─FunctionDefinition
-  ├─Func
-  │   Lexeme: "func"
-  │   Span: [0, 4)
-  ├─Whitespace
-  │   Lexeme: " "
-  │   Span: [4, 5)
-  ├─Identifier
-  │   Lexeme: "main"
-  │   Span: [5, 9)
-  ├─ParameterList
-  │ ├─OpenParen
-  │ │   Lexeme: "("
-  │ │   Span: [9, 10)
-  │ ├─CloseParen
-  │ │   Lexeme: ")"
-  │ │   Span: [10, 11)
-  │ └─Whitespace
-  │     Lexeme: " "
-  │     Span: [11, 12)
-  │ Span: [9, 12)
-  └─Block
-    ├─OpenBrace
-    │   Lexeme: "{"
-    │   Span: [12, 13)
-    ├─Whitespace
-    │   Lexeme: "\n    "
-    │   Span: [13, 18)
-    ├─ExpressionStatement
-    │ ├─BinaryOperation
-    │ │ ├─UnaryOperation
-    │ │ │ ├─Minus
-    │ │ │ │   Lexeme: "-"
-    │ │ │ │   Span: [18, 19)
-    │ │ │ └─Call
-    │ │ │   ├─Variable
-    │ │ │   │ └─Identifier
-    │ │ │   │     Lexeme: "f"
-    │ │ │   │     Span: [19, 20)
-    │ │ │   │ Span: [19, 20)
-    │ │ │   └─ArgumentList
-    │ │ │     ├─OpenParen
-    │ │ │     │   Lexeme: "("
-    │ │ │     │   Span: [20, 21)
-    │ │ │     ├─CloseParen
-    │ │ │     │   Lexeme: ")"
-    │ │ │     │   Span: [21, 22)
-    │ │ │     └─Whitespace
-    │ │ │         Lexeme: " "
-    │ │ │         Span: [22, 23)
-    │ │ │     Span: [20, 23)
-    │ │ │   Span: [19, 23)
-    │ │ │ Span: [18, 23)
-    │ │ ├─Plus
-    │ │ │   Lexeme: "+"
-    │ │ │   Span: [23, 24)
-    │ │ ├─Whitespace
-    │ │ │   Lexeme: " "
-    │ │ │   Span: [24, 25)
-    │ │ └─Call
-    │ │   ├─Variable
-    │ │   │ └─Identifier
-    │ │   │     Lexeme: "g"
-    │ │   │     Span: [25, 26)
-    │ │   │ Span: [25, 26)
-    │ │   └─ArgumentList
-    │ │     ├─OpenParen
-    │ │     │   Lexeme: "("
-    │ │     │   Span: [26, 27)
-    │ │     ├─Argument
-    │ │     │ ├─Variable
-    │ │     │ │ └─Identifier
-    │ │     │ │     Lexeme: "x"
-    │ │     │ │     Span: [27, 28)
-    │ │     │ │ Span: [27, 28)
-    │ │     │ ├─Comma
-    │ │     │ │   Lexeme: ","
-    │ │     │ │   Span: [28, 29)
-    │ │     │ └─Whitespace
-    │ │     │     Lexeme: " "
-    │ │     │     Span: [29, 30)
-    │ │     │ Span: [27, 30)
-    │ │     ├─Argument
-    │ │     │ └─Variable
-    │ │     │   └─Identifier
-    │ │     │       Lexeme: "y"
-    │ │     │       Span: [30, 31)
-    │ │     │   Span: [30, 31)
-    │ │     │ Span: [30, 31)
-    │ │     └─CloseParen
-    │ │         Lexeme: ")"
-    │ │         Span: [31, 32)
-    │ │     Span: [26, 32)
-    │ │   Span: [25, 32)
-    │ │ Span: [18, 32)
-    │ ├─Semicolon
-    │ │   Lexeme: ";"
-    │ │   Span: [32, 33)
-    │ └─Whitespace
-    │     Lexeme: "\n    "
-    │     Span: [33, 38)
-    │ Span: [18, 38)
-    ├─ExpressionStatement
-    │ ├─Call
-    │ │ ├─Call
-    │ │ │ ├─Variable
-    │ │ │ │ └─Identifier
-    │ │ │ │     Lexeme: "h"
-    │ │ │ │     Span: [38, 39)
-    │ │ │ │ Span: [38, 39)
-    │ │ │ └─ArgumentList
-    │ │ │   ├─OpenParen
-    │ │ │   │   Lexeme: "("
-    │ │ │   │   Span: [39, 40)
-    │ │ │   └─CloseParen
-    │ │ │       Lexeme: ")"
-    │ │ │       Span: [40, 41)
-    │ │ │   Span: [39, 41)
-    │ │ │ Span: [38, 41)
-    │ │ └─ArgumentList
-    │ │   ├─OpenParen
-    │ │   │   Lexeme: "("
-    │ │   │   Span: [41, 42)
-    │ │   └─CloseParen
-    │ │       Lexeme: ")"
-    │ │       Span: [42, 43)
-    │ │   Span: [41, 43)
-    │ │ Span: [38, 43)
-    │ ├─Semicolon
-    │ │   Lexeme: ";"
-    │ │   Span: [43, 44)
-    │ └─Whitespace
-    │     Lexeme: "\n    "
-    │     Span: [44, 49)
-    │ Span: [38, 49)
-    ├─ExpressionStatement
-    │ ├─Call
-    │ │ ├─Variable
-    │ │ │ └─Identifier
-    │ │ │     Lexeme: "k"
-    │ │ │     Span: [49, 50)
-    │ │ │ Span: [49, 50)
-    │ │ └─ArgumentList
-    │ │   ├─OpenParen
-    │ │   │   Lexeme: "("
-    │ │   │   Span: [50, 51)
-    │ │   ├─Argument
-    │ │   │ └─Variable
-    │ │   │   └─Identifier
-    │ │   │       Lexeme: "x"
-    │ │   │       Span: [51, 52)
-    │ │   │   Span: [51, 52)
-    │ │   │ Span: [51, 52)
-    │ │   └─CloseParen
-    │ │       Lexeme: ")"
-    │ │       Span: [52, 53)
-    │ │   Span: [50, 53)
-    │ │ Span: [49, 53)
-    │ ├─Semicolon
-    │ │   Lexeme: ";"
-    │ │   Span: [53, 54)
-    │ └─Whitespace
-    │     Lexeme: "\n"
-    │     Span: [54, 55)
-    │ Span: [49, 55)
-    ├─CloseBrace
-    │   Lexeme: "}"
-    │   Span: [55, 56)
-    └─Whitespace
-        Lexeme: "\n"
-        Span: [56, 57)
-    Span: [12, 57)
-  Span: [0, 57)
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [0, 4)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [4, 5)
+│ ├─Identifier
+│ │   Lexeme: "main"
+│ │   Span: [5, 9)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [9, 10)
+│ │ └─CloseParen
+│ │     Lexeme: ")"
+│ │     Span: [10, 11)
+│ │ Span: [9, 11)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [11, 12)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [12, 13)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [13, 18)
+│   ├─ExpressionStatement
+│   │ ├─BinaryOperation
+│   │ │ ├─UnaryOperation
+│   │ │ │ ├─Minus
+│   │ │ │ │   Lexeme: "-"
+│   │ │ │ │   Span: [18, 19)
+│   │ │ │ └─Call
+│   │ │ │   ├─PathExpression
+│   │ │ │   │ └─Path
+│   │ │ │   │   └─PathSegment
+│   │ │ │   │     └─Identifier
+│   │ │ │   │         Lexeme: "f"
+│   │ │ │   │         Span: [19, 20)
+│   │ │ │   │     Span: [19, 20)
+│   │ │ │   │   Span: [19, 20)
+│   │ │ │   │ Span: [19, 20)
+│   │ │ │   └─ArgumentList
+│   │ │ │     ├─OpenParen
+│   │ │ │     │   Lexeme: "("
+│   │ │ │     │   Span: [20, 21)
+│   │ │ │     └─CloseParen
+│   │ │ │         Lexeme: ")"
+│   │ │ │         Span: [21, 22)
+│   │ │ │     Span: [20, 22)
+│   │ │ │   Span: [19, 22)
+│   │ │ │ Span: [18, 22)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [22, 23)
+│   │ │ ├─Plus
+│   │ │ │   Lexeme: "+"
+│   │ │ │   Span: [23, 24)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [24, 25)
+│   │ │ └─Call
+│   │ │   ├─PathExpression
+│   │ │   │ └─Path
+│   │ │   │   └─PathSegment
+│   │ │   │     └─Identifier
+│   │ │   │         Lexeme: "g"
+│   │ │   │         Span: [25, 26)
+│   │ │   │     Span: [25, 26)
+│   │ │   │   Span: [25, 26)
+│   │ │   │ Span: [25, 26)
+│   │ │   └─ArgumentList
+│   │ │     ├─OpenParen
+│   │ │     │   Lexeme: "("
+│   │ │     │   Span: [26, 27)
+│   │ │     ├─Argument
+│   │ │     │ ├─PathExpression
+│   │ │     │ │ └─Path
+│   │ │     │ │   └─PathSegment
+│   │ │     │ │     └─Identifier
+│   │ │     │ │         Lexeme: "x"
+│   │ │     │ │         Span: [27, 28)
+│   │ │     │ │     Span: [27, 28)
+│   │ │     │ │   Span: [27, 28)
+│   │ │     │ │ Span: [27, 28)
+│   │ │     │ └─Comma
+│   │ │     │     Lexeme: ","
+│   │ │     │     Span: [28, 29)
+│   │ │     │ Span: [27, 29)
+│   │ │     ├─Whitespace
+│   │ │     │   Lexeme: " "
+│   │ │     │   Span: [29, 30)
+│   │ │     ├─Argument
+│   │ │     │ └─PathExpression
+│   │ │     │   └─Path
+│   │ │     │     └─PathSegment
+│   │ │     │       └─Identifier
+│   │ │     │           Lexeme: "y"
+│   │ │     │           Span: [30, 31)
+│   │ │     │       Span: [30, 31)
+│   │ │     │     Span: [30, 31)
+│   │ │     │   Span: [30, 31)
+│   │ │     │ Span: [30, 31)
+│   │ │     └─CloseParen
+│   │ │         Lexeme: ")"
+│   │ │         Span: [31, 32)
+│   │ │     Span: [26, 32)
+│   │ │   Span: [25, 32)
+│   │ │ Span: [18, 32)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [32, 33)
+│   │ Span: [18, 33)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [33, 38)
+│   ├─ExpressionStatement
+│   │ ├─Call
+│   │ │ ├─Call
+│   │ │ │ ├─PathExpression
+│   │ │ │ │ └─Path
+│   │ │ │ │   └─PathSegment
+│   │ │ │ │     └─Identifier
+│   │ │ │ │         Lexeme: "h"
+│   │ │ │ │         Span: [38, 39)
+│   │ │ │ │     Span: [38, 39)
+│   │ │ │ │   Span: [38, 39)
+│   │ │ │ │ Span: [38, 39)
+│   │ │ │ └─ArgumentList
+│   │ │ │   ├─OpenParen
+│   │ │ │   │   Lexeme: "("
+│   │ │ │   │   Span: [39, 40)
+│   │ │ │   └─CloseParen
+│   │ │ │       Lexeme: ")"
+│   │ │ │       Span: [40, 41)
+│   │ │ │   Span: [39, 41)
+│   │ │ │ Span: [38, 41)
+│   │ │ └─ArgumentList
+│   │ │   ├─OpenParen
+│   │ │   │   Lexeme: "("
+│   │ │   │   Span: [41, 42)
+│   │ │   └─CloseParen
+│   │ │       Lexeme: ")"
+│   │ │       Span: [42, 43)
+│   │ │   Span: [41, 43)
+│   │ │ Span: [38, 43)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [43, 44)
+│   │ Span: [38, 44)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [44, 49)
+│   ├─ExpressionStatement
+│   │ ├─Call
+│   │ │ ├─PathExpression
+│   │ │ │ └─Path
+│   │ │ │   └─PathSegment
+│   │ │ │     └─Identifier
+│   │ │ │         Lexeme: "k"
+│   │ │ │         Span: [49, 50)
+│   │ │ │     Span: [49, 50)
+│   │ │ │   Span: [49, 50)
+│   │ │ │ Span: [49, 50)
+│   │ │ └─ArgumentList
+│   │ │   ├─OpenParen
+│   │ │   │   Lexeme: "("
+│   │ │   │   Span: [50, 51)
+│   │ │   ├─Argument
+│   │ │   │ └─PathExpression
+│   │ │   │   └─Path
+│   │ │   │     └─PathSegment
+│   │ │   │       └─Identifier
+│   │ │   │           Lexeme: "x"
+│   │ │   │           Span: [51, 52)
+│   │ │   │       Span: [51, 52)
+│   │ │   │     Span: [51, 52)
+│   │ │   │   Span: [51, 52)
+│   │ │   │ Span: [51, 52)
+│   │ │   └─CloseParen
+│   │ │       Lexeme: ")"
+│   │ │       Span: [52, 53)
+│   │ │   Span: [50, 53)
+│   │ │ Span: [49, 53)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [53, 54)
+│   │ Span: [49, 54)
+│   ├─Whitespace
+│   │   Lexeme: "\n"
+│   │   Span: [54, 55)
+│   └─CloseBrace
+│       Lexeme: "}"
+│       Span: [55, 56)
+│   Span: [12, 56)
+│ Span: [0, 56)
+└─Whitespace
+    Lexeme: "\n"
+    Span: [56, 57)
 Span: [0, 57)

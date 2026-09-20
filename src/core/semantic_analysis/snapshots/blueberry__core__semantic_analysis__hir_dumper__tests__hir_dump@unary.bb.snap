@@ -1,0 +1,17 @@
+---
+source: src/core/semantic_analysis/hir_dumper.rs
+expression: "HirDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/unary.bb
+---
+function main()
+└─ Block
+   ├─ Expression ;
+   │  └─ Binary +
+   │     ├─ Unary -
+   │     │  └─ Path a
+   │     └─ Path b
+   └─ Expression ;
+      └─ Binary &&
+         ├─ Unary not
+         │  └─ Path flag
+         └─ Path other
