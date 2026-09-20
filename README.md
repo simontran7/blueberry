@@ -4,9 +4,6 @@
   <p>simple and expressive programming language</p>
 </div>
 
-> [!CAUTION]
-> The *batch* driver can't yet compile blueberry programs.
-
 ## Installation
 
 ### Requirements
