@@ -1,10 +1,10 @@
-use crate::core::semantic_analysis::definition_tree::Definition;
-use crate::core::semantic_analysis::hir::{
+use crate::core::semantic_analysis::hir::nodes::{
     DefinitionBody, Expression, ExpressionHandle, Statement, StatementHandle, TypeAnnotation,
 };
+use crate::core::semantic_analysis::name_resolution::definition_tree::Definition;
 use crate::core::semantic_analysis::{
-    block_definitions_of, constant_body_of, constant_signature_of, function_body_of,
-    function_signature_of, top_level_definitions_of,
+    block_scoped_definitions_of, constant_body_of, constant_signature_of,
+    file_scoped_definitions_of, function_body_of, function_signature_of,
 };
 use crate::core::source_file_key::SourceFileKey;
 
@@ -58,7 +58,7 @@ impl<'db> HirDumper<'db> {
     pub(crate) fn dump_file(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
         let dumper = Self { db };
         let mut out = String::new();
-        for (index, definition) in top_level_definitions_of(db, file)
+        for (index, definition) in file_scoped_definitions_of(db, file)
             .definitions()
             .iter()
             .enumerate()
@@ -97,7 +97,9 @@ impl<'db> HirDumper<'db> {
                 let returns = signature
                     .return_type_annotation
                     .as_ref()
-                    .map_or_else(String::new, |ty| format!(" -> {}", self.annotation_text(ty)));
+                    .map_or_else(String::new, |ty| {
+                        format!(" -> {}", self.annotation_text(ty))
+                    });
                 Node::new(
                     format!(
                         "function {}({}){returns}",
@@ -129,7 +131,7 @@ impl<'db> HirDumper<'db> {
             Expression::Boolean(value) => Node::leaf(format!("Boolean {value}")),
             Expression::Path(path) => {
                 let segments: Vec<&str> = path
-                    .segments
+                    .segments(self.db)
                     .iter()
                     .map(|segment| segment.text(self.db))
                     .collect();
@@ -137,35 +139,36 @@ impl<'db> HirDumper<'db> {
             }
             Expression::Hole => Node::leaf("Hole"),
             Expression::If {
-                condition,
-                then_branch,
-                else_branch,
+                condition_handle,
+                then_branch_handle,
+                else_branch_handle,
             } => {
                 let mut children = vec![
-                    self.expression(body, *condition).labeled("condition"),
-                    self.expression(body, *then_branch).labeled("then"),
+                    self.expression(body, *condition_handle)
+                        .labeled("condition"),
+                    self.expression(body, *then_branch_handle).labeled("then"),
                 ];
-                if let Some(else_branch) = else_branch {
-                    children.push(self.expression(body, *else_branch).labeled("else"));
+                if let Some(else_branch_handle) = else_branch_handle {
+                    children.push(self.expression(body, *else_branch_handle).labeled("else"));
                 }
                 Node::new("If", children)
             }
             Expression::Block {
-                key,
+                block_key,
                 statements,
-                tail,
+                tail_handle,
             } => {
                 let mut children: Vec<Node> = body.statement_children[*statements]
                     .iter()
                     .map(|statement| self.statement(body, *statement))
                     .collect();
-                if let Some(tail) = tail {
-                    children.push(self.expression(body, *tail).labeled("tail"));
+                if let Some(tail_handle) = tail_handle {
+                    children.push(self.expression(body, *tail_handle).labeled("tail"));
                 }
-                if let Some(key) = key {
+                if let Some(block_key) = block_key {
                     children.push(Node::new(
                         "definitions",
-                        block_definitions_of(self.db, *key)
+                        block_scoped_definitions_of(self.db, *block_key)
                             .definitions()
                             .iter()
                             .map(|definition| self.definition(*definition))
@@ -176,13 +179,16 @@ impl<'db> HirDumper<'db> {
             }
             Expression::Loop {
                 source,
-                body: loop_body,
+                body_handle: loop_body_handle,
             } => Node::new(
                 format!("Loop {source:?}"),
-                vec![self.expression(body, *loop_body)],
+                vec![self.expression(body, *loop_body_handle)],
             ),
-            Expression::Call { callee, arguments } => {
-                let mut children = vec![self.expression(body, *callee).labeled("callee")];
+            Expression::Call {
+                callee_handle,
+                arguments,
+            } => {
+                let mut children = vec![self.expression(body, *callee_handle).labeled("callee")];
                 children.extend(
                     body.expression_children[*arguments]
                         .iter()
@@ -191,28 +197,50 @@ impl<'db> HirDumper<'db> {
                 Node::new("Call", children)
             }
             Expression::Continue => Node::leaf("Continue"),
-            Expression::Break { value } => Node::new(
+            Expression::Break { value_handle } => Node::new(
                 "Break",
-                value.iter().map(|v| self.expression(body, *v)).collect(),
+                value_handle
+                    .iter()
+                    .map(|v| self.expression(body, *v))
+                    .collect(),
             ),
-            Expression::Return { value } => Node::new(
+            Expression::Return { value_handle } => Node::new(
                 "Return",
-                value.iter().map(|v| self.expression(body, *v)).collect(),
+                value_handle
+                    .iter()
+                    .map(|v| self.expression(body, *v))
+                    .collect(),
             ),
-            Expression::UnaryOperation { operand, operator } => Node::new(
+            Expression::UnaryOperation {
+                operand_handle,
+                operator,
+            } => Node::new(
                 format!("Unary {operator}"),
-                vec![self.expression(body, *operand)],
+                vec![self.expression(body, *operand_handle)],
             ),
-            Expression::BinaryOperation { lhs, operator, rhs } => {
+            Expression::BinaryOperation {
+                lhs_handle,
+                operator,
+                rhs_handle,
+            } => {
                 let operator = operator.map_or_else(|| "?".to_string(), |op| op.to_string());
                 Node::new(
                     format!("Binary {operator}"),
-                    vec![self.expression(body, *lhs), self.expression(body, *rhs)],
+                    vec![
+                        self.expression(body, *lhs_handle),
+                        self.expression(body, *rhs_handle),
+                    ],
                 )
             }
-            Expression::Assignment { target, value } => Node::new(
+            Expression::Assignment {
+                target_handle,
+                value_handle,
+            } => Node::new(
                 "Assignment",
-                vec![self.expression(body, *target), self.expression(body, *value)],
+                vec![
+                    self.expression(body, *target_handle),
+                    self.expression(body, *value_handle),
+                ],
             ),
         }
     }
@@ -220,19 +248,22 @@ impl<'db> HirDumper<'db> {
     fn statement(&self, body: &DefinitionBody<'db>, handle: StatementHandle) -> Node {
         match &body.statements[handle] {
             Statement::Let {
-                name,
+                name_handle,
                 annotation,
-                initializer,
+                initializer_handle,
             } => {
-                let binding = &body.local_bindings[*name];
+                let binding = &body.local_bindings[*name_handle];
                 let mutability = if binding.mutable { "mut " } else { "" };
                 let mut children = Vec::new();
                 if let Some(annotation) = annotation {
                     let text = self.annotation_text(&body.type_annotations[*annotation]);
                     children.push(Node::leaf(format!("type: {text}")));
                 }
-                if let Some(initializer) = initializer {
-                    children.push(self.expression(body, *initializer).labeled("initializer"));
+                if let Some(initializer_handle) = initializer_handle {
+                    children.push(
+                        self.expression(body, *initializer_handle)
+                            .labeled("initializer"),
+                    );
                 }
                 Node::new(
                     format!("Let {mutability}{}", binding.name.text(self.db)),
@@ -240,13 +271,13 @@ impl<'db> HirDumper<'db> {
                 )
             }
             Statement::Expression {
-                expression,
+                expression_handle,
                 has_semicolon,
             } => {
                 let semicolon = if *has_semicolon { " ;" } else { "" };
                 Node::new(
                     format!("Expression{semicolon}"),
-                    vec![self.expression(body, *expression)],
+                    vec![self.expression(body, *expression_handle)],
                 )
             }
             Statement::Definition => Node::leaf("Definition"),
@@ -263,11 +294,15 @@ mod tests {
 
     #[test]
     fn test_hir_dump() {
-        insta::glob!("../syntactic_analysis/snapshot_inputs", "**/*.bb", |path| {
-            let input = fs::read_to_string(path).unwrap();
-            let db = BlueberryDatabase::default();
-            let file = SourceFileKey::new(&db, path.to_path_buf(), input);
-            insta::assert_snapshot!(HirDumper::dump_file(&db, file));
-        })
+        insta::glob!(
+            "../../syntactic_analysis/snapshot_inputs",
+            "**/*.bb",
+            |path| {
+                let input = fs::read_to_string(path).unwrap();
+                let db = BlueberryDatabase::default();
+                let file = SourceFileKey::new(&db, path.to_path_buf(), input);
+                insta::assert_snapshot!(HirDumper::dump_file(&db, file));
+            }
+        )
     }
 }

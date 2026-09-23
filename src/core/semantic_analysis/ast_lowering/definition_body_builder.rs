@@ -1,6 +1,6 @@
-use crate::core::common::handle_collections::handle_list::{AppendOnlyHandleList, HandleRange};
 use crate::core::common::handle_collections::handle_map::HandleMap;
-use crate::core::semantic_analysis::hir::{
+use crate::core::common::segments::{Segment, SegmentList};
+use crate::core::semantic_analysis::hir::nodes::{
     DefinitionBody, DefinitionBodySourceMap, Expression, ExpressionHandle, LocalBinding,
     LocalBindingHandle, Statement, StatementHandle, TypeAnnotation, TypeAnnotationHandle,
 };
@@ -13,9 +13,9 @@ pub(crate) struct DefinitionBodyBuilder<'db> {
     statements: HandleMap<StatementHandle, Statement>,
     local_bindings: HandleMap<LocalBindingHandle, LocalBinding<'db>>,
     type_annotations: HandleMap<TypeAnnotationHandle, TypeAnnotation<'db>>,
-    binding_children: AppendOnlyHandleList<LocalBindingHandle>,
-    expression_children: AppendOnlyHandleList<ExpressionHandle>,
-    statement_children: AppendOnlyHandleList<StatementHandle>,
+    binding_children: SegmentList<LocalBindingHandle>,
+    expression_children: SegmentList<ExpressionHandle>,
+    statement_children: SegmentList<StatementHandle>,
     source_map: DefinitionBodySourceMap,
 }
 
@@ -75,28 +75,28 @@ impl<'db> DefinitionBodyBuilder<'db> {
     pub(crate) fn add_binding_children(
         &mut self,
         children: &[LocalBindingHandle],
-    ) -> HandleRange<LocalBindingHandle> {
+    ) -> Segment<LocalBindingHandle> {
         self.binding_children.add_many(children)
     }
 
     pub(crate) fn add_expression_children(
         &mut self,
         children: &[ExpressionHandle],
-    ) -> HandleRange<ExpressionHandle> {
+    ) -> Segment<ExpressionHandle> {
         self.expression_children.add_many(children)
     }
 
     pub(crate) fn add_statement_children(
         &mut self,
         children: &[StatementHandle],
-    ) -> HandleRange<StatementHandle> {
+    ) -> Segment<StatementHandle> {
         self.statement_children.add_many(children)
     }
 
     pub(crate) fn finish(
         self,
         root: ExpressionHandle,
-        parameters: HandleRange<LocalBindingHandle>,
+        parameters: Segment<LocalBindingHandle>,
     ) -> (DefinitionBody<'db>, DefinitionBodySourceMap) {
         let body = DefinitionBody {
             root,

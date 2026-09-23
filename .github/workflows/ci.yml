@@ -5,12 +5,12 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  format_and_lint:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -43,6 +43,9 @@ jobs:
 
       - name: Format
         run: cargo fmt --check
+    
+      - name: Format Markdown files
+      - uses: rvben/rumdl@v0
 
       - name: Lint
         run: cargo clippy -- -D warnings -D clippy::pedantic

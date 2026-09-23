@@ -2,15 +2,15 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::ops::Range;
 
-/// A `{ start, len }` range of handles inside a `ChildList<T>`.
+/// A `{ start, len }` range of items inside a `SegmentList<T>`.
 #[derive(salsa::SalsaValue)]
-pub(crate) struct HandleRange<T> {
+pub(crate) struct Segment<T> {
     start: u32,
     len: u32,
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<T> HandleRange<T> {
+impl<T> Segment<T> {
     pub(super) fn new(start: u32, len: u32) -> Self {
         Self {
             start,
@@ -36,25 +36,25 @@ impl<T> HandleRange<T> {
     }
 }
 
-impl<T> Clone for HandleRange<T> {
+impl<T> Clone for Segment<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<T> Copy for HandleRange<T> {}
+impl<T> Copy for Segment<T> {}
 
 // NOTE: manually implemented, since `#[derive(PartialEq)]` would add
 // an unwanted `T: PartialEq` bound via the `PhantomData<T>` field.
-impl<T> PartialEq for HandleRange<T> {
+impl<T> PartialEq for Segment<T> {
     fn eq(&self, other: &Self) -> bool {
         self.start == other.start && self.len == other.len
     }
 }
-impl<T> Eq for HandleRange<T> {}
+impl<T> Eq for Segment<T> {}
 
-impl<T> fmt::Debug for HandleRange<T> {
+impl<T> fmt::Debug for Segment<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("HandleRange")
+        f.debug_struct("Segment")
             .field("start", &self.start)
             .field("len", &self.len)
             .finish()

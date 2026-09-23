@@ -2,13 +2,14 @@ use std::sync::Arc;
 
 use crate::core::common::symbol::Symbol;
 use crate::core::common::types::Ty;
-use crate::core::semantic_analysis::definition_body_lowerer::DefinitionBodyLowerer;
-use crate::core::semantic_analysis::definition_tree::DefinitionTree;
-use crate::core::semantic_analysis::expression_scopes::ExpressionScopes;
-use crate::core::semantic_analysis::hir::{
+use crate::core::project_modules::ProjectModules;
+use crate::core::semantic_analysis::ast_lowering::definition_body_lowerer::DefinitionBodyLowerer;
+use crate::core::semantic_analysis::hir::nodes::{
     BlockKey, ConstantKey, ConstantSignature, DefinitionBody, DefinitionBodySourceMap,
-    DefinitionSource, FunctionKey, FunctionSignature, TypeAnnotation,
+    DefinitionSource, FunctionKey, FunctionSignature, Path, TypeAnnotation,
 };
+use crate::core::semantic_analysis::name_resolution::definition_tree::DefinitionTree;
+use crate::core::semantic_analysis::name_resolution::expression_scopes::ExpressionScopes;
 use crate::core::semantic_analysis::red_node_directory::{
     RedNodeDirectory, RedNodeDirectoryBuilder,
 };
@@ -17,21 +18,15 @@ use crate::core::syntactic_analysis::ast::{self, AstNode, File};
 use crate::core::syntactic_analysis::cst::RedNode;
 use crate::core::syntactic_analysis::cst_of;
 
-pub(crate) mod constraints;
-pub(crate) mod definition_body_builder;
-pub(crate) mod definition_body_lowerer;
-pub(crate) mod definition_tree;
-pub(crate) mod expression_scopes;
+pub(crate) mod ast_lowering;
 pub(crate) mod hir;
-pub(crate) mod hir_dumper;
+pub(crate) mod name_resolution;
+pub(crate) mod old_sema;
 pub(crate) mod red_node_directory;
-pub(crate) mod semantic_analyzer;
-pub(crate) mod semantic_diagnostic;
-pub(crate) mod symbol_table;
-pub(crate) mod unification_table;
+pub(crate) mod type_checking;
 
 #[salsa::tracked]
-pub(crate) fn top_level_definitions_of<'db>(
+pub(crate) fn file_scoped_definitions_of<'db>(
     db: &'db dyn crate::Db,
     file: SourceFileKey,
 ) -> Arc<DefinitionTree<'db>> {
@@ -50,7 +45,7 @@ pub(crate) fn top_level_definitions_of<'db>(
 }
 
 #[salsa::tracked]
-pub(crate) fn block_definitions_of<'db>(
+pub(crate) fn block_scoped_definitions_of<'db>(
     db: &'db dyn crate::Db,
     block: BlockKey<'db>,
 ) -> Arc<DefinitionTree<'db>> {
@@ -62,6 +57,37 @@ pub(crate) fn block_definitions_of<'db>(
     let ast_node = block.id(db).to_ast_node(db);
 
     collect_definitions(db, source, directory, ast_node.definitions())
+}
+
+#[salsa::tracked]
+pub(crate) fn imports_of<'db>(db: &'db dyn crate::Db, file: SourceFileKey) -> Arc<Vec<Path<'db>>> {
+    let root = RedNode::new(cst_of(db, file).clone());
+    let root = File::cast(root).unwrap();
+
+    let imports = root
+        .items()
+        .filter_map(|item| match item {
+            ast::Item::Import(import_declaration) => import_declaration.path(),
+            ast::Item::Definition(_) => None,
+        })
+        .filter_map(|path| ast_lowering::lower_path(db, &path))
+        .collect();
+
+    Arc::new(imports)
+}
+
+#[salsa::tracked]
+pub(crate) fn module_file_of<'db>(
+    db: &'db dyn crate::Db,
+    path: Path<'db>,
+) -> Option<SourceFileKey> {
+    let project = ProjectModules::try_get(db)?;
+    let segments: Vec<String> = path
+        .segments(db)
+        .iter()
+        .map(|segment| segment.text(db).to_string())
+        .collect();
+    project.modules(db).get(&segments).copied()
 }
 
 #[salsa::tracked]
@@ -253,12 +279,12 @@ mod tests {
 
     use super::*;
     use crate::core::db::BlueberryDatabase;
-    use crate::core::semantic_analysis::definition_tree::Definition;
+    use crate::core::semantic_analysis::name_resolution::definition_tree::Definition;
 
     fn definition_types(source: &str) -> Vec<String> {
         let db = BlueberryDatabase::default();
         let file = SourceFileKey::new(&db, PathBuf::from("test.bb"), source.to_string());
-        top_level_definitions_of(&db, file)
+        file_scoped_definitions_of(&db, file)
             .definitions()
             .iter()
             .map(|definition| match definition {
@@ -284,5 +310,71 @@ mod tests {
             definition_types("func f(x: Foo) -> Bar {}"),
             ["(Error) -> Error"]
         );
+    }
+
+    fn imported_paths(source: &str) -> Vec<Vec<String>> {
+        let db = BlueberryDatabase::default();
+        let file = SourceFileKey::new(&db, PathBuf::from("test.bb"), source.to_string());
+        imports_of(&db, file)
+            .iter()
+            .map(|path| {
+                path.segments(&db)
+                    .iter()
+                    .map(|segment| segment.text(&db).to_string())
+                    .collect()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn imports_in_source_order() {
+        assert_eq!(
+            imported_paths("import a;\nfunc f() {}\nimport a::b::c;"),
+            [
+                vec!["a".to_string()],
+                vec!["a", "b", "c"]
+                    .into_iter()
+                    .map(str::to_string)
+                    .collect()
+            ]
+        );
+    }
+
+    #[test]
+    fn broken_imports_are_skipped() {
+        assert_eq!(imported_paths("import ;\nimport a::;\nimport b;"), [["b"]]);
+    }
+
+    #[test]
+    fn module_file_of_resolves_registered_paths_and_none_for_unknown() {
+        use std::collections::BTreeMap;
+
+        let db = BlueberryDatabase::default();
+
+        let file_a =
+            SourceFileKey::new(&db, PathBuf::from("a.bb"), "const A: I32 = 1;".to_string());
+        let file_ab = SourceFileKey::new(
+            &db,
+            PathBuf::from("a/b.bb"),
+            "const B: I32 = 2;".to_string(),
+        );
+
+        let mut modules = BTreeMap::new();
+        modules.insert(vec!["a".to_string()], file_a);
+        modules.insert(vec!["a".to_string(), "b".to_string()], file_ab);
+        ProjectModules::new(&db, modules);
+
+        let consumer = SourceFileKey::new(
+            &db,
+            PathBuf::from("consumer.bb"),
+            "import a;\nimport a::b;\nimport a::missing;".to_string(),
+        );
+        let paths = imports_of(&db, consumer);
+        let resolved: Vec<Option<SourceFileKey>> = paths
+            .iter()
+            .map(|path| *module_file_of(&db, *path))
+            .collect();
+
+        assert_eq!(resolved, [Some(file_a), Some(file_ab), None]);
     }
 }

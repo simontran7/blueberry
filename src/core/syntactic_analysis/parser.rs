@@ -84,10 +84,7 @@ impl<'a> Parser<'a> {
             } else if self.cursor.at(TokenKind::Import) {
                 self.parse_import_declaration();
             } else {
-                self.advance_with_error(SyntaxDiagnostic::new(
-                    TokenKind::Func.to_string(),
-                    self.cursor.peek().to_string(),
-                ));
+                self.advance_with_error(&TokenKind::Func.to_string());
             }
         }
 
@@ -108,10 +105,7 @@ impl<'a> Parser<'a> {
         if self.cursor.at(TokenKind::OpenParen) {
             self.parse_parameter_list();
         } else {
-            self.record_diagnostic(SyntaxDiagnostic::new(
-                "parameter list".to_string(),
-                self.cursor.peek().to_string(),
-            ));
+            self.record_diagnostic("parameter list");
         }
         if self.eat(TokenKind::ThinArrow) {
             self.parse_type_expression();
@@ -119,10 +113,7 @@ impl<'a> Parser<'a> {
         if self.cursor.at(TokenKind::OpenBrace) {
             self.parse_block();
         } else {
-            self.record_diagnostic(SyntaxDiagnostic::new(
-                "function body".to_string(),
-                self.cursor.peek().to_string(),
-            ));
+            self.record_diagnostic("function body");
         }
 
         self.close(marker, SyntaxKind::FunctionDefinition);
@@ -136,7 +127,7 @@ impl<'a> Parser<'a> {
         if self.cursor.at(TokenKind::Identifier) {
             self.parse_path();
         } else {
-            self.expect(TokenKind::Identifier);
+            self.record_diagnostic(&TokenKind::Identifier.to_string());
         }
         self.expect(TokenKind::Semicolon);
 
@@ -157,7 +148,7 @@ impl<'a> Parser<'a> {
             if self.cursor.at(TokenKind::Identifier) {
                 self.parse_path_segment();
             } else {
-                self.expect(TokenKind::Identifier);
+                self.record_diagnostic(&TokenKind::Identifier.to_string());
             }
             path = self.close(marker, SyntaxKind::Path);
         }
@@ -211,10 +202,7 @@ impl<'a> Parser<'a> {
             } else if self.cursor.at_any(Self::PARAMETER_LIST_RECOVERY) {
                 break;
             } else {
-                self.advance_with_error(SyntaxDiagnostic::new(
-                    "parameter".to_string(),
-                    self.cursor.peek().to_string(),
-                ));
+                self.advance_with_error("parameter");
             }
         }
         self.expect(TokenKind::CloseParen);
@@ -249,10 +237,7 @@ impl<'a> Parser<'a> {
                     if self.cursor.at_any(Self::EXPRESSION_STARTERS) {
                         self.parse_expression_statement()
                     } else {
-                        self.advance_with_error(SyntaxDiagnostic::new(
-                            "statement".to_string(),
-                            self.cursor.peek().to_string(),
-                        ));
+                        self.advance_with_error("statement");
                     }
                 }
             }
@@ -585,9 +570,9 @@ impl<'a> Parser<'a> {
         self.events.push(Event::AddToken);
     }
 
-    fn advance_with_error(&mut self, diagnostic: SyntaxDiagnostic) {
+    fn advance_with_error(&mut self, expected: &str) {
         let marker = self.open();
-        self.record_diagnostic(diagnostic);
+        self.record_diagnostic(expected);
         self.advance();
         self.close(marker, SyntaxKind::Error);
     }
@@ -605,15 +590,15 @@ impl<'a> Parser<'a> {
         if self.eat(kind) {
             return;
         }
-        self.record_diagnostic(SyntaxDiagnostic::new(
-            kind.to_string(),
-            self.cursor.peek().to_string(),
-        ));
+        self.record_diagnostic(&kind.to_string());
     }
 
-    fn record_diagnostic(&mut self, diagnostic: SyntaxDiagnostic) {
+    fn record_diagnostic(&mut self, expected: &str) {
         let index = self.diagnostics.len();
-        self.diagnostics.push(diagnostic);
+        self.diagnostics.push(SyntaxDiagnostic::new(
+            expected.to_string(),
+            self.cursor.peek().to_string(),
+        ));
         self.events.push(Event::AddDiagnostic { index });
     }
 }
