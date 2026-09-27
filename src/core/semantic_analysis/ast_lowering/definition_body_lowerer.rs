@@ -107,7 +107,7 @@ impl<'db> DefinitionBodyLowerer<'db> {
             ast::Expression::BooleanLiteral(literal) => self.builder.add_expression(
                 literal
                     .value()
-                    .map_or(Expression::Hole, Expression::Boolean),
+                    .map_or(Expression::Error, Expression::Boolean),
                 literal.red(),
             ),
             ast::Expression::UnitLiteral(literal) => {
@@ -117,7 +117,7 @@ impl<'db> DefinitionBodyLowerer<'db> {
                 let lowered = path_expression
                     .path()
                     .and_then(|path| self.lower_path(&path))
-                    .map_or(Expression::Hole, Expression::Path);
+                    .map_or(Expression::Error, Expression::Path);
                 self.builder.add_expression(lowered, path_expression.red())
             }
             ast::Expression::ParenthesizedExpression(parenthesized) => {
@@ -128,7 +128,7 @@ impl<'db> DefinitionBodyLowerer<'db> {
                     .operator()
                     .and_then(|token| UnaryOperator::try_from(token.kind()).ok());
                 let Some(operator) = operator else {
-                    return self.builder.add_expression(Expression::Hole, unary.red());
+                    return self.builder.add_expression(Expression::Error, unary.red());
                 };
 
                 let operand_handle = self.lower_optional_expression(unary.operand(), unary.red());
@@ -330,7 +330,7 @@ impl<'db> DefinitionBodyLowerer<'db> {
     ) -> ExpressionHandle {
         match block {
             Some(block) => self.lower_block(block),
-            None => self.builder.add_expression(Expression::Hole, parent),
+            None => self.builder.add_expression(Expression::Error, parent),
         }
     }
 
@@ -371,7 +371,7 @@ impl<'db> DefinitionBodyLowerer<'db> {
     ) -> ExpressionHandle {
         match expression {
             Some(expression) => self.lower_expression(expression),
-            None => self.builder.add_expression(Expression::Hole, parent),
+            None => self.builder.add_expression(Expression::Error, parent),
         }
     }
 
@@ -380,7 +380,6 @@ impl<'db> DefinitionBodyLowerer<'db> {
     }
 
     fn block_key(&self, block: &ast::Block) -> Option<BlockKey<'db>> {
-        block.definitions().next()?;
         let id = self.directory.id_of(block.red())?;
         Some(BlockKey::new(self.db, RedNodeId::new(id)))
     }

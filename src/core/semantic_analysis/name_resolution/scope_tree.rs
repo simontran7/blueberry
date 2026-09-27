@@ -8,7 +8,7 @@ use crate::core::semantic_analysis::hir::nodes::{
 
 /// Tree of scopes for one function or constant body.
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct ExpressionScopes<'db> {
+pub(crate) struct ScopeTree<'db> {
     scopes: HandleMap<ScopeHandle, Scope<'db>>,
     scope_entries: SegmentList<ScopeEntry<'db>>,
     scope_by_expression: SideHandleMap<ExpressionHandle, ScopeHandle>,
@@ -33,36 +33,36 @@ handle_impl!(pub(crate) ScopeHandle);
 
 #[derive(Clone, Copy)]
 pub(crate) struct ScopeView<'a, 'db> {
-    store: &'a ExpressionScopes<'db>,
+    store: &'a ScopeTree<'db>,
     scope_handle: ScopeHandle,
 }
 
 pub(crate) struct ScopeViewMut<'a, 'db> {
-    store: &'a mut ExpressionScopes<'db>,
+    store: &'a mut ScopeTree<'db>,
     scope_handle: ScopeHandle,
 }
 
-impl<'db> ExpressionScopes<'db> {
+impl<'db> ScopeTree<'db> {
     /// Builds the scope tree for a body, starting from its parameters.
     pub(crate) fn new(body: &DefinitionBody<'db>) -> Self {
-        let mut expression_scopes = Self {
+        let mut scope_tree = Self {
             scopes: HandleMap::new(),
             scope_entries: SegmentList::new(),
             scope_by_expression: SideHandleMap::new(),
         };
 
-        let root_handle = expression_scopes.scopes.add(Scope {
+        let root_handle = scope_tree.scopes.add(Scope {
             parent_handle: None,
             block_key: None,
             entries: Segment::empty(),
         });
-        expression_scopes
+        scope_tree
             .get_scope_mut(root_handle)
             .add_entries(body, &body.binding_children[body.parameters]);
 
-        expression_scopes.visit_expression(body, body.root, root_handle);
+        scope_tree.visit_expression(body, body.root, root_handle);
 
-        expression_scopes
+        scope_tree
     }
 
     /// Returns a view of the scope an expression was computed under, if any.
@@ -104,7 +104,7 @@ impl<'db> ExpressionScopes<'db> {
             | Expression::Integer(_)
             | Expression::Boolean(_)
             | Expression::Path(_)
-            | Expression::Hole
+            | Expression::Error
             | Expression::Continue => {}
             Expression::If {
                 condition_handle,

@@ -14,10 +14,10 @@ function no_params()
 └─ Block
 
 function no_body()
-└─ Hole
+└─ Error
 
 function neither()
-└─ Hole
+└─ Error
 
 function last()
 └─ Block

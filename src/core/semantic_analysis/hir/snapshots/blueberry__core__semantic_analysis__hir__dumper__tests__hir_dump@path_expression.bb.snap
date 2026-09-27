@@ -19,8 +19,8 @@ function f()
    │     │  └─ callee: Path b::f
    │     └─ Path x::y::z
    ├─ Expression ;
-   │  └─ Hole
+   │  └─ Error
    ├─ Expression ;
-   │  └─ Hole
+   │  └─ Error
    └─ Expression ;
       └─ Path c

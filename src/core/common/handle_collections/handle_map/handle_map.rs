@@ -41,7 +41,7 @@ impl<K: Handle, V> HandleMap<K, V> {
         }
     }
 
-    pub(crate) fn next_key(&self) -> K {
+    pub(crate) fn next_handle(&self) -> K {
         K::new(self.data.len())
     }
 

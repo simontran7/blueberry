@@ -4,7 +4,7 @@ use crate::core::common::handle_collections::handle_impl;
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
 use crate::core::common::segments::{Segment, SegmentList};
 use crate::core::common::symbol::Symbol;
-use crate::core::common::types::Ty;
+use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::semantic_analysis::red_node_directory::{RedNodeId, RedNodeTag};
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::ast;
@@ -111,7 +111,7 @@ pub(crate) enum Expression<'db> {
         target_handle: ExpressionHandle,
         value_handle: ExpressionHandle,
     },
-    Hole,
+    Error,
 }
 
 #[salsa::interned(debug)]
@@ -143,7 +143,7 @@ pub(crate) struct LocalBinding<'db> {
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) enum TypeAnnotation<'db> {
     Path(Symbol<'db>),
-    Hole,
+    Error,
 }
 
 impl<'db> TypeAnnotation<'db> {
@@ -153,7 +153,7 @@ impl<'db> TypeAnnotation<'db> {
     ) -> Self {
         match type_expression.name() {
             Some(token) => Self::Path(Symbol::new(db, token.lexeme().to_string())),
-            None => Self::Hole,
+            None => Self::Error,
         }
     }
 
@@ -162,7 +162,7 @@ impl<'db> TypeAnnotation<'db> {
             Self::Path(symbol) => {
                 Ty::primitive(db, symbol.text(db)).unwrap_or_else(|| Ty::error(db))
             }
-            Self::Hole => Ty::error(db),
+            Self::Error => Ty::error(db),
         }
     }
 }

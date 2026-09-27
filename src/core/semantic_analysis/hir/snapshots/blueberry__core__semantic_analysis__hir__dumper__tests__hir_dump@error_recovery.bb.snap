@@ -13,6 +13,6 @@ function fib(n: i32) -> i32
    ├─ Let x
    │  └─ initializer: Binary +
    │     ├─ Integer 1
-   │     └─ Hole
+   │     └─ Error
    └─ Let y
       └─ initializer: Integer 2

@@ -853,7 +853,7 @@ impl<'a> BlockView<'a> {
 
 impl<'a> BlockViewMut<'a> {
     pub(crate) fn append_parameter(&mut self, ty: TypeId) -> ValueId {
-        let parameter = self.cfg.dfg.values.next_key();
+        let parameter = self.cfg.dfg.values.next_handle();
         self.cfg.dfg.blocks[self.block_id]
             .parameter_ids
             .add_last(&mut self.cfg.dfg.suballocator, parameter);

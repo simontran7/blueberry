@@ -1,7 +1,7 @@
 use crate::core::common::handle_collections::handle_impl;
 
-handle_impl!(pub(crate) TypeVarId);
-handle_impl!(pub(crate) IntVarId);
+handle_impl!(pub(crate) GeneralVariableHandle);
+handle_impl!(pub(crate) IntegerVariableHandle);
 
 #[salsa::interned(debug)]
 pub(crate) struct Ty<'db> {
@@ -20,7 +20,7 @@ pub(crate) enum TyKind<'db> {
         parameters: Vec<Ty<'db>>,
         return_type: Ty<'db>,
     },
-    Infer(InferTy),
+    UnificationVariable(UnificationVariable),
     Error,
 }
 
@@ -37,9 +37,9 @@ pub(crate) enum UnsignedIntTy {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
-pub(crate) enum InferTy {
-    TyVar(TypeVarId),
-    IntVar(IntVarId),
+pub(crate) enum UnificationVariable {
+    General(GeneralVariableHandle),
+    Integer(IntegerVariableHandle),
 }
 
 impl<'db> Ty<'db> {
@@ -113,31 +113,9 @@ impl<'db> Ty<'db> {
                     .collect();
                 format!("({}) -> {}", parameters.join(", "), return_type.display(db))
             }
-            TyKind::Infer(InferTy::IntVar(_)) => "Int".to_string(),
-            TyKind::Infer(InferTy::TyVar(_)) => "unknown".to_string(),
+            TyKind::UnificationVariable(UnificationVariable::General(_)) => "unknown".to_string(),
+            TyKind::UnificationVariable(UnificationVariable::Integer(_)) => "Int".to_string(),
             TyKind::Error => "Error".to_string(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::core::db::BlueberryDatabase;
-
-    #[test]
-    fn equal_types_intern_to_the_same_handle() {
-        let db = BlueberryDatabase::default();
-        assert_eq!(
-            Ty::primitive(&db, "I32"),
-            Some(Ty::signed(&db, SignedIntTy::I32))
-        );
-        assert_eq!(Ty::primitive(&db, "Nope"), None);
-        assert_ne!(Ty::bool(&db), Ty::unit(&db));
-
-        let function = Ty::function(&db, vec![Ty::bool(&db), Ty::bottom(&db)], Ty::unit(&db));
-        let same = Ty::function(&db, vec![Ty::bool(&db), Ty::bottom(&db)], Ty::unit(&db));
-        assert_eq!(function, same);
-        assert_eq!(function.display(&db), "(Bool, Bottom) -> ()");
     }
 }

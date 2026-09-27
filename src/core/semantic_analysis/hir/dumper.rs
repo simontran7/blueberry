@@ -74,7 +74,7 @@ impl<'db> HirDumper<'db> {
     fn annotation_text(&self, annotation: &TypeAnnotation<'db>) -> String {
         match annotation {
             TypeAnnotation::Path(symbol) => symbol.text(self.db).to_string(),
-            TypeAnnotation::Hole => "_".to_string(),
+            TypeAnnotation::Error => "_".to_string(),
         }
     }
 
@@ -137,7 +137,7 @@ impl<'db> HirDumper<'db> {
                     .collect();
                 Node::leaf(format!("Path {}", segments.join("::")))
             }
-            Expression::Hole => Node::leaf("Hole"),
+            Expression::Error => Node::leaf("Error"),
             Expression::If {
                 condition_handle,
                 then_branch_handle,
@@ -166,14 +166,17 @@ impl<'db> HirDumper<'db> {
                     children.push(self.expression(body, *tail_handle).labeled("tail"));
                 }
                 if let Some(block_key) = block_key {
-                    children.push(Node::new(
-                        "definitions",
-                        block_scoped_definitions_of(self.db, *block_key)
-                            .definitions()
-                            .iter()
-                            .map(|definition| self.definition(*definition))
-                            .collect(),
-                    ));
+                    let definitions = block_scoped_definitions_of(self.db, *block_key);
+                    if !definitions.definitions().is_empty() {
+                        children.push(Node::new(
+                            "definitions",
+                            definitions
+                                .definitions()
+                                .iter()
+                                .map(|definition| self.definition(*definition))
+                                .collect(),
+                        ));
+                    }
                 }
                 Node::new("Block", children)
             }
