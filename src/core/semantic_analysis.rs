@@ -4,26 +4,27 @@ use crate::core::common::symbol::Symbol;
 use crate::core::module_map::{ModuleMap, ModulePath};
 use crate::core::semantic_analysis::ast_lowering::definition_body_lowerer::DefinitionBodyLowerer;
 use crate::core::semantic_analysis::hir::nodes::{
-    BlockKey, ConstantKey, ConstantSignature, DefinitionBody, DefinitionBodySourceMap,
-    DefinitionSource, FunctionKey, FunctionSignature, Path, TypeAnnotation,
+    ConstantSignature, DefinitionBody, DefinitionBodySourceMap, FunctionSignature, Path,
+    TypeAnnotation,
 };
+use crate::core::semantic_analysis::ids::keys::{BlockKey, ConstantKey, DefinitionSource, FunctionKey};
 use crate::core::semantic_analysis::name_resolution::definition_tree::DefinitionTree;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
-use crate::core::semantic_analysis::red_node_directory::{
+use crate::core::semantic_analysis::ids::red_node_directory::{
     RedNodeDirectory, RedNodeDirectoryBuilder,
 };
 use crate::core::semantic_analysis::type_checking::type_checker::{TypeCheckResult, TypeChecker};
 use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::source_file_key::SourceFileKey;
-use crate::core::syntactic_analysis::ast::{self, AstNode, File};
+use crate::core::syntactic_analysis::cst::ast::{self, AstNode, File};
 use crate::core::syntactic_analysis::cst::RedNode;
 use crate::core::syntactic_analysis::cst_of;
 
 pub(crate) mod ast_lowering;
 pub(crate) mod hir;
+pub(crate) mod ids;
 pub(crate) mod name_resolution;
 pub(crate) mod old_sema;
-pub(crate) mod red_node_directory;
 pub(crate) mod type_checking;
 
 #[salsa::tracked]

@@ -1,5 +1,4 @@
-use std::iter::Peekable;
-use std::str::CharIndices;
+use std::str::Chars;
 
 use super::token_stream::TokenKind;
 use super::token_stream::TokenStream;
@@ -8,49 +7,44 @@ use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
 
 pub(crate) struct Tokenizer<'src> {
     source: &'src str,
-    cursor: Peekable<CharIndices<'src>>,
+    cursor: Chars<'src>,
+    tokens: TokenStream,
+    diagnostics: Vec<LexicalDiagnostic>,
 }
 
 impl<'src> Tokenizer<'src> {
-    const EOF: char = '\0';
-
     pub(crate) fn new(source: &'src str) -> Self {
         Tokenizer {
             source,
-            cursor: source.char_indices().peekable(),
+            cursor: source.chars(),
+            tokens: TokenStream::new(),
+            diagnostics: Vec::new(),
         }
     }
 
-    pub(crate) fn tokenize(&mut self) -> (TokenStream, Vec<LexicalDiagnostic>) {
-        let mut tokens = TokenStream::new();
-        let mut diagnostics = Vec::new();
-
-        loop {
-            let (kind, width, diagnostic) = self.tokenize_one();
-            if kind == TokenKind::Eof {
-                break;
-            }
-            if let Some(diagnostic) = diagnostic {
-                diagnostics.push(diagnostic);
-            }
-            tokens.add(kind, width);
+    pub(crate) fn tokenize(mut self) -> (TokenStream, Vec<LexicalDiagnostic>) {
+        while !self.at_eof() {
+            let (kind, end) = self.tokenize_one();
+            self.tokens.add(kind, end);
         }
+        self.tokens
+            .add(TokenKind::Eof, TextSize::new(self.offset()));
 
-        (tokens, diagnostics)
+        (self.tokens, self.diagnostics)
     }
 
-    fn tokenize_one(&mut self) -> (TokenKind, TextSize, Option<LexicalDiagnostic>) {
-        let start = self.position();
-        let first = self.peek();
+    fn tokenize_one(&mut self) -> (TokenKind, TextSize) {
+        let start = self.offset();
+        let current = self.peek().unwrap();
         self.advance();
-        let kind = match first {
+        let kind = match current {
             ';' => TokenKind::Semicolon,
             '(' => TokenKind::OpenParen,
             ')' => TokenKind::CloseParen,
             '{' => TokenKind::OpenBrace,
             '}' => TokenKind::CloseBrace,
             ':' => {
-                if self.peek() == ':' {
+                if self.peek() == Some(':') {
                     self.advance();
                     TokenKind::ColonColon
                 } else {
@@ -61,7 +55,7 @@ impl<'src> Tokenizer<'src> {
             '+' => TokenKind::Plus,
             '*' => TokenKind::Star,
             '/' => {
-                if self.peek() == '/' {
+                if self.peek() == Some('/') {
                     self.eat_inline_comment();
                     TokenKind::InlineComment
                 } else {
@@ -69,7 +63,7 @@ impl<'src> Tokenizer<'src> {
                 }
             }
             '-' => {
-                if self.peek() == '>' {
+                if self.peek() == Some('>') {
                     self.advance();
                     TokenKind::ThinArrow
                 } else {
@@ -77,7 +71,7 @@ impl<'src> Tokenizer<'src> {
                 }
             }
             '!' => {
-                if self.peek() == '=' {
+                if self.peek() == Some('=') {
                     self.advance();
                     TokenKind::NotEqual
                 } else {
@@ -85,7 +79,7 @@ impl<'src> Tokenizer<'src> {
                 }
             }
             '=' => {
-                if self.peek() == '=' {
+                if self.peek() == Some('=') {
                     self.advance();
                     TokenKind::EqualEqual
                 } else {
@@ -93,7 +87,7 @@ impl<'src> Tokenizer<'src> {
                 }
             }
             '<' => {
-                if self.peek() == '=' {
+                if self.peek() == Some('=') {
                     self.advance();
                     TokenKind::LessEqual
                 } else {
@@ -101,7 +95,7 @@ impl<'src> Tokenizer<'src> {
                 }
             }
             '>' => {
-                if self.peek() == '=' {
+                if self.peek() == Some('=') {
                     self.advance();
                     TokenKind::GreaterEqual
                 } else {
@@ -110,7 +104,7 @@ impl<'src> Tokenizer<'src> {
             }
             c if c.is_alphabetic() || c == '_' => {
                 self.eat_lexeme();
-                let lexeme = &self.source[start..self.position()];
+                let lexeme = &self.source[start..self.offset()];
                 TokenKind::classify(lexeme)
             }
             '0'..='9' => {
@@ -121,16 +115,15 @@ impl<'src> Tokenizer<'src> {
                 self.eat_whitespace();
                 TokenKind::Whitespace
             }
-            Self::EOF => TokenKind::Eof,
-            _ => TokenKind::Error,
+            _ => {
+                self.diagnostics.push(LexicalDiagnostic::UnknownToken {
+                    character: current,
+                    span: Span::new(TextSize::new(start), TextSize::new(self.offset())),
+                });
+                TokenKind::Error
+            }
         };
-        let end = self.position();
-        let width = TextSize::new(end - start);
-        let diagnostic = (kind == TokenKind::Error).then(|| LexicalDiagnostic::UnknownToken {
-            character: first,
-            span: Span::new(TextSize::new(start), TextSize::new(end)),
-        });
-        (kind, width, diagnostic)
+        (kind, TextSize::new(self.offset()))
     }
 
     fn eat_whitespace(&mut self) {
@@ -142,31 +135,23 @@ impl<'src> Tokenizer<'src> {
     }
 
     fn eat_integer(&mut self) {
-        self.advance_while(|c| c.is_ascii_hexdigit() || c == '_');
+        self.advance_while(|c| c.is_ascii_digit() || c == '_');
     }
 
     fn eat_lexeme(&mut self) {
         self.advance_while(|c| c.is_alphanumeric() || c == '_')
     }
 
-    fn peek(&mut self) -> char {
-        if let Some((_, character)) = self.cursor.peek() {
-            *character
-        } else {
-            Self::EOF
-        }
+    fn peek(&self) -> Option<char> {
+        self.cursor.clone().next()
     }
 
-    fn at_eof(&mut self) -> bool {
-        self.position() == self.source.len()
+    fn at_eof(&self) -> bool {
+        self.cursor.as_str().is_empty()
     }
 
-    fn position(&mut self) -> usize {
-        if let Some((position, _)) = self.cursor.peek() {
-            *position
-        } else {
-            self.source.len()
-        }
+    fn offset(&self) -> usize {
+        self.source.len() - self.cursor.as_str().len()
     }
 
     fn advance(&mut self) {
@@ -174,7 +159,7 @@ impl<'src> Tokenizer<'src> {
     }
 
     fn advance_while(&mut self, predicate: impl Fn(char) -> bool) {
-        while predicate(self.peek()) && !self.at_eof() {
+        while self.peek().is_some_and(&predicate) {
             self.advance();
         }
     }
@@ -190,9 +175,17 @@ mod tests {
     fn test_tokenizer_output() {
         insta::glob!("snapshot_inputs/**/*.bb", |path| {
             let input = fs::read_to_string(path).unwrap();
-            let mut tokenizer = Tokenizer::new(&input);
-            let (tokens, _diagnostics) = tokenizer.tokenize();
-            insta::assert_snapshot!(TokenDumper::new(&input, tokens).dump());
+            let (tokens, diagnostics) = Tokenizer::new(&input).tokenize();
+
+            let mut dump = TokenDumper::new(&input, tokens).dump();
+            if !diagnostics.is_empty() {
+                dump.push_str("\n--- diagnostics ---\n");
+                for diagnostic in &diagnostics {
+                    dump.push_str(&format!("{:?}\n", diagnostic));
+                }
+            }
+
+            insta::assert_snapshot!(dump);
         })
     }
 }

@@ -4,8 +4,7 @@ use crate::core::semantic_analysis::hir::nodes::{
     DefinitionBody, DefinitionBodySourceMap, Expression, ExpressionHandle, LocalBinding,
     LocalBindingHandle, Statement, StatementHandle, TypeAnnotation, TypeAnnotationHandle,
 };
-use crate::core::semantic_analysis::red_node_directory::RedNodeTag;
-use crate::core::syntactic_analysis::cst::RedNode;
+use crate::core::syntactic_analysis::cst::{RedNode, RedNodeTag};
 
 #[derive(Default)]
 pub(crate) struct DefinitionBodyBuilder<'db> {

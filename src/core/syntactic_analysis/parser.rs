@@ -1,32 +1,25 @@
+pub(crate) mod sink;
+mod source;
+pub(crate) mod syntax_diagnostic;
+
 use std::cell::Cell;
 
-use crate::core::lexical_analysis::token_stream::TokenKind;
-use crate::core::lexical_analysis::token_stream::TokenStream;
+use crate::core::lexical_analysis::token_stream::{TokenKind, TokenStream};
 use crate::core::syntactic_analysis::cst::SyntaxKind;
-use crate::core::syntactic_analysis::syntax_diagnostic::SyntaxDiagnostic;
+use crate::core::syntactic_analysis::parser::sink::{Event, Sink};
+use crate::core::syntactic_analysis::parser::source::Source;
+use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
 
-pub(crate) struct Parser<'a> {
-    cursor: TokenStreamCursor<'a>,
-    events: Vec<Event>,
+pub(crate) struct Parser {
+    cursor: SourceCursor,
+    sink: Sink,
     diagnostics: Vec<SyntaxDiagnostic>,
 }
 
-struct TokenStreamCursor<'a> {
-    source: &'a TokenStream,
+struct SourceCursor {
+    source: Source,
     index: usize,
     fuel: Cell<usize>,
-}
-
-pub(crate) enum Event {
-    OpenNode {
-        kind: SyntaxKind,
-        forward_parent: Option<usize>,
-    },
-    CloseNode,
-    AddToken,
-    AddDiagnostic {
-        index: usize,
-    },
 }
 
 struct OpenMarker {
@@ -38,7 +31,7 @@ struct ClosedMarker {
     open_index: usize,
 }
 
-impl<'a> Parser<'a> {
+impl Parser {
     const PARAMETER_LIST_RECOVERY: &'static [TokenKind] =
         &[TokenKind::ThinArrow, TokenKind::OpenBrace, TokenKind::Func];
     const EXPRESSION_STARTERS: &'static [TokenKind] = &[
@@ -65,15 +58,15 @@ impl<'a> Parser<'a> {
     ];
     const MIN_BINDING_POWER: u8 = 0;
 
-    pub(crate) fn new(tokens: &'a TokenStream) -> Self {
+    pub(crate) fn new(tokens: &TokenStream) -> Self {
         Self {
-            cursor: TokenStreamCursor::new(tokens),
-            events: Vec::new(),
+            cursor: SourceCursor::new(Source::new(tokens)),
+            sink: Sink::new(),
             diagnostics: Vec::new(),
         }
     }
 
-    pub(crate) fn parse(&mut self) -> (Vec<Event>, Vec<SyntaxDiagnostic>) {
+    pub(crate) fn parse(mut self) -> (Sink, Vec<SyntaxDiagnostic>) {
         let marker = self.open();
 
         while !self.cursor.at_eof() {
@@ -90,10 +83,7 @@ impl<'a> Parser<'a> {
 
         self.close(marker, SyntaxKind::File);
 
-        (
-            std::mem::take(&mut self.events),
-            std::mem::take(&mut self.diagnostics),
-        )
+        (self.sink, self.diagnostics)
     }
 
     fn parse_function_definition(&mut self) {
@@ -516,10 +506,10 @@ impl<'a> Parser<'a> {
 
     fn open(&mut self) -> OpenMarker {
         let marker = OpenMarker {
-            index: self.events.len(),
+            index: self.sink.len(),
             closed: false,
         };
-        self.events.push(Event::OpenNode {
+        self.sink.push(Event::OpenNode {
             kind: SyntaxKind::Tombstone,
             forward_parent: None,
         });
@@ -528,16 +518,16 @@ impl<'a> Parser<'a> {
 
     fn open_before(&mut self, anchor: ClosedMarker) -> OpenMarker {
         let marker = OpenMarker {
-            index: self.events.len(),
+            index: self.sink.len(),
             closed: false,
         };
-        self.events.push(Event::OpenNode {
+        self.sink.push(Event::OpenNode {
             kind: SyntaxKind::Tombstone,
             forward_parent: None,
         });
 
         // set the forward parent of `anchor` to the new event
-        if let Event::OpenNode { forward_parent, .. } = &mut self.events[anchor.open_index] {
+        if let Event::OpenNode { forward_parent, .. } = &mut self.sink[anchor.open_index] {
             *forward_parent = Some(marker.index - anchor.open_index); // `CstBuilder::build` walks forward parents by offset
         } else {
             unreachable!()
@@ -548,17 +538,17 @@ impl<'a> Parser<'a> {
 
     fn close(&mut self, mut marker: OpenMarker, kind: SyntaxKind) -> ClosedMarker {
         assert!(matches!(
-            self.events[marker.index],
+            self.sink[marker.index],
             Event::OpenNode {
                 kind: SyntaxKind::Tombstone,
                 ..
             }
         ));
-        self.events[marker.index] = Event::OpenNode {
+        self.sink[marker.index] = Event::OpenNode {
             kind,
             forward_parent: None,
         };
-        self.events.push(Event::CloseNode);
+        self.sink.push(Event::CloseNode);
         marker.closed = true;
         ClosedMarker {
             open_index: marker.index,
@@ -567,7 +557,7 @@ impl<'a> Parser<'a> {
 
     fn advance(&mut self) {
         self.cursor.bump();
-        self.events.push(Event::AddToken);
+        self.sink.push(Event::AddToken);
     }
 
     fn advance_with_error(&mut self, expected: &str) {
@@ -599,24 +589,26 @@ impl<'a> Parser<'a> {
             expected.to_string(),
             self.cursor.peek().to_string(),
         ));
-        self.events.push(Event::AddDiagnostic { index });
+        self.sink.push(Event::AddDiagnostic {
+            index,
+            token_index: self.cursor.source.token_index(self.cursor.index),
+        });
     }
 }
 
-impl<'a> TokenStreamCursor<'a> {
+impl SourceCursor {
     const MAX_FUEL: usize = 256;
 
-    fn new(source: &'a TokenStream) -> Self {
-        let initial_index = source.next_non_trivia(0);
+    fn new(source: Source) -> Self {
         Self {
             source,
-            index: initial_index,
+            index: 0,
             fuel: Cell::new(Self::MAX_FUEL),
         }
     }
 
     fn at_eof(&self) -> bool {
-        self.index == self.source.count()
+        self.source.kind_at(self.index) == TokenKind::Eof
     }
 
     fn at(&self, kind: TokenKind) -> bool {
@@ -636,17 +628,13 @@ impl<'a> TokenStreamCursor<'a> {
             panic!("parser is stuck");
         }
         self.fuel.set(self.fuel.get() - 1);
-        let mut index = self.index;
-        for _ in 0..n {
-            index = self.source.next_non_trivia(index + 1);
-        }
-        self.source.kind_at(index).unwrap_or(TokenKind::Eof)
+        self.source.kind_at(self.index + n)
     }
 
     fn bump(&mut self) {
         assert!(!self.at_eof());
         self.fuel.set(Self::MAX_FUEL);
-        self.index = self.source.next_non_trivia(self.index + 1);
+        self.index += 1;
     }
 }
 
@@ -662,18 +650,18 @@ impl Drop for OpenMarker {
 mod tests {
     use super::*;
     use crate::core::lexical_analysis::tokenizer::Tokenizer;
-    use crate::core::syntactic_analysis::cst_builder::CstBuilder;
-    use crate::core::syntactic_analysis::cst_dumper::CstDumper;
+    use crate::core::syntactic_analysis::cst::cst_builder::CstBuilder;
+    use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
     use std::fs;
 
     #[test]
     fn test_parser_output() {
         insta::glob!("snapshot_inputs/**/*.bb", |path| {
             let input = fs::read_to_string(path).unwrap();
-            let (tokens, _tokenizer_diagnostics) = Tokenizer::new(&input).tokenize();
+            let (tokens, _diagnostics) = Tokenizer::new(&input).tokenize();
 
-            let (events, diagnostics) = Parser::new(&tokens).parse();
-            let (cst, diagnostics) = CstBuilder::new(&input, &tokens, events, diagnostics).build();
+            let (sink, diagnostics) = Parser::new(&tokens).parse();
+            let (cst, diagnostics) = CstBuilder::new(&input, &tokens, sink, diagnostics).build();
 
             let mut dump = CstDumper::new(&cst).dump();
             if !diagnostics.is_empty() {

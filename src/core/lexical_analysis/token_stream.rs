@@ -1,10 +1,10 @@
-use crate::core::common::span::TextSize;
+use crate::core::common::span::{Span, TextSize};
 use core::fmt;
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct TokenStream {
     kinds: Vec<TokenKind>,
-    widths: Vec<TextSize>,
+    starts: Vec<TextSize>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -69,13 +69,17 @@ impl TokenStream {
     pub(crate) fn new() -> Self {
         Self {
             kinds: Vec::new(),
-            widths: Vec::new(),
+            starts: vec![TextSize::new(0)],
         }
     }
 
-    pub(crate) fn add(&mut self, kind: TokenKind, width: TextSize) {
+    pub(crate) fn add(&mut self, kind: TokenKind, end: TextSize) {
+        assert!(
+            end >= *self.starts.last().unwrap(),
+            "a token can't end before it starts"
+        );
         self.kinds.push(kind);
-        self.widths.push(width);
+        self.starts.push(end);
     }
 
     pub(crate) fn count(&self) -> usize {
@@ -86,23 +90,16 @@ impl TokenStream {
         self.kinds.get(index).copied()
     }
 
-    pub(crate) fn width_at(&self, index: usize) -> Option<TextSize> {
-        self.widths.get(index).copied()
+    pub(crate) fn span_at(&self, index: usize) -> Span {
+        Span::new(self.starts[index], self.starts[index + 1])
     }
 
     pub(crate) fn kinds(&self) -> impl Iterator<Item = TokenKind> {
         self.kinds.iter().copied()
     }
 
-    pub(crate) fn widths(&self) -> impl Iterator<Item = TextSize> {
-        self.widths.iter().copied()
-    }
-
-    pub(crate) fn next_non_trivia(&self, mut index: usize) -> usize {
-        while self.kind_at(index).is_some_and(TokenKind::is_trivia) {
-            index += 1;
-        }
-        index
+    pub(crate) fn spans(&self) -> impl Iterator<Item = Span> {
+        (0..self.count()).map(|index| self.span_at(index))
     }
 }
 

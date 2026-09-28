@@ -3,8 +3,9 @@ use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleM
 use crate::core::common::segments::{Segment, SegmentList};
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::hir::nodes::{
-    BlockKey, DefinitionBody, Expression, ExpressionHandle, LocalBindingHandle, Statement,
+    DefinitionBody, Expression, ExpressionHandle, LocalBindingHandle, Statement,
 };
+use crate::core::semantic_analysis::ids::keys::BlockKey;
 
 /// Tree of scopes for one function or constant body.
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]

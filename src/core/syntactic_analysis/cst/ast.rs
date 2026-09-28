@@ -1,5 +1,5 @@
 use crate::core::common::span::Span;
-use crate::core::syntactic_analysis::ast::support::{child, children, nth_child, token};
+use crate::core::syntactic_analysis::cst::ast::support::{child, children, nth_child, token};
 use crate::core::syntactic_analysis::cst::{RedChild, RedNode, RedToken, SyntaxKind};
 
 pub(crate) trait AstNode {
@@ -1177,4 +1177,3 @@ mod support {
             .and_then(N::cast)
     }
 }
-

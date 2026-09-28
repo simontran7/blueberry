@@ -19,7 +19,7 @@ use crate::core::semantic_analysis::hir::{
 use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
 use crate::core::semantic_analysis::symbol_table::{DefineError, LookupError, ScopeKind, SymbolTable};
 use crate::core::semantic_analysis::unification_table::UnificationTable;
-use crate::core::syntactic_analysis::ast::{
+use crate::core::syntactic_analysis::cst::ast::{
     Assignment, AstNode, BinaryOperation, Block, Break, Call, ConstantDefinition, Continue,
     Definition, ElseBranch, Expression, File, FunctionDefinition, IfExpression, InfiniteLoop,
     IntegerLiteral, Parameter, Return, Statement, TypeExpression, UnaryOperation, Variable,

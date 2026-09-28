@@ -1,39 +1,45 @@
 use std::sync::Arc;
 
-use super::cst::{GreenChild, GreenNode};
-use super::parser::Event;
-use crate::core::common::span::{Span, TextSize};
 use crate::core::lexical_analysis::token_stream::{TokenKind, TokenStream};
 use crate::core::syntactic_analysis::cst::GreenToken;
 use crate::core::syntactic_analysis::cst::SyntaxKind;
-use crate::core::syntactic_analysis::syntax_diagnostic::SyntaxDiagnostic;
+use crate::core::syntactic_analysis::cst::{GreenChild, GreenNode};
+use crate::core::syntactic_analysis::parser::sink::{Event, Sink};
+use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
+use std::ops::Range;
 
 pub(crate) struct CstBuilder<'src> {
     source: &'src str,
     tokens: &'src TokenStream,
-    events: Vec<Event>,
+    sink: Sink,
     diagnostics: Vec<SyntaxDiagnostic>,
+}
+
+struct TokenCursor<'src> {
+    source: &'src str,
+    tokens: &'src TokenStream,
+    index: usize,
 }
 
 impl<'src> CstBuilder<'src> {
     pub(crate) fn new(
         source: &'src str,
         tokens: &'src TokenStream,
-        events: Vec<Event>,
+        sink: Sink,
         diagnostics: Vec<SyntaxDiagnostic>,
     ) -> Self {
-        CstBuilder {
+        Self {
             source,
             tokens,
-            events,
+            sink,
             diagnostics,
         }
     }
 
-    pub(crate) fn build(self) -> (Arc<GreenNode>, Vec<SyntaxDiagnostic>) {
+    pub(crate) fn build(mut self) -> (Arc<GreenNode>, Vec<SyntaxDiagnostic>) {
         let mut cursor = TokenCursor::new(self.source, self.tokens);
-        let mut events = self.events;
-        let mut diagnostics = self.diagnostics;
+        let mut events = std::mem::replace(&mut self.sink, Sink::new()).into_events();
+        let mut diagnostics = std::mem::take(&mut self.diagnostics);
         let mut stack: Vec<GreenNode> = Vec::new();
 
         assert!(matches!(events.pop(), Some(Event::CloseNode)));
@@ -91,8 +97,8 @@ impl<'src> CstBuilder<'src> {
                     cursor.eat_trivia(parent);
                     cursor.add_token(parent);
                 }
-                Event::AddDiagnostic { index } => {
-                    diagnostics[index].resolve(cursor.next_significant_span());
+                Event::AddDiagnostic { index, token_index } => {
+                    diagnostics[index].resolve(self.tokens.span_at(token_index));
                 }
             }
         }
@@ -108,20 +114,12 @@ impl<'src> CstBuilder<'src> {
     }
 }
 
-struct TokenCursor<'src> {
-    source: &'src str,
-    tokens: &'src TokenStream,
-    index: usize,
-    offset: usize,
-}
-
 impl<'src> TokenCursor<'src> {
     fn new(source: &'src str, tokens: &'src TokenStream) -> Self {
         Self {
             source,
             tokens,
             index: 0,
-            offset: 0,
         }
     }
 
@@ -139,37 +137,15 @@ impl<'src> TokenCursor<'src> {
 
     fn add_token(&mut self, parent: &mut GreenNode) {
         let kind = self.tokens.kind_at(self.index).unwrap();
-        let width = usize::from(self.tokens.width_at(self.index).unwrap());
-        let text = &self.source[self.offset..self.offset + width];
+        let text = &self.source[Range::from(self.tokens.span_at(self.index))];
         parent.add_child(GreenChild::Token(Arc::new(GreenToken::new(
             kind.into(),
             text.into(),
         ))));
         self.index += 1;
-        self.offset += width;
-    }
-
-    /// The span of the next token that is not trivia, without consuming anything.
-    fn next_significant_span(&self) -> Span {
-        let mut index = self.index;
-        let mut start = self.offset;
-        while self
-            .tokens
-            .kind_at(index)
-            .is_some_and(TokenKind::is_trivia)
-        {
-            start += usize::from(self.tokens.width_at(index).unwrap());
-            index += 1;
-        }
-        let width = self
-            .tokens
-            .width_at(index)
-            .map_or(0, usize::from);
-        Span::new(TextSize::new(start), TextSize::new(start + width))
     }
 
     fn is_finished(&self) -> bool {
-        self.tokens.kind_at(self.index).is_none()
+        self.tokens.kind_at(self.index) == Some(TokenKind::Eof)
     }
 }
-

@@ -1,6 +1,6 @@
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::hir::nodes::Path;
-use crate::core::syntactic_analysis::ast;
+use crate::core::syntactic_analysis::cst::ast;
 
 pub(crate) mod definition_body_builder;
 pub(crate) mod definition_body_lowerer;

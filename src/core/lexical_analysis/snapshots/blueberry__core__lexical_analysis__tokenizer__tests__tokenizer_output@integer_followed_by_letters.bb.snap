@@ -1,0 +1,11 @@
+---
+source: src/core/lexical_analysis/tokenizer.rs
+expression: dump
+input_file: src/core/lexical_analysis/snapshot_inputs/integer_followed_by_letters.bb
+---
+--------------------------------
+Index    Kind            Span           
+--------------------------------
+#0       `12`            [0, 2)         
+#1       `ab`            [2, 4)         
+#2       `end of file`   [4, 4)

@@ -4,12 +4,14 @@ use crate::core::common::segments::Segment;
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::ast_lowering::definition_body_builder::DefinitionBodyBuilder;
 use crate::core::semantic_analysis::hir::nodes::{
-    BinaryOperator, BlockKey, DefinitionBody, DefinitionBodySourceMap, Expression,
-    ExpressionHandle, LocalBinding, LocalBindingHandle, LoopSource, Path, Statement,
-    StatementHandle, TypeAnnotation, TypeAnnotationHandle, UnaryOperator,
+    BinaryOperator, DefinitionBody, DefinitionBodySourceMap, Expression, ExpressionHandle,
+    LocalBinding, LocalBindingHandle, LoopSource, Path, Statement, StatementHandle, TypeAnnotation,
+    TypeAnnotationHandle, UnaryOperator,
 };
-use crate::core::semantic_analysis::red_node_directory::{RedNodeDirectory, RedNodeId};
-use crate::core::syntactic_analysis::ast::{self, AstNode};
+use crate::core::semantic_analysis::ids::keys::BlockKey;
+use crate::core::semantic_analysis::ids::red_node_directory::RedNodeDirectory;
+use crate::core::semantic_analysis::ids::red_node_id::RedNodeId;
+use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
 use crate::core::syntactic_analysis::cst::RedNode;
 
 pub(crate) struct DefinitionBodyLowerer<'db> {

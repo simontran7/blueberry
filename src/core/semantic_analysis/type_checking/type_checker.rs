@@ -1,15 +1,21 @@
 use crate::core::common::handle_collections::handle_map::SideHandleMap;
-use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::semantic_analysis::hir::nodes::DefinitionBody;
 use crate::core::semantic_analysis::hir::nodes::{
     Expression, ExpressionHandle, LocalBindingHandle,
 };
+use crate::core::semantic_analysis::type_checking::types::Ty;
 
 pub(crate) struct TypeChecker<'a, 'db> {
     db: &'db dyn crate::Db,
     body: &'a DefinitionBody<'db>,
     expressions: SideHandleMap<ExpressionHandle, Ty<'db>>,
     local_bindings: SideHandleMap<LocalBindingHandle, Ty<'db>>,
+}
+
+/// Signals which type bidirectional checking mode to run in
+enum Mode<'db> {
+    Infer,
+    Check(Ty<'db>),
 }
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
@@ -26,6 +32,10 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             expressions: SideHandleMap::new(),
             local_bindings: SideHandleMap::new(),
         }
+    }
+
+    fn typecheck(&mut self, expression: ExpressionHandle, mode: Mode) -> Ty<'db> {
+        todo!()
     }
 
     pub(crate) fn infer(&mut self, expression: ExpressionHandle) -> Ty<'db> {

@@ -1,0 +1,15 @@
+---
+source: src/core/lexical_analysis/tokenizer.rs
+expression: dump
+input_file: src/core/lexical_analysis/snapshot_inputs/null_character.bb
+---
+--------------------------------
+Index    Kind            Span           
+--------------------------------
+#0       `a`             [0, 1)         
+#1       `error token`   [1, 2)         
+#2       `b`             [2, 3)         
+#3       `end of file`   [3, 3)         
+
+--- diagnostics ---
+UnknownToken { character: '\0', span: Span { start: TextSize(1), end: TextSize(2) } }

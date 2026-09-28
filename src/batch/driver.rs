@@ -10,7 +10,7 @@ use crate::core::db::BlueberryDatabase;
 use crate::core::lexical_analysis::token_stream_dumper::TokenDumper;
 use crate::core::lexical_analysis::tokens_of;
 use crate::core::source_file_key::SourceFileKey;
-use crate::core::syntactic_analysis::cst_dumper::CstDumper;
+use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
 use crate::core::syntactic_analysis::cst_of;
 
 pub fn build(path: PathBuf, emit: &HashSet<EmitKind>) {

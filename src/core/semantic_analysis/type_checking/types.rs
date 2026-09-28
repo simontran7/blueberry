@@ -1,8 +1,5 @@
 use crate::core::common::handle_collections::handle_impl;
 
-handle_impl!(pub(crate) GeneralVariableHandle);
-handle_impl!(pub(crate) IntegerVariableHandle);
-
 #[salsa::interned(debug)]
 pub(crate) struct Ty<'db> {
     #[returns(ref)]
@@ -20,7 +17,7 @@ pub(crate) enum TyKind<'db> {
         parameters: Vec<Ty<'db>>,
         return_type: Ty<'db>,
     },
-    UnificationVariable(UnificationVariable),
+    InferenceVariable(InferenceVariable),
     Error,
 }
 
@@ -37,10 +34,13 @@ pub(crate) enum UnsignedIntTy {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
-pub(crate) enum UnificationVariable {
+pub(crate) enum InferenceVariable {
     General(GeneralVariableHandle),
     Integer(IntegerVariableHandle),
 }
+
+handle_impl!(pub(crate) GeneralVariableHandle);
+handle_impl!(pub(crate) IntegerVariableHandle);
 
 impl<'db> Ty<'db> {
     pub(crate) fn unit(db: &'db dyn crate::Db) -> Self {
@@ -113,8 +113,8 @@ impl<'db> Ty<'db> {
                     .collect();
                 format!("({}) -> {}", parameters.join(", "), return_type.display(db))
             }
-            TyKind::UnificationVariable(UnificationVariable::General(_)) => "unknown".to_string(),
-            TyKind::UnificationVariable(UnificationVariable::Integer(_)) => "Int".to_string(),
+            TyKind::InferenceVariable(InferenceVariable::General(_)) => "unknown".to_string(),
+            TyKind::InferenceVariable(InferenceVariable::Integer(_)) => "Int".to_string(),
             TyKind::Error => "Error".to_string(),
         }
     }

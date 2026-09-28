@@ -1,3 +1,7 @@
+pub(crate) mod ast;
+pub(crate) mod cst_builder;
+pub(crate) mod cst_dumper;
+
 use std::sync::Arc;
 
 use smol_str::SmolStr;
@@ -136,6 +140,12 @@ pub(crate) struct RedToken {
     green: Arc<GreenToken>,
     index: u32,
     offset: TextSize,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
+pub(crate) struct RedNodeTag {
+    pub(crate) kind: SyntaxKind,
+    pub(crate) span: Span,
 }
 
 #[derive(PartialEq, Eq)]
@@ -295,6 +305,29 @@ impl RedToken {
 
     pub(crate) fn parent(&self) -> &RedNode {
         &self.parent
+    }
+}
+
+impl RedNodeTag {
+    pub(crate) fn new(node: &RedNode) -> Self {
+        Self {
+            kind: node.kind(),
+            span: node.span(),
+        }
+    }
+
+    pub(crate) fn to_red_node(&self, root: &RedNode) -> Option<RedNode> {
+        let mut current = root.clone();
+        loop {
+            if current.kind() == self.kind && current.span() == self.span {
+                return Some(current);
+            }
+            let next = current.children().find_map(|child| match child {
+                RedChild::Node(node) if node.span().contains(self.span) => Some(node),
+                _ => None,
+            })?;
+            current = next;
+        }
     }
 }
 

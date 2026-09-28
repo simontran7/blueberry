@@ -21,11 +21,9 @@ impl<'src> TokenDumper<'src> {
         dump.push('\n');
 
         // dump tokens row by row
-        let mut offset: usize = 0;
-
-        for (i, (kind, width)) in self.tokens.kinds().zip(self.tokens.widths()).enumerate() {
-            let start = offset;
-            let end = offset + usize::from(width);
+        for (i, (kind, span)) in self.tokens.kinds().zip(self.tokens.spans()).enumerate() {
+            let start = usize::from(span.start());
+            let end = usize::from(span.end());
 
             let kind = if kind.has_lexeme() {
                 self.source[start..end].to_string()
@@ -39,8 +37,6 @@ impl<'src> TokenDumper<'src> {
                 format!("`{}`", kind),
                 format!("[{}, {})", start, end),
             ));
-
-            offset = end;
         }
 
         dump

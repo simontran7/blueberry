@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::hir::nodes::{ConstantKey, DefinitionSource, FunctionKey};
-use crate::core::semantic_analysis::red_node_directory::{RedNodeDirectory, RedNodeId};
+use crate::core::semantic_analysis::ids::keys::{ConstantKey, DefinitionSource, FunctionKey};
+use crate::core::semantic_analysis::ids::red_node_directory::RedNodeDirectory;
+use crate::core::semantic_analysis::ids::red_node_id::RedNodeId;
 use crate::core::semantic_analysis::{constant_signature_of, function_signature_of};
-use crate::core::syntactic_analysis::{ast, ast::AstNode};
+use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct DefinitionTree<'db> {

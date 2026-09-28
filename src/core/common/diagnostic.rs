@@ -2,7 +2,7 @@ use crate::core::common::span::Span;
 use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
 // TODO: bring back once semantic_diagnostic.rs is rebuilt.
 // use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
-use crate::core::syntactic_analysis::syntax_diagnostic::SyntaxDiagnostic;
+use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
 
 #[salsa::accumulator]
 pub(crate) struct DiagnosticAccumulator(pub(crate) Diagnostic);

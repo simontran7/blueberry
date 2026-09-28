@@ -70,7 +70,7 @@ impl<H> Default for HandleArrayList<H> {
 ///
 /// Every memory block is sized according to [`SizeClass`].
 ///
-/// A **free list** is an *intrusive* linked list where each node is a *free* block.
+/// A **free list** is an _intrusive_ linked list where each node is a _free_ block.
 /// This allocator creates at most one free list per size class. Concretely, `free`
 /// is an array list that maps a [`SizeClass`] as an index, to its free list's head node as element.
 /// As such, for some size class `sz` without a free list, its element at `free[sz]` is `0` (see
@@ -92,7 +92,7 @@ impl<H: Handle> HandleArrayList<H> {
     /// Marks an empty list.
     ///
     /// 0 may be used as the empty sentinel value because non-empty lists
-    /// *always* have a `start` >= 1 (give that 1 is lowest possible `start`
+    /// _always_ have a `start` >= 1 (give that 1 is lowest possible `start`
     /// that would be able to accomodate a header `start - 1` within [0, ...]).
     const EMPTY: u32 = 0;
 

@@ -4,34 +4,10 @@ use crate::core::common::handle_collections::handle_impl;
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
 use crate::core::common::segments::{Segment, SegmentList};
 use crate::core::common::symbol::Symbol;
+use crate::core::semantic_analysis::ids::keys::BlockKey;
 use crate::core::semantic_analysis::type_checking::types::Ty;
-use crate::core::semantic_analysis::red_node_directory::{RedNodeId, RedNodeTag};
-use crate::core::source_file_key::SourceFileKey;
-use crate::core::syntactic_analysis::ast;
-use crate::core::syntactic_analysis::cst::SyntaxKind;
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
-pub(crate) enum DefinitionSource<'db> {
-    File(SourceFileKey),
-    Block(BlockKey<'db>),
-}
-
-#[salsa::interned(debug)]
-pub(crate) struct BlockKey<'db> {
-    pub(crate) id: RedNodeId<'db, ast::Block>,
-}
-
-#[salsa::interned(debug)]
-pub(crate) struct FunctionKey<'db> {
-    pub(crate) source: DefinitionSource<'db>,
-    pub(crate) id: RedNodeId<'db, ast::FunctionDefinition>,
-}
-
-#[salsa::interned(debug)]
-pub(crate) struct ConstantKey<'db> {
-    pub(crate) source: DefinitionSource<'db>,
-    pub(crate) id: RedNodeId<'db, ast::ConstantDefinition>,
-}
+use crate::core::syntactic_analysis::cst::ast;
+use crate::core::syntactic_analysis::cst::{RedNodeTag, SyntaxKind};
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct FunctionSignature<'db> {

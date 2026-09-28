@@ -1,7 +1,7 @@
 ---
-source: src/lexical_analysis/tokenizer.rs
-expression: "TokenDumper::new(&input, tokens).dump()"
-input_file: src/lexical_analysis/snapshot_inputs/basic.crw
+source: src/core/lexical_analysis/tokenizer.rs
+expression: dump
+input_file: src/core/lexical_analysis/snapshot_inputs/basic.bb
 ---
 --------------------------------
 Index    Kind            Span           
@@ -18,4 +18,5 @@ Index    Kind            Span
 #9       `=`             [41, 42)       
 #10      `whitespace`    [42, 43)       
 #11      `4`             [43, 44)       
-#12      `;`             [44, 45)
+#12      `;`             [44, 45)       
+#13      `end of file`   [45, 45)

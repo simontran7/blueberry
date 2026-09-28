@@ -12,8 +12,7 @@ use crate::core::source_file_key::SourceFileKey;
 
 #[salsa::tracked]
 pub(crate) fn tokens_of(db: &dyn crate::Db, file: SourceFileKey) -> TokenStream {
-    let mut tokenizer = Tokenizer::new(file.contents(db));
-    let (tokens, diagnostics) = tokenizer.tokenize();
+    let (tokens, diagnostics) = Tokenizer::new(file.contents(db)).tokenize();
     for diagnostic in diagnostics {
         DiagnosticAccumulator(Diagnostic::Lexical(diagnostic)).accumulate(db);
     }

@@ -151,7 +151,7 @@ func first_above_doubled(n: I32) -> I32 {
 > [!CAUTION]
 > Unimplemented
 
-The filesystem *is* the module tree! Every `.bb` file is implicitly a module, and its path relative to the project root is its import path. A directory is a namespace simply by containing files.
+The filesystem _is_ the module tree! Every `.bb` file is implicitly a module, and its path relative to the project root is its import path. A directory is a namespace simply by containing files.
 
 Nothing in a file is visible to importers unless marked `pub`. Bringing another file into scope is done via `import "<path>" [as <name>];` 
 

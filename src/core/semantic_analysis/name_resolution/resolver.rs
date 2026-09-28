@@ -1,5 +1,6 @@
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::hir::nodes::{ConstantKey, FunctionKey, LocalBindingHandle};
+use crate::core::semantic_analysis::hir::nodes::LocalBindingHandle;
+use crate::core::semantic_analysis::ids::keys::{ConstantKey, FunctionKey};
 use crate::core::semantic_analysis::name_resolution::definition_tree::Definition;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeView;
 use crate::core::semantic_analysis::{
