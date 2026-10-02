@@ -15,7 +15,7 @@ pub(crate) enum TyKind<'db> {
     Unsigned(UnsignedIntTy),
     Function {
         parameters: Vec<Ty<'db>>,
-        return_type: Ty<'db>,
+        r#return: Ty<'db>,
     },
     InferenceVariable(InferenceVariable),
     Error,
@@ -70,13 +70,13 @@ impl<'db> Ty<'db> {
     pub(crate) fn function(
         db: &'db dyn crate::Db,
         parameters: Vec<Ty<'db>>,
-        return_type: Ty<'db>,
+        r#return: Ty<'db>,
     ) -> Self {
         Self::new(
             db,
             TyKind::Function {
                 parameters,
-                return_type,
+                r#return,
             },
         )
     }
@@ -105,13 +105,13 @@ impl<'db> Ty<'db> {
             TyKind::Unsigned(UnsignedIntTy::U64) => "U64".to_string(),
             TyKind::Function {
                 parameters,
-                return_type,
+                r#return,
             } => {
                 let parameters: Vec<String> = parameters
                     .iter()
                     .map(|parameter| parameter.display(db))
                     .collect();
-                format!("({}) -> {}", parameters.join(", "), return_type.display(db))
+                format!("({}) -> {}", parameters.join(", "), r#return.display(db))
             }
             TyKind::InferenceVariable(InferenceVariable::General(_)) => "unknown".to_string(),
             TyKind::InferenceVariable(InferenceVariable::Integer(_)) => "Int".to_string(),

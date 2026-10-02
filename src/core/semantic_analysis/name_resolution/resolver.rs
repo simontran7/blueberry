@@ -1,7 +1,7 @@
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::hir::nodes::LocalBindingHandle;
 use crate::core::semantic_analysis::ids::keys::{ConstantKey, FunctionKey};
-use crate::core::semantic_analysis::name_resolution::definition_tree::Definition;
+use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeView;
 use crate::core::semantic_analysis::{
     block_scoped_definitions_of, file_scoped_definitions_of, imports_of, module_file_of,
@@ -36,7 +36,7 @@ impl<'a, 'db> Resolver<'a, 'db> {
                 return Some(Resolution::Local(entry.binding_handle));
             }
 
-            // check whether `name` is a definition's name in the current block (if any)
+            // check whether `name` is a definition's name in the current block
             if let Some(block_key) = scope.block()
                 && let Some(definition) = block_scoped_definitions_of(db, block_key).find(db, name)
             {
@@ -44,23 +44,22 @@ impl<'a, 'db> Resolver<'a, 'db> {
             }
         }
 
-        // check whether `name` is a path
-        for import in imports_of(db, self.file).iter() {
-            if import.segments(db).last() != Some(&name) {
-                continue;
-            }
-            let Some(target_file) = module_file_of(db, *import) else {
-                continue;
-            };
-            if let Some(definition) = file_scoped_definitions_of(db, *target_file).find(db, name) {
+        // check whether `name` is a top-level definition in the current file
+        if let Some(definition) = file_scoped_definitions_of(db, self.file).find(db, name) {
+            return Some(definition.into());
+        }
+
+        // check whether `name` is imported, and that the imported file actually defines it
+        for path in imports_of(db, self.file).matching(db, name) {
+            if let Some(target_file) = module_file_of(db, path)
+                && let Some(definition) =
+                    file_scoped_definitions_of(db, *target_file).find(db, name)
+            {
                 return Some(definition.into());
             }
         }
 
-        // check whether `name` is a definition's name in the current file
-        file_scoped_definitions_of(db, self.file)
-            .find(db, name)
-            .map(Into::into)
+        None
     }
 }
 

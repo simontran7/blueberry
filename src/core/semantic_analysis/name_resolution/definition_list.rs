@@ -8,7 +8,7 @@ use crate::core::semantic_analysis::{constant_signature_of, function_signature_o
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct DefinitionTree<'db> {
+pub(crate) struct DefinitionList<'db> {
     directory: Arc<RedNodeDirectory<'db>>,
     definitions: Vec<Definition<'db>>,
 }
@@ -19,7 +19,7 @@ pub(crate) enum Definition<'db> {
     Constant(ConstantKey<'db>),
 }
 
-impl<'db> DefinitionTree<'db> {
+impl<'db> DefinitionList<'db> {
     pub(crate) fn new(directory: Arc<RedNodeDirectory<'db>>) -> Self {
         Self {
             directory,

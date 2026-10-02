@@ -1,15 +1,15 @@
 use crate::core::common::handle_collections::Handle;
-use crate::core::common::handle_collections::handle_disjoint_set::UnifyValue;
+use crate::core::common::handle_collections::handle_disjoint_set::MergeValue;
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
 
 /// A generic augmented handle disjoint set
-pub(crate) struct HandleDisjointSet<H: Handle, V: UnifyValue> {
+pub(crate) struct HandleDisjointSet<H: Handle, V: MergeValue> {
     parent: HandleMap<H, H>,
     rank: SideHandleMap<H, u8>,
     value: SideHandleMap<H, V>,
 }
 
-impl<H: Handle, V: UnifyValue> HandleDisjointSet<H, V> {
+impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
     pub(crate) fn new() -> Self {
         Self {
             parent: HandleMap::new(),
@@ -43,7 +43,7 @@ impl<H: Handle, V: UnifyValue> HandleDisjointSet<H, V> {
             return Ok(());
         }
 
-        let rep_value = V::unify(&self.value[a_rep], &self.value[b_rep])?;
+        let rep_value = V::merge(&self.value[a_rep], &self.value[b_rep])?;
 
         let rep = if self.rank[a_rep] < self.rank[b_rep] {
             self.parent[a_rep] = b_rep;
@@ -82,15 +82,15 @@ impl<H: Handle, V: UnifyValue> HandleDisjointSet<H, V> {
 #[cfg(test)]
 mod tests {
     use super::HandleDisjointSet;
-    use crate::core::common::handle_collections::handle_disjoint_set::UnifyValue;
+    use crate::core::common::handle_collections::handle_disjoint_set::MergeValue;
     use crate::core::common::handle_collections::handle_impl;
 
     handle_impl!(TestHandle);
 
-    impl UnifyValue for () {
+    impl MergeValue for () {
         type Error = std::convert::Infallible;
 
-        fn unify(_a: &Self, _b: &Self) -> Result<Self, Self::Error> {
+        fn merge(_a: &Self, _b: &Self) -> Result<Self, Self::Error> {
             Ok(())
         }
     }
@@ -151,10 +151,10 @@ mod tests {
     #[derive(Debug, PartialEq)]
     struct TestMismatch;
 
-    impl UnifyValue for TestValue {
+    impl MergeValue for TestValue {
         type Error = TestMismatch;
 
-        fn unify(a: &Self, b: &Self) -> Result<Self, Self::Error> {
+        fn merge(a: &Self, b: &Self) -> Result<Self, Self::Error> {
             match (a.0, b.0) {
                 (None, None) => Ok(TestValue(None)),
                 (Some(x), None) | (None, Some(x)) => Ok(TestValue(Some(x))),

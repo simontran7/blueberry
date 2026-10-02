@@ -4,20 +4,24 @@ use crate::core::common::symbol::Symbol;
 use crate::core::module_map::{ModuleMap, ModulePath};
 use crate::core::semantic_analysis::ast_lowering::definition_body_lowerer::DefinitionBodyLowerer;
 use crate::core::semantic_analysis::hir::nodes::{
-    ConstantSignature, DefinitionBody, DefinitionBodySourceMap, FunctionSignature, Path,
-    TypeAnnotation,
+    ConstantSignature, DefinitionBody, DefinitionBodySourceMap, FunctionSignature, TypeAnnotation,
 };
-use crate::core::semantic_analysis::ids::keys::{BlockKey, ConstantKey, DefinitionSource, FunctionKey};
-use crate::core::semantic_analysis::name_resolution::definition_tree::DefinitionTree;
-use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
+use crate::core::semantic_analysis::ids::keys::{
+    BlockKey, ConstantKey, DefinitionSource, FunctionKey,
+};
 use crate::core::semantic_analysis::ids::red_node_directory::{
     RedNodeDirectory, RedNodeDirectoryBuilder,
 };
-use crate::core::semantic_analysis::type_checking::type_checker::{TypeCheckResult, TypeChecker};
+use crate::core::semantic_analysis::name_resolution::definition_list::DefinitionList;
+use crate::core::semantic_analysis::name_resolution::import_list::ImportList;
+use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
+use crate::core::semantic_analysis::type_checking::type_checker::{
+    BodyTypeCheckResult, BodyTypeChecker,
+};
 use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::source_file_key::SourceFileKey;
-use crate::core::syntactic_analysis::cst::ast::{self, AstNode, File};
 use crate::core::syntactic_analysis::cst::RedNode;
+use crate::core::syntactic_analysis::cst::ast::{self, AstNode, File};
 use crate::core::syntactic_analysis::cst_of;
 
 pub(crate) mod ast_lowering;
@@ -31,7 +35,7 @@ pub(crate) mod type_checking;
 pub(crate) fn file_scoped_definitions_of<'db>(
     db: &'db dyn crate::Db,
     file: SourceFileKey,
-) -> Arc<DefinitionTree<'db>> {
+) -> Arc<DefinitionList<'db>> {
     let root = RedNode::new(cst_of(db, file).clone());
     let root = File::cast(root).unwrap();
     let directory = red_node_directory_of(db, file).clone();
@@ -50,7 +54,7 @@ pub(crate) fn file_scoped_definitions_of<'db>(
 pub(crate) fn block_scoped_definitions_of<'db>(
     db: &'db dyn crate::Db,
     block: BlockKey<'db>,
-) -> Arc<DefinitionTree<'db>> {
+) -> Arc<DefinitionList<'db>> {
     let source = DefinitionSource::Block(block);
 
     let file = *block.id(db).file(db);
@@ -62,11 +66,11 @@ pub(crate) fn block_scoped_definitions_of<'db>(
 }
 
 #[salsa::tracked]
-pub(crate) fn imports_of<'db>(db: &'db dyn crate::Db, file: SourceFileKey) -> Arc<Vec<Path<'db>>> {
+pub(crate) fn imports_of<'db>(db: &'db dyn crate::Db, file: SourceFileKey) -> Arc<ImportList<'db>> {
     let root = RedNode::new(cst_of(db, file).clone());
     let root = File::cast(root).unwrap();
 
-    let imports = root
+    let paths = root
         .items()
         .filter_map(|item| match item {
             ast::Item::Import(import_declaration) => import_declaration.path(),
@@ -75,7 +79,7 @@ pub(crate) fn imports_of<'db>(db: &'db dyn crate::Db, file: SourceFileKey) -> Ar
         .filter_map(|path| ast_lowering::lower_path(db, &path))
         .collect();
 
-    Arc::new(imports)
+    Arc::new(ImportList::new(paths))
 }
 
 #[salsa::tracked]
@@ -211,9 +215,13 @@ pub(crate) fn constant_scopes_of<'db>(
 pub(crate) fn function_types_of<'db>(
     db: &'db dyn crate::Db,
     key: FunctionKey<'db>,
-) -> Arc<TypeCheckResult<'db>> {
+) -> Arc<BodyTypeCheckResult<'db>> {
     let body = function_body_of(db, key);
-    let checker = TypeChecker::new(db, &body);
+    let scopes = function_scopes_of(db, key);
+    let file = *key.id(db).file(db);
+    let mut checker = BodyTypeChecker::new(db, &body, &scopes, file);
+    checker.seed_function_signature(*function_signature_type_of(db, key));
+    checker.check_body();
     Arc::new(checker.finish())
 }
 
@@ -221,8 +229,14 @@ pub(crate) fn function_types_of<'db>(
 pub(crate) fn constant_types_of<'db>(
     db: &'db dyn crate::Db,
     key: ConstantKey<'db>,
-) -> Arc<TypeCheckResult<'db>> {
-    todo!()
+) -> Arc<BodyTypeCheckResult<'db>> {
+    let body = constant_body_of(db, key);
+    let scopes = constant_scopes_of(db, key);
+    let file = *key.id(db).file(db);
+    let mut checker = BodyTypeChecker::new(db, &body, &scopes, file);
+    checker.seed_constant_signature(*constant_signature_type_of(db, key));
+    checker.check_body();
+    Arc::new(checker.finish())
 }
 
 #[salsa::tracked]
@@ -284,13 +298,13 @@ fn collect_definitions<'db>(
     source: DefinitionSource<'db>,
     directory: Arc<RedNodeDirectory<'db>>,
     definitions: impl Iterator<Item = ast::Definition>,
-) -> Arc<DefinitionTree<'db>> {
-    let mut definition_tree = DefinitionTree::new(directory);
+) -> Arc<DefinitionList<'db>> {
+    let mut definition_list = DefinitionList::new(directory);
     for definition in definitions {
         if definition.name().is_none() {
             continue;
         }
-        definition_tree.add_definition(db, source, definition);
+        definition_list.add_definition(db, source, definition);
     }
-    Arc::new(definition_tree)
+    Arc::new(definition_list)
 }

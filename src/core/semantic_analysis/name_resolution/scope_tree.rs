@@ -12,7 +12,7 @@ use crate::core::semantic_analysis::ids::keys::BlockKey;
 pub(crate) struct ScopeTree<'db> {
     scopes: HandleMap<ScopeHandle, Scope<'db>>,
     scope_entries: SegmentList<ScopeEntry<'db>>,
-    scope_by_expression: SideHandleMap<ExpressionHandle, ScopeHandle>,
+    containing_scopes: SideHandleMap<ExpressionHandle, ScopeHandle>,
 }
 
 /// Node in the scope tree
@@ -49,7 +49,7 @@ impl<'db> ScopeTree<'db> {
         let mut scope_tree = Self {
             scopes: HandleMap::new(),
             scope_entries: SegmentList::new(),
-            scope_by_expression: SideHandleMap::new(),
+            containing_scopes: SideHandleMap::new(),
         };
 
         let root_handle = scope_tree.scopes.add(Scope {
@@ -66,12 +66,12 @@ impl<'db> ScopeTree<'db> {
         scope_tree
     }
 
-    /// Returns a view of the scope an expression was computed under, if any.
+    /// Returns a view of the scope that contains the expression pointed by `expression_handle`, if any.
     pub(crate) fn containing_scope(
         &self,
         expression_handle: ExpressionHandle,
     ) -> Option<ScopeView<'_, 'db>> {
-        self.scope_by_expression
+        self.containing_scopes
             .get(expression_handle)
             .copied()
             .map(|scope_handle| self.get_scope(scope_handle))
@@ -97,8 +97,7 @@ impl<'db> ScopeTree<'db> {
         expression_handle: ExpressionHandle,
         parent_handle: ScopeHandle,
     ) {
-        self.scope_by_expression
-            .add(expression_handle, parent_handle);
+        self.containing_scopes.add(expression_handle, parent_handle);
 
         match &body.expressions[expression_handle] {
             Expression::Unit

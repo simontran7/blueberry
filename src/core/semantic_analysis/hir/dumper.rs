@@ -1,7 +1,7 @@
 use crate::core::semantic_analysis::hir::nodes::{
     DefinitionBody, Expression, ExpressionHandle, Statement, StatementHandle, TypeAnnotation,
 };
-use crate::core::semantic_analysis::name_resolution::definition_tree::Definition;
+use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::semantic_analysis::{
     block_scoped_definitions_of, constant_body_of, constant_signature_of,
     file_scoped_definitions_of, function_body_of, function_signature_of,

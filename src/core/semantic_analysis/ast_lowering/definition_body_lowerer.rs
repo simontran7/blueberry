@@ -11,8 +11,8 @@ use crate::core::semantic_analysis::hir::nodes::{
 use crate::core::semantic_analysis::ids::keys::BlockKey;
 use crate::core::semantic_analysis::ids::red_node_directory::RedNodeDirectory;
 use crate::core::semantic_analysis::ids::red_node_id::RedNodeId;
-use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
 use crate::core::syntactic_analysis::cst::RedNode;
+use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
 
 pub(crate) struct DefinitionBodyLowerer<'db> {
     db: &'db dyn crate::Db,
