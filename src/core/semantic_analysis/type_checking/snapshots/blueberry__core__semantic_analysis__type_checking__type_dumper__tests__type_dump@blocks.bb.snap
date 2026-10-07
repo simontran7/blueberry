@@ -1,0 +1,29 @@
+---
+source: src/core/semantic_analysis/type_checking/type_dumper.rs
+expression: "TypeDumper::dump_file(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/blocks.bb
+---
+function tail
+  binding a: I32
+  19..51 '{ let ... a } }': I32
+  33..38 '{ 1 }': I32
+  35..36 '1': I32
+  44..49 '{ a }': I32
+  46..47 'a': I32
+
+function no_tail
+  binding a: ()
+  68..98 '{ let ...; {} }': ()
+  82..88 '{ 1; }': ()
+  84..85 '1': I32
+  94..96 '{}': ()
+
+function statement_without_semicolon
+  143..187 '{ if t...alse }': Bool
+  149..175 'if tru...{ () }': ()
+  152..156 'true': Bool
+  157..163 '{ () }': ()
+  159..161 '()': ()
+  169..175 '{ () }': ()
+  171..173 '()': ()
+  180..185 'false': Bool

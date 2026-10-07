@@ -68,24 +68,24 @@ Braun's algorithm would tackle the SSA construction as follows (assuming the loo
 
 3. Now at block $B$, we check if it has a local definition of `x`. It does not. But block $B$ has two predecessors: block $A$ (entering the loop the first time) and block $F$ (coming back around after one iteration). With no location definition in the current block $B$, but two predecessors, it is a merge point, so we create an empty phi node labeled $v2$ for the block $B$, and immediately register $v2$ as block $B$'s current definition of `x`. Then, we recurse into block $B$'s two predecessors to fill in $v2$'s operands.
 
-<img src="docs/step-3-state.png" width="350">
+<img src="step-3-state.png" width="350">
 
 4. In block $A$, there exists a local definition of `x` labeled $v0$ (created in step 1) and return $v0$ so that it may become $v2$'s first operand. In block $F$, there are no local definitions of `x`, but block $F$ has two predecessors: block $D$ and block $E$. This signals that it also a merge point, and so, we create an empty phi node $v3$, and register it as block $F$'s local definition of `x`. We now recurse into block $F$'s predecessors (block $D$ and block $E$).
 
-<img src="docs/step-4-state.png" width="350">
+<img src="step-4-state.png" width="350">
 
 5. In block $D$, there is a local definition of `x` labeled $v1$ (created in step 1), so we return $v1$ so that it may become $v3$'s first operand. In block $E$, there are unfortunately no local definitions of `x`. It does have one predecessor: block $C$, so we don't need to create a phi node, and we recurse into block $C$.
 
-<img src="docs/step-5-state.png" width="350">
+<img src="step-5-state.png" width="350">
 
 6. In block $C$, it also has no local definitions of `x`, but it has one predecessor: block $B$, so we recurse once more without having to create a phi node.
 7. In block $B$, we finally see a local definition of `x` labeled $v2$, which was created in step 3. Had we not created that empty phi node, we would have done recurse down the same path, on and on, recursing infinitely! We return $v2$ thrice back down to the stack frame created in step 4 so that it may become $v3$'s second operand.
 
-<img src="docs/step-7-state.png" width="350">
+<img src="step-7-state.png" width="350">
 
 8. In the current stack frame for step 4, we perform another return to pass down $v3$ — a filled phi node with operands $v1$ and $v2$ — as a second operand of the phi node $v2$ created in step 3.
 
-<img src="docs/step-8-state.png" width="350">
+<img src="step-8-state.png" width="350">
 
 9. We now have completed block B's $v2$ phi node. It has as first operand $v0$, and as second operand $v3$.
 

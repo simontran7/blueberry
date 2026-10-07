@@ -36,23 +36,6 @@ pub(crate) struct HandleArrayList<H> {
     _marker: PhantomData<H>,
 }
 
-impl<H> fmt::Debug for HandleArrayList<H> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("HandleArrayList")
-            .field("start", &self.start)
-            .finish()
-    }
-}
-
-impl<H> Default for HandleArrayList<H> {
-    fn default() -> Self {
-        Self {
-            start: 0,
-            _marker: PhantomData,
-        }
-    }
-}
-
 /// A Segregated Free List suballocator storing every [`HandleArrayList`]'s content.
 ///
 /// # Layout
@@ -114,42 +97,6 @@ impl<H: Handle> HandleArrayList<H> {
         Self {
             start: (block + 1) as u32,
             _marker: PhantomData,
-        }
-    }
-
-    /// Returns the number of elements in the list.
-    pub(crate) fn count(self, allocator: &HandleArrayListAllocator<H>) -> usize {
-        // wrapping_sub so that start == 0 (empty) maps to usize::MAX, which is
-        // guaranteed out of bounds for any Vec. This makes `.get()` return `None`,
-        // collapsing the emptiness check and bounds check into one.
-        allocator
-            .data
-            .get((self.start as usize).wrapping_sub(1))
-            .map_or(0, |v| v.index())
-    }
-
-    /// Returns whether the list has no elements.
-    pub(crate) fn is_empty(self, allocator: &HandleArrayListAllocator<H>) -> bool {
-        self.count(allocator) == 0
-    }
-
-    /// Returns the list's elements as a slice, or an empty slice if empty.
-    pub(crate) fn to_slice(self, allocator: &HandleArrayListAllocator<H>) -> &[H] {
-        if self.is_empty(allocator) {
-            &[]
-        } else {
-            &allocator.data[self.start as usize..self.start as usize + self.count(allocator)]
-        }
-    }
-
-    /// Returns the list's elements as a mutable slice, or an empty slice if empty.
-    pub(crate) fn to_mut_slice(self, allocator: &mut HandleArrayListAllocator<H>) -> &mut [H] {
-        if self.is_empty(allocator) {
-            &mut []
-        } else {
-            let start = self.start as usize;
-            let count = self.count(allocator);
-            &mut allocator.data[start..start + count]
         }
     }
 
@@ -215,6 +162,59 @@ impl<H: Handle> HandleArrayList<H> {
             allocator.free(self.start as usize - 1, self.count(allocator));
         }
         self.start = Self::EMPTY;
+    }
+
+    /// Returns the number of elements in the list.
+    pub(crate) fn count(self, allocator: &HandleArrayListAllocator<H>) -> usize {
+        // wrapping_sub so that start == 0 (empty) maps to usize::MAX, which is
+        // guaranteed out of bounds for any Vec. This makes `.get()` return `None`,
+        // collapsing the emptiness check and bounds check into one.
+        allocator
+            .data
+            .get((self.start as usize).wrapping_sub(1))
+            .map_or(0, |v| v.index())
+    }
+
+    /// Returns whether the list has no elements.
+    pub(crate) fn is_empty(self, allocator: &HandleArrayListAllocator<H>) -> bool {
+        self.count(allocator) == 0
+    }
+
+    /// Returns the list's elements as a slice, or an empty slice if empty.
+    pub(crate) fn to_slice(self, allocator: &HandleArrayListAllocator<H>) -> &[H] {
+        if self.is_empty(allocator) {
+            &[]
+        } else {
+            &allocator.data[self.start as usize..self.start as usize + self.count(allocator)]
+        }
+    }
+
+    /// Returns the list's elements as a mutable slice, or an empty slice if empty.
+    pub(crate) fn to_mut_slice(self, allocator: &mut HandleArrayListAllocator<H>) -> &mut [H] {
+        if self.is_empty(allocator) {
+            &mut []
+        } else {
+            let start = self.start as usize;
+            let count = self.count(allocator);
+            &mut allocator.data[start..start + count]
+        }
+    }
+}
+
+impl<H> fmt::Debug for HandleArrayList<H> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("HandleArrayList")
+            .field("start", &self.start)
+            .finish()
+    }
+}
+
+impl<H> Default for HandleArrayList<H> {
+    fn default() -> Self {
+        Self {
+            start: 0,
+            _marker: PhantomData,
+        }
     }
 }
 

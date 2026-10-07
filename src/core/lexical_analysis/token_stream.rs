@@ -1,5 +1,6 @@
-use crate::core::common::span::{Span, TextSize};
 use core::fmt;
+
+use crate::core::common::span::{Span, TextSize};
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct TokenStream {
@@ -73,15 +74,6 @@ impl TokenStream {
         }
     }
 
-    pub(crate) fn add(&mut self, kind: TokenKind, end: TextSize) {
-        assert!(
-            end >= *self.starts.last().unwrap(),
-            "a token can't end before it starts"
-        );
-        self.kinds.push(kind);
-        self.starts.push(end);
-    }
-
     pub(crate) fn count(&self) -> usize {
         self.kinds.len()
     }
@@ -100,6 +92,15 @@ impl TokenStream {
 
     pub(crate) fn spans(&self) -> impl Iterator<Item = Span> {
         (0..self.count()).map(|index| self.span_at(index))
+    }
+
+    pub(crate) fn add(&mut self, kind: TokenKind, end: TextSize) {
+        assert!(
+            end >= *self.starts.last().unwrap(),
+            "a token can't end before it starts"
+        );
+        self.kinds.push(kind);
+        self.starts.push(end);
     }
 }
 

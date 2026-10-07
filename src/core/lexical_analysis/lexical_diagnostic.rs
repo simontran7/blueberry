@@ -18,6 +18,8 @@ impl LexicalDiagnostic {
                     message: Some("unrecognized character".to_string()),
                     severity: LabelSeverity::Primary,
                 }],
+                notes: Vec::new(),
+                helps: Vec::new(),
             },
         }
     }

@@ -1,0 +1,24 @@
+---
+source: src/core/semantic_analysis/type_checking/type_dumper.rs
+expression: "TypeDumper::dump_file(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/let_and_paths.bb
+---
+constant LIMIT
+  19..21 '10': I64
+
+function f
+  binding x: I32
+  binding y: I32
+  binding z: U64
+  binding w: I32
+  binding limit: I64
+  binding shadow: I32
+  binding shadow: Bool
+  46..171 '{ let ...e; y }': I32
+  60..61 'x': I32
+  80..81 '7': U64
+  95..96 '3': I32
+  114..119 'LIMIT': I64
+  138..139 '1': I32
+  158..162 'true': Bool
+  168..169 'y': I32

@@ -1,7 +1,43 @@
 use std::ops::{Add, AddAssign, Range, Sub};
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub(crate) struct Span {
+    start: TextSize,
+    end: TextSize,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub(crate) struct TextSize(u32);
+
+impl Span {
+    pub(crate) fn new(start: TextSize, end: TextSize) -> Self {
+        Self { start, end }
+    }
+
+    pub(crate) fn start(&self) -> TextSize {
+        self.start
+    }
+
+    pub(crate) fn end(&self) -> TextSize {
+        self.end
+    }
+
+    pub(crate) fn contains(&self, other: Span) -> bool {
+        self.start <= other.start && other.end <= self.end
+    }
+}
+
+impl From<Span> for Range<usize> {
+    fn from(range: Span) -> Self {
+        usize::from(range.start)..usize::from(range.end)
+    }
+}
+
+impl From<&Span> for Range<usize> {
+    fn from(range: &Span) -> Self {
+        Range::from(*range)
+    }
+}
 
 impl TextSize {
     pub(crate) fn new(size: usize) -> Self {
@@ -34,41 +70,5 @@ impl Sub for TextSize {
 
     fn sub(self, rhs: Self) -> Self {
         TextSize(self.0 - rhs.0)
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub(crate) struct Span {
-    start: TextSize,
-    end: TextSize,
-}
-
-impl Span {
-    pub(crate) fn new(start: TextSize, end: TextSize) -> Self {
-        Self { start, end }
-    }
-
-    pub(crate) fn start(&self) -> TextSize {
-        self.start
-    }
-
-    pub(crate) fn end(&self) -> TextSize {
-        self.end
-    }
-
-    pub(crate) fn contains(&self, other: Span) -> bool {
-        self.start <= other.start && other.end <= self.end
-    }
-}
-
-impl From<Span> for Range<usize> {
-    fn from(range: Span) -> Self {
-        usize::from(range.start)..usize::from(range.end)
-    }
-}
-
-impl From<&Span> for Range<usize> {
-    fn from(range: &Span) -> Self {
-        Range::from(*range)
     }
 }

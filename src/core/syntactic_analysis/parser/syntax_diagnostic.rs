@@ -19,11 +19,6 @@ impl SyntaxDiagnostic {
         }
     }
 
-    pub(crate) fn resolve(&mut self, span: Span) {
-        let Self::UnexpectedToken { span: s, .. } = self;
-        *s = Some(span);
-    }
-
     pub(crate) fn describe(&self) -> DiagnosticDescription {
         let Self::UnexpectedToken {
             span,
@@ -40,6 +35,13 @@ impl SyntaxDiagnostic {
                 message: Some(format!("expected `{expected}`")),
                 severity: LabelSeverity::Primary,
             }],
+            notes: Vec::new(),
+            helps: Vec::new(),
         }
+    }
+
+    pub(crate) fn resolve(&mut self, span: Span) {
+        let Self::UnexpectedToken { span: s, .. } = self;
+        *s = Some(span);
     }
 }

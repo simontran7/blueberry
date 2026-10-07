@@ -1,0 +1,45 @@
+---
+source: src/core/semantic_analysis/type_checking/type_dumper.rs
+expression: "TypeDumper::dump_file(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/if.bb
+---
+function f
+  binding c: Bool
+  binding a: U32
+  binding b: I64
+  binding unused: I32
+  binding chained: I32
+  23..229 '{ let ... 0 } }': U32
+  37..58 'if c {... { 2 }': U32
+  40..41 'c': Bool
+  42..47 '{ 1 }': U32
+  44..45 '1': U32
+  53..58 '{ 2 }': U32
+  55..56 '2': U32
+  77..98 'if c {... { 2 }': I64
+  80..81 'c': Bool
+  82..87 '{ 1 }': I64
+  84..85 '1': I64
+  93..98 '{ 2 }': I64
+  95..96 '2': I64
+  104..140 'if c {...= 0; }': ()
+  107..108 'c': Bool
+  109..140 '{ let ...= 0; }': ()
+  132..133 '0': I32
+  159..200 'if c {... { 3 }': I32
+  162..163 'c': Bool
+  164..169 '{ 1 }': I32
+  166..167 '1': I32
+  175..200 'if not... { 3 }': I32
+  178..183 'not c': Bool
+  182..183 'c': Bool
+  184..189 '{ 2 }': I32
+  186..187 '2': I32
+  195..200 '{ 3 }': I32
+  197..198 '3': I32
+  206..227 'if c {... { 0 }': U32
+  209..210 'c': Bool
+  211..216 '{ a }': U32
+  213..214 'a': U32
+  222..227 '{ 0 }': U32
+  224..225 '0': U32

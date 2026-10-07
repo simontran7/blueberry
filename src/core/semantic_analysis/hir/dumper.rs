@@ -8,50 +8,13 @@ use crate::core::semantic_analysis::{
 };
 use crate::core::source_file_key::SourceFileKey;
 
+pub(crate) struct HirDumper<'db> {
+    db: &'db dyn crate::Db,
+}
+
 struct Node {
     label: String,
     children: Vec<Node>,
-}
-
-impl Node {
-    fn leaf(label: impl Into<String>) -> Self {
-        Self::new(label, Vec::new())
-    }
-
-    fn new(label: impl Into<String>, children: Vec<Node>) -> Self {
-        Self {
-            label: label.into(),
-            children,
-        }
-    }
-
-    fn labeled(mut self, name: &str) -> Self {
-        self.label = format!("{name}: {}", self.label);
-        self
-    }
-
-    fn write(&self, out: &mut String) {
-        out.push_str(&self.label);
-        out.push('\n');
-        self.write_children("", out);
-    }
-
-    fn write_children(&self, prefix: &str, out: &mut String) {
-        let last = self.children.len().saturating_sub(1);
-        for (index, child) in self.children.iter().enumerate() {
-            let is_last = index == last;
-            out.push_str(prefix);
-            out.push_str(if is_last { "└─ " } else { "├─ " });
-            out.push_str(&child.label);
-            out.push('\n');
-            let child_prefix = format!("{prefix}{}", if is_last { "   " } else { "│  " });
-            child.write_children(&child_prefix, out);
-        }
-    }
-}
-
-pub(crate) struct HirDumper<'db> {
-    db: &'db dyn crate::Db,
 }
 
 impl<'db> HirDumper<'db> {
@@ -83,13 +46,13 @@ impl<'db> HirDumper<'db> {
             Definition::Function(key) => {
                 let signature = function_signature_of(self.db, key);
                 let body = function_body_of(self.db, key);
-                let parameters: Vec<String> = body.binding_children[body.parameters]
+                let parameters: Vec<String> = body.binding_children[body.parameter_segment]
                     .iter()
                     .zip(&signature.parameters)
-                    .map(|(binding, annotation)| {
+                    .map(|(binding_handle, annotation)| {
                         format!(
                             "{}: {}",
-                            body.local_bindings[*binding].name.text(self.db),
+                            body.local_bindings[*binding_handle].name.text(self.db),
                             self.annotation_text(annotation)
                         )
                     })
@@ -106,7 +69,7 @@ impl<'db> HirDumper<'db> {
                         signature.name.text(self.db),
                         parameters.join(", ")
                     ),
-                    vec![self.expression(&body, body.root)],
+                    vec![self.expression(&body, body.root_handle)],
                 )
             }
             Definition::Constant(key) => {
@@ -118,14 +81,14 @@ impl<'db> HirDumper<'db> {
                     .map_or_else(String::new, |ty| format!(": {}", self.annotation_text(ty)));
                 Node::new(
                     format!("constant {}{ty}", signature.name.text(self.db)),
-                    vec![self.expression(&body, body.root)],
+                    vec![self.expression(&body, body.root_handle)],
                 )
             }
         }
     }
 
-    fn expression(&self, body: &DefinitionBody<'db>, handle: ExpressionHandle) -> Node {
-        match &body.expressions[handle] {
+    fn expression(&self, body: &DefinitionBody<'db>, expression_handle: ExpressionHandle) -> Node {
+        match &body.expressions[expression_handle] {
             Expression::Unit => Node::leaf("Unit"),
             Expression::Integer(value) => Node::leaf(format!("Integer {value}")),
             Expression::Boolean(value) => Node::leaf(format!("Boolean {value}")),
@@ -155,12 +118,12 @@ impl<'db> HirDumper<'db> {
             }
             Expression::Block {
                 block_key,
-                statements,
+                statement_segment,
                 tail_handle,
             } => {
-                let mut children: Vec<Node> = body.statement_children[*statements]
+                let mut children: Vec<Node> = body.statement_children[*statement_segment]
                     .iter()
-                    .map(|statement| self.statement(body, *statement))
+                    .map(|statement_handle| self.statement(body, *statement_handle))
                     .collect();
                 if let Some(tail_handle) = tail_handle {
                     children.push(self.expression(body, *tail_handle).labeled("tail"));
@@ -189,14 +152,12 @@ impl<'db> HirDumper<'db> {
             ),
             Expression::Call {
                 callee_handle,
-                arguments,
+                argument_segment,
             } => {
                 let mut children = vec![self.expression(body, *callee_handle).labeled("callee")];
-                children.extend(
-                    body.expression_children[*arguments]
-                        .iter()
-                        .map(|argument| self.expression(body, *argument).labeled("argument")),
-                );
+                children.extend(body.expression_children[*argument_segment].iter().map(
+                    |argument_handle| self.expression(body, *argument_handle).labeled("argument"),
+                ));
                 Node::new("Call", children)
             }
             Expression::Continue => Node::leaf("Continue"),
@@ -204,14 +165,14 @@ impl<'db> HirDumper<'db> {
                 "Break",
                 value_handle
                     .iter()
-                    .map(|v| self.expression(body, *v))
+                    .map(|value_handle| self.expression(body, *value_handle))
                     .collect(),
             ),
             Expression::Return { value_handle } => Node::new(
                 "Return",
                 value_handle
                     .iter()
-                    .map(|v| self.expression(body, *v))
+                    .map(|value_handle| self.expression(body, *value_handle))
                     .collect(),
             ),
             Expression::UnaryOperation {
@@ -248,18 +209,18 @@ impl<'db> HirDumper<'db> {
         }
     }
 
-    fn statement(&self, body: &DefinitionBody<'db>, handle: StatementHandle) -> Node {
-        match &body.statements[handle] {
+    fn statement(&self, body: &DefinitionBody<'db>, statement_handle: StatementHandle) -> Node {
+        match &body.statements[statement_handle] {
             Statement::Let {
                 name_handle,
-                annotation,
+                annotation_handle,
                 initializer_handle,
             } => {
                 let binding = &body.local_bindings[*name_handle];
                 let mutability = if binding.mutable { "mut " } else { "" };
                 let mut children = Vec::new();
-                if let Some(annotation) = annotation {
-                    let text = self.annotation_text(&body.type_annotations[*annotation]);
+                if let Some(annotation_handle) = annotation_handle {
+                    let text = self.annotation_text(&body.type_annotations[*annotation_handle]);
                     children.push(Node::leaf(format!("type: {text}")));
                 }
                 if let Some(initializer_handle) = initializer_handle {
@@ -285,6 +246,43 @@ impl<'db> HirDumper<'db> {
             }
             Statement::Definition => Node::leaf("Definition"),
         }
+    }
+}
+
+impl Node {
+    fn leaf(label: impl Into<String>) -> Self {
+        Self::new(label, Vec::new())
+    }
+
+    fn new(label: impl Into<String>, children: Vec<Node>) -> Self {
+        Self {
+            label: label.into(),
+            children,
+        }
+    }
+
+    fn write(&self, out: &mut String) {
+        out.push_str(&self.label);
+        out.push('\n');
+        self.write_children("", out);
+    }
+
+    fn write_children(&self, prefix: &str, out: &mut String) {
+        let last = self.children.len().saturating_sub(1);
+        for (index, child) in self.children.iter().enumerate() {
+            let is_last = index == last;
+            out.push_str(prefix);
+            out.push_str(if is_last { "└─ " } else { "├─ " });
+            out.push_str(&child.label);
+            out.push('\n');
+            let child_prefix = format!("{prefix}{}", if is_last { "   " } else { "│  " });
+            child.write_children(&child_prefix, out);
+        }
+    }
+
+    fn labeled(mut self, name: &str) -> Self {
+        self.label = format!("{name}: {}", self.label);
+        self
     }
 }
 

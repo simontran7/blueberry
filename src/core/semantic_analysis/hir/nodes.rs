@@ -15,15 +15,17 @@ pub(crate) struct FunctionSignature<'db> {
     pub(crate) parameters: Vec<TypeAnnotation<'db>>,
     pub(crate) return_type_annotation: Option<TypeAnnotation<'db>>,
 }
+
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct ConstantSignature<'db> {
     pub(crate) name: Symbol<'db>,
     pub(crate) type_annotation: Option<TypeAnnotation<'db>>,
 }
+
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct DefinitionBody<'db> {
-    pub(crate) root: ExpressionHandle,
-    pub(crate) parameters: Segment<LocalBindingHandle>,
+    pub(crate) root_handle: ExpressionHandle,
+    pub(crate) parameter_segment: Segment<LocalBindingHandle>,
     pub(crate) expressions: HandleMap<ExpressionHandle, Expression<'db>>,
     pub(crate) statements: HandleMap<StatementHandle, Statement>,
     pub(crate) local_bindings: HandleMap<LocalBindingHandle, LocalBinding<'db>>,
@@ -56,7 +58,7 @@ pub(crate) enum Expression<'db> {
     Block {
         // `Some` only when this block has nested definitions inside it
         block_key: Option<BlockKey<'db>>,
-        statements: Segment<StatementHandle>,
+        statement_segment: Segment<StatementHandle>,
         tail_handle: Option<ExpressionHandle>,
     },
     Loop {
@@ -65,7 +67,7 @@ pub(crate) enum Expression<'db> {
     },
     Call {
         callee_handle: ExpressionHandle,
-        arguments: Segment<ExpressionHandle>,
+        argument_segment: Segment<ExpressionHandle>,
     },
     Continue,
     Break {
@@ -100,7 +102,7 @@ pub(crate) struct Path<'db> {
 pub(crate) enum Statement {
     Let {
         name_handle: LocalBindingHandle,
-        annotation: Option<TypeAnnotationHandle>,
+        annotation_handle: Option<TypeAnnotationHandle>,
         initializer_handle: Option<ExpressionHandle>,
     },
     Expression {
@@ -120,27 +122,6 @@ pub(crate) struct LocalBinding<'db> {
 pub(crate) enum TypeAnnotation<'db> {
     Path(Symbol<'db>),
     Error,
-}
-
-impl<'db> TypeAnnotation<'db> {
-    pub(crate) fn from_type_expression(
-        db: &'db dyn crate::Db,
-        type_expression: &ast::TypeExpression,
-    ) -> Self {
-        match type_expression.name() {
-            Some(token) => Self::Path(Symbol::new(db, token.lexeme().to_string())),
-            None => Self::Error,
-        }
-    }
-
-    pub(crate) fn to_ty(&self, db: &'db dyn crate::Db) -> Ty<'db> {
-        match self {
-            Self::Path(symbol) => {
-                Ty::primitive(db, symbol.text(db)).unwrap_or_else(|| Ty::error(db))
-            }
-            Self::Error => Ty::error(db),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
@@ -179,6 +160,27 @@ handle_impl!(pub(crate) TypeAnnotationHandle);
 
 handle_impl!(pub(crate) LocalBindingHandle);
 
+impl<'db> TypeAnnotation<'db> {
+    pub(crate) fn from_type_expression(
+        db: &'db dyn crate::Db,
+        type_expression: &ast::TypeExpression,
+    ) -> Self {
+        match type_expression.name() {
+            Some(token) => Self::Path(Symbol::new(db, token.lexeme().to_string())),
+            None => Self::Error,
+        }
+    }
+
+    pub(crate) fn to_ty(&self, db: &'db dyn crate::Db) -> Ty<'db> {
+        match self {
+            Self::Path(symbol) => {
+                Ty::to_primitive(db, symbol.text(db)).unwrap_or_else(|| Ty::error(db))
+            }
+            Self::Error => Ty::error(db),
+        }
+    }
+}
+
 impl TryFrom<SyntaxKind> for BinaryOperator {
     type Error = SyntaxKind;
 
@@ -201,18 +203,6 @@ impl TryFrom<SyntaxKind> for BinaryOperator {
     }
 }
 
-impl TryFrom<SyntaxKind> for UnaryOperator {
-    type Error = SyntaxKind;
-
-    fn try_from(kind: SyntaxKind) -> Result<Self, Self::Error> {
-        Ok(match kind {
-            SyntaxKind::Minus => Self::Neg,
-            SyntaxKind::LogicalNot => Self::Not,
-            other => return Err(other),
-        })
-    }
-}
-
 impl fmt::Display for BinaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
@@ -230,6 +220,18 @@ impl fmt::Display for BinaryOperator {
             Self::Or => "||",
         };
         write!(f, "{s}")
+    }
+}
+
+impl TryFrom<SyntaxKind> for UnaryOperator {
+    type Error = SyntaxKind;
+
+    fn try_from(kind: SyntaxKind) -> Result<Self, Self::Error> {
+        Ok(match kind {
+            SyntaxKind::Minus => Self::Neg,
+            SyntaxKind::LogicalNot => Self::Not,
+            other => return Err(other),
+        })
     }
 }
 

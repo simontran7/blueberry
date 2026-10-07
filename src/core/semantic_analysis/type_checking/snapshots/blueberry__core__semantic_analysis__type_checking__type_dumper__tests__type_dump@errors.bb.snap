@@ -1,0 +1,237 @@
+---
+source: src/core/semantic_analysis/type_checking/type_dumper.rs
+expression: "TypeDumper::dump_file(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/errors.bb
+---
+constant WRONG
+  20..21 '5': I32
+
+constant UNKNOWN
+  44..45 '5': I32
+
+function mismatches
+  binding x: I32
+  binding a: Bool
+  binding b: I32
+  80..163 '{ let ...}; x }': Error
+  100..101 '1': I32
+  115..116 'x': I32
+  115..123 'x + true': I32
+  119..123 'true': Bool
+  129..154 'if x {...alse }': Error
+  132..133 'x': I32
+  134..139 '{ 1 }': I32
+  136..137 '1': I32
+  145..154 '{ false }': Bool
+  147..152 'false': Bool
+  160..161 'x': I32
+
+function names
+  binding a: Error
+  binding b: Error
+  178..247 '{ let ...(1); }': ()
+  192..199 'missing': Error
+  218..219 '1': I32
+  225..241 'missin...nction': Error
+  225..244 'missin...ion(1)': Error
+  242..243 '1': I32
+
+function calls
+  binding x: I32
+  268..328 '{ x(1)...s(); }': ()
+  274..275 'x': I32
+  274..278 'x(1)': Error
+  276..277 '1': I32
+  284..289 'calls': (I32) -> ()
+  284..295 'calls(1, 2)': ()
+  290..291 '1': I32
+  293..294 '2': I32
+  301..306 'calls': (I32) -> ()
+  301..312 'calls(true)': ()
+  307..311 'true': Bool
+  318..323 'calls': (I32) -> ()
+  318..325 'calls()': ()
+
+function operators
+  binding c: Bool
+  binding a: Error
+  binding b: Error
+  binding d: Bool
+  binding e: Bool
+  354..432 '{ let ...d c; }': ()
+  368..370 '-c': Error
+  369..370 'c': Bool
+  384..385 'c': Bool
+  384..389 'c + c': Error
+  388..389 'c': Bool
+  403..408 'not 1': Bool
+  407..408 '1': I32
+  422..423 '1': I32
+  422..429 '1 and c': Bool
+  428..429 'c': Bool
+
+function control_flow
+  461..546 '{ brea...rue; }': Bottom
+  467..472 'break': Bottom
+  478..486 'continue': Bottom
+  492..527 'while ...k 1; }': Bottom
+  492..527 'while ...k 1; }': ()
+  492..527 'while ...k 1; }': ()
+  492..527 'while ...k 1; }': ()
+  498..502 'true': Bool
+  503..527 '{ break 1; }': Bottom
+  513..520 'break 1': Bottom
+  519..520 '1': I32
+  532..543 'return true': Bottom
+  539..543 'true': Bool
+
+constant RETURNS
+  569..577 'return 1': Bottom
+  576..577 '1': I32
+
+function assignments
+  599..634 '{ assi...= 2; }': ()
+  605..616 'assignments': () -> ()
+  605..620 'assignments = 1': ()
+  619..620 '1': I32
+  626..627 '1': I32
+  626..631 '1 = 2': ()
+  630..631 '2': I32
+
+function no_tail
+  binding x: I32
+  658..676 '{ let x = 1; }': Error
+  672..673 '1': I32
+
+function if_without_else
+  binding c: Bool
+  708..726 '{ if c { 1 } }': ()
+  714..724 'if c { 1 }': ()
+  717..718 'c': Bool
+  719..724 '{ 1 }': Error
+  721..722 '1': I32
+
+function unknown_return
+  761..770 '{ 5 }': Error
+  767..768 '5': Error
+
+function poisoned
+  binding a: Error
+  binding b: Error
+  binding c: I32
+  788..865 '{ let ...ing; }': ()
+  802..809 'missing': Error
+  802..813 'missing + 1': Error
+  812..813 '1': I32
+  827..834 'missing': Error
+  827..836 'missing()': Error
+  855..862 'missing': Error
+
+function negations
+  binding u: U64
+  binding a: Error
+  binding b: U32
+  binding c: U64
+  binding d: U64
+  binding e: I32
+  890..982 '{ let ... -2; }': ()
+  904..906 '-u': Error
+  905..906 'u': U64
+  925..927 '-5': Error
+  926..927 '5': U32
+  941..943 '-1': U64
+  942..943 '1': U64
+  962..963 'c': U64
+  977..979 '-2': I32
+  978..979 '2': I32
+
+function rustc_style
+  binding c: Bool
+  binding a: I32
+  binding b: I32
+  binding d: Bool
+  1017..1097 '{ let ...urn; }': Bottom
+  1036..1046 'if c { 1 }': Error
+  1039..1040 'c': Bool
+  1041..1046 '{ 1 }': I32
+  1043..1044 '1': I32
+  1060..1061 '1': I32
+  1081..1082 'b': I32
+  1088..1094 'return': Bottom
+
+function wrong_tail
+  1124..1136 '{ true }': Error
+  1130..1134 'true': Bool
+
+function wrong_return
+  binding c: Bool
+  1172..1220 '{ if c... } 0 }': I32
+  1178..1212 'if c {...lse; }': ()
+  1181..1182 'c': Bool
+  1183..1212 '{ retu...lse; }': Bottom
+  1193..1205 'return false': Bottom
+  1200..1205 'false': Bool
+  1217..1218 '0': I32
+
+diagnostics
+  E0308 20..21 '5': mismatched types (expected `Bool`, found integer)
+  E0412 38..41 'Foo': cannot find type `Foo` in this scope (not found in this scope)
+  E0308 100..101 '1': mismatched types (expected `Bool`, found integer)
+  E0308 119..123 'true': mismatched types (expected `I32`, found `Bool`)
+  E0308 132..133 'x': mismatched types (expected `Bool`, found `I32`)
+  E0308 147..152 'false': `if` and `else` have incompatible types (expected integer, found `Bool`)
+    136..137 '1': expected because of this
+  E0308 160..161 'x': mismatched types (expected `Bool`, found `I32`)
+    75..79 'Bool': expected `Bool` because of return type
+  E0425 192..199 'missing': cannot find value `missing` in this scope (not found in this scope)
+  E0412 212..215 'Baz': cannot find type `Baz` in this scope (not found in this scope)
+  E0425 225..241 'missin...nction': cannot find function `missing_function` in this scope (not found in this scope)
+  E0618 274..278 'x(1)': expected function, found `I32` (call expression requires function)
+    274..275 'x': `x` has type `I32`
+  E0061 284..289 'calls': this function takes 1 argument but 2 arguments were supplied
+    293..294 '2': unexpected argument #2 of type `I32`
+    254..259 'calls': function defined here
+  E0308 307..311 'true': mismatched types (expected `I32`, found `Bool`)
+  E0061 318..323 'calls': this function takes 1 argument but 0 arguments were supplied
+    318..325 'calls()': argument #1 of type `I32` is missing
+    254..259 'calls': function defined here
+  E0600 368..370 '-c': cannot apply unary operator `-` to type `Bool` (cannot apply unary operator `-`)
+  E0369 384..389 'c + c': cannot add `Bool` to `Bool`
+    384..385 'c': Bool
+    388..389 'c': Bool
+  E0308 407..408 '1': mismatched types (expected `Bool`, found integer)
+  E0308 422..423 '1': mismatched types (expected `Bool`, found integer)
+  E0268 467..472 'break': `break` outside of a loop (cannot `break` outside of a loop)
+  E0268 478..486 'continue': `continue` outside of a loop (cannot `continue` outside of a loop)
+  E0571 513..520 'break 1': `break` with value from a `while` loop (can only break with a value inside `loop`)
+    help: use `break` on its own without a value inside this `while` loop
+  E0308 539..543 'true': mismatched types (expected `I32`, found `Bool`)
+    457..460 'I32': expected `I32` because of return type
+  E0572 569..577 'return 1': return statement outside of function body
+  E0070 605..620 'assignments = 1': invalid left-hand side of assignment
+    605..616 'assignments': cannot assign to this expression
+  E0308 619..620 '1': mismatched types (expected `() -> ()`, found integer)
+  E0070 626..631 '1 = 2': invalid left-hand side of assignment
+    626..627 '1': cannot assign to this expression
+  E0308 654..657 'I32': mismatched types (expected `I32`, found `()`)
+    641..648 'no_tail': implicitly returns `()` as its body has no tail or `return` expression
+  E0308 721..722 '1': mismatched types (expected `()`, found integer)
+  E0412 753..760 'Missing': cannot find type `Missing` in this scope (not found in this scope)
+  E0425 802..809 'missing': cannot find value `missing` in this scope (not found in this scope)
+  E0425 827..834 'missing': cannot find function `missing` in this scope (not found in this scope)
+  E0425 855..862 'missing': cannot find value `missing` in this scope (not found in this scope)
+  E0600 904..906 '-u': cannot apply unary operator `-` to type `U64` (cannot apply unary operator `-`)
+    note: unsigned values cannot be negated
+  E0600 925..927 '-5': cannot apply unary operator `-` to type `U32` (cannot apply unary operator `-`)
+    note: unsigned values cannot be negated
+  E0600 941..943 '-1': cannot apply unary operator `-` to type `U64` (cannot apply unary operator `-`)
+    note: unsigned values cannot be negated
+  E0317 1036..1046 'if c { 1 }': `if` may be missing an `else` clause (expected `I32`, found `()`)
+    note: `if` expressions without `else` evaluate to `()`
+    help: consider adding an `else` block that evaluates to the expected type
+  E0308 1081..1082 'b': mismatched types (expected `Bool`, found integer)
+  E0069 1088..1094 'return': `return;` in a function whose return type is not `()` (return type is not `()`)
+  E0308 1130..1134 'true': mismatched types (expected `I32`, found `Bool`)
+    1120..1123 'I32': expected `I32` because of return type
+  E0308 1200..1205 'false': mismatched types (expected `I32`, found `Bool`)
+    1168..1171 'I32': expected `I32` because of return type

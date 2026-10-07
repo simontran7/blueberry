@@ -51,24 +51,8 @@ impl<K: Handle, V> HandleMap<K, V> {
         Some((K::new(len - 1), last))
     }
 
-    pub(crate) fn last_mut(&mut self) -> Option<(K, &mut V)> {
-        let len = self.data.len();
-        let last = self.data.last_mut()?;
-        Some((K::new(len - 1), last))
-    }
-
-    pub(crate) fn add(&mut self, value: V) -> K {
-        let index = self.data.len();
-        self.data.push(value);
-        K::new(index)
-    }
-
     pub(crate) fn get(&self, key: K) -> Option<&V> {
         self.data.get(key.index())
-    }
-
-    pub(crate) fn get_mut(&mut self, key: K) -> Option<&mut V> {
-        self.data.get_mut(key.index())
     }
 
     pub(crate) fn contains_key(&self, k: K) -> bool {
@@ -91,15 +75,31 @@ impl<K: Handle, V> HandleMap<K, V> {
         self.data.iter()
     }
 
-    pub(crate) fn values_mut(&mut self) -> impl Iterator<Item = &mut V> + '_ {
-        self.data.iter_mut()
-    }
-
     pub(crate) fn iter(&self) -> Iter<'_, K, V> {
         Iter {
             inner: self.data.iter().enumerate(),
             _marker: PhantomData,
         }
+    }
+
+    pub(crate) fn last_mut(&mut self) -> Option<(K, &mut V)> {
+        let len = self.data.len();
+        let last = self.data.last_mut()?;
+        Some((K::new(len - 1), last))
+    }
+
+    pub(crate) fn add(&mut self, value: V) -> K {
+        let index = self.data.len();
+        self.data.push(value);
+        K::new(index)
+    }
+
+    pub(crate) fn get_mut(&mut self, key: K) -> Option<&mut V> {
+        self.data.get_mut(key.index())
+    }
+
+    pub(crate) fn values_mut(&mut self) -> impl Iterator<Item = &mut V> + '_ {
+        self.data.iter_mut()
     }
 
     pub(crate) fn iter_mut(&mut self) -> IterMut<'_, K, V> {

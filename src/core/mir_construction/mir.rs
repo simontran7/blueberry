@@ -2,7 +2,6 @@ use std::slice;
 
 use crate::core::common::handle_collections::handle_impl;
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
-
 use crate::core::common::string_interner::Symbol;
 use crate::core::common::types::TypeId;
 use crate::front_end::semantic_analysis::hir::DefinitionBindingId;
@@ -11,22 +10,6 @@ use crate::core::common::handle_collections::handle_list::{GrowableHandleList, G
 
 pub(crate) struct Mir {
     functions: Vec<Function>,
-}
-
-impl Mir {
-    pub(crate) fn new() -> Self {
-        Self {
-            functions: Vec::new(),
-        }
-    }
-
-    pub(crate) fn add_function(&mut self, function: Function) {
-        self.functions.push(function);
-    }
-
-    pub(crate) fn functions(&self) -> impl Iterator<Item = &Function> {
-        self.functions.iter()
-    }
 }
 
 pub(crate) struct Function {
@@ -116,9 +99,13 @@ pub(crate) struct Signature {
 
 // Opaque, 4-byte handles into the tables above.
 handle_impl!(pub(crate) BlockId);
+
 handle_impl!(pub(crate) InstructionId);
+
 handle_impl!(pub(crate) FunctionReferenceId);
+
 handle_impl!(pub(crate) SignatureId);
+
 handle_impl!(pub(crate) ValueId);
 
 pub(crate) struct BlockView<'a> {
@@ -201,18 +188,28 @@ struct InstructionNode {
     next_id: Option<InstructionId>,
 }
 
+impl Mir {
+    pub(crate) fn new() -> Self {
+        Self {
+            functions: Vec::new(),
+        }
+    }
+
+    pub(crate) fn functions(&self) -> impl Iterator<Item = &Function> {
+        self.functions.iter()
+    }
+
+    pub(crate) fn add_function(&mut self, function: Function) {
+        self.functions.push(function);
+    }
+}
+
 impl Cfg {
     pub(crate) fn new() -> Self {
         Self {
             dfg: DataFlowGraph::new(),
             layout: Layout::new(),
         }
-    }
-
-    pub(crate) fn allocate_block(&mut self) -> BlockId {
-        self.dfg.blocks.add(Block {
-            parameter_ids: GrowableHandleList::<ValueId>::new(),
-        })
     }
 
     pub(crate) fn entry(&self) -> Option<BlockView<'_>> {
@@ -247,13 +244,6 @@ impl Cfg {
         }
     }
 
-    pub(crate) fn get_block_mut(&mut self, block_id: BlockId) -> BlockViewMut<'_> {
-        BlockViewMut {
-            block_id,
-            cfg: self,
-        }
-    }
-
     pub(crate) fn contains(&self, block_id: BlockId) -> bool {
         Some(block_id) == self.layout.entry_id
             || self
@@ -261,6 +251,100 @@ impl Cfg {
                 .blocks
                 .get(block_id)
                 .is_some_and(|node| node.previous_id.is_some())
+    }
+
+    pub(crate) fn get_instruction(&self, instruction_id: InstructionId) -> InstructionView<'_> {
+        InstructionView {
+            instruction_id,
+            cfg: self,
+        }
+    }
+
+    pub(crate) fn allocate_binary(
+        &self,
+        operator: BinOp,
+        operand_ids: [ValueId; 2],
+    ) -> Instruction {
+        Instruction::Binary {
+            operator,
+            operand_ids,
+        }
+    }
+
+    pub(crate) fn allocate_unary(&self, operator: UnOp, operand_id: ValueId) -> Instruction {
+        Instruction::Unary {
+            operator,
+            operand_id,
+        }
+    }
+
+    pub(crate) fn allocate_integer_literal(&self, value: u128) -> Instruction {
+        Instruction::IntegerLiteral { value }
+    }
+
+    pub(crate) fn allocate_boolean_literal(&self, value: bool) -> Instruction {
+        Instruction::BooleanLiteral { value }
+    }
+
+    pub(crate) fn allocate_unreachable(&self) -> Instruction {
+        Instruction::Unreachable
+    }
+
+    pub(crate) fn get_value(&self, value_id: ValueId) -> ValueView<'_> {
+        ValueView {
+            value_id,
+            cfg: self,
+        }
+    }
+
+    pub(crate) fn block_argument(
+        &self,
+        block_parameter: ValueId,
+        predecessor_edge: InstructionId,
+    ) -> ValueId {
+        let (block_id, index) = match self.get_value(block_parameter).origin() {
+            ValueOrigin::Parameter(block_id, index) => (block_id, index as usize),
+            ValueOrigin::InstructionResult(..) | ValueOrigin::Undefined(_) => {
+                panic!("value is not a block parameter")
+            }
+        };
+        self.get_instruction(predecessor_edge)
+            .block_argument(block_id, index)
+    }
+
+    pub(crate) fn resolve_aliases(&self, value_id: ValueId) -> ValueId {
+        let mut current_value = value_id;
+        for _ in 0..=self.dfg.values.count() {
+            match self.dfg.values[current_value].alias_id {
+                Some(original) => current_value = original,
+                None => return current_value,
+            }
+        }
+        panic!("value alias loop detected");
+    }
+
+    pub(crate) fn get_signature(&self, signature_id: SignatureId) -> &Signature {
+        &self.dfg.signatures[signature_id]
+    }
+
+    pub(crate) fn get_function_reference(
+        &self,
+        function_reference_id: FunctionReferenceId,
+    ) -> &FunctionReference {
+        &self.dfg.function_references[function_reference_id]
+    }
+
+    pub(crate) fn allocate_block(&mut self) -> BlockId {
+        self.dfg.blocks.add(Block {
+            parameter_ids: GrowableHandleList::<ValueId>::new(),
+        })
+    }
+
+    pub(crate) fn get_block_mut(&mut self, block_id: BlockId) -> BlockViewMut<'_> {
+        BlockViewMut {
+            block_id,
+            cfg: self,
+        }
     }
 
     pub(crate) fn append_block(&mut self, block_id: BlockId) {
@@ -364,13 +448,6 @@ impl Cfg {
         }
     }
 
-    pub(crate) fn get_instruction(&self, instruction_id: InstructionId) -> InstructionView<'_> {
-        InstructionView {
-            instruction_id,
-            cfg: self,
-        }
-    }
-
     pub(crate) fn get_instruction_mut(
         &mut self,
         instruction_id: InstructionId,
@@ -379,45 +456,6 @@ impl Cfg {
             instruction_id,
             cfg: self,
         }
-    }
-
-    fn add_instruction(
-        &mut self,
-        instruction: Instruction,
-        result_type_ids: &[TypeId],
-    ) -> InstructionId {
-        let instruction_id = self.dfg.instructions.add(instruction);
-        let result_ssa_ids: Vec<ValueId> = result_type_ids
-            .iter()
-            .enumerate()
-            .map(|(i, &type_id)| {
-                self.dfg.values.add(Value {
-                    type_id,
-                    alias_id: None,
-                    origin: ValueOrigin::InstructionResult(instruction_id, i as u16),
-                })
-            })
-            .collect();
-        self.dfg.instruction_results.add(
-            instruction_id,
-            GrowableHandleList::<ValueId>::from(&mut self.dfg.suballocator, &result_ssa_ids),
-        );
-        instruction_id
-    }
-
-    fn link_instruction_to_block(&mut self, block_id: BlockId, instruction_id: InstructionId) {
-        let prev = self.layout.blocks[block_id].last_id;
-        let node = InstructionNode {
-            block_id: Some(block_id),
-            previous_id: prev,
-            next_id: None,
-        };
-        self.layout.instructions.add(instruction_id, node);
-        match prev {
-            Some(prev) => self.layout.instructions[prev].next_id = Some(instruction_id),
-            None => self.layout.blocks[block_id].first_id = Some(instruction_id),
-        }
-        self.layout.blocks[block_id].last_id = Some(instruction_id);
     }
 
     pub(crate) fn add_instruction_before(
@@ -538,36 +576,6 @@ impl Cfg {
         }
     }
 
-    pub(crate) fn allocate_binary(
-        &self,
-        operator: BinOp,
-        operand_ids: [ValueId; 2],
-    ) -> Instruction {
-        Instruction::Binary {
-            operator,
-            operand_ids,
-        }
-    }
-
-    pub(crate) fn allocate_unary(&self, operator: UnOp, operand_id: ValueId) -> Instruction {
-        Instruction::Unary {
-            operator,
-            operand_id,
-        }
-    }
-
-    pub(crate) fn allocate_integer_literal(&self, value: u128) -> Instruction {
-        Instruction::IntegerLiteral { value }
-    }
-
-    pub(crate) fn allocate_boolean_literal(&self, value: bool) -> Instruction {
-        Instruction::BooleanLiteral { value }
-    }
-
-    pub(crate) fn allocate_unreachable(&self) -> Instruction {
-        Instruction::Unreachable
-    }
-
     pub(crate) fn allocate_jump(
         &mut self,
         destination_id: BlockId,
@@ -622,66 +630,12 @@ impl Cfg {
         }
     }
 
-    pub(crate) fn get_value(&self, value_id: ValueId) -> ValueView<'_> {
-        ValueView {
-            value_id,
-            cfg: self,
-        }
-    }
-
-    pub(crate) fn block_argument(
-        &self,
-        block_parameter: ValueId,
-        predecessor_edge: InstructionId,
-    ) -> ValueId {
-        let (block_id, index) = match self.get_value(block_parameter).origin() {
-            ValueOrigin::Parameter(block_id, index) => (block_id, index as usize),
-            ValueOrigin::InstructionResult(..) | ValueOrigin::Undefined(_) => {
-                panic!("value is not a block parameter")
-            }
-        };
-        self.get_instruction(predecessor_edge)
-            .block_argument(block_id, index)
-    }
-
     pub(crate) fn add_undefined(&mut self, type_id: TypeId) -> ValueId {
         self.dfg.values.add(Value {
             type_id,
             alias_id: None,
             origin: ValueOrigin::Undefined(type_id),
         })
-    }
-
-    // NOTE: Aliases are never attached.
-    fn value_is_attached(&self, value_id: ValueId) -> bool {
-        if self.dfg.values[value_id].alias_id.is_some() {
-            return false;
-        }
-        match self.dfg.values[value_id].origin {
-            ValueOrigin::InstructionResult(instruction_id, index) => {
-                self.dfg.instruction_results[instruction_id]
-                    .get(&self.dfg.suballocator, index as usize)
-                    == Some(value_id)
-            }
-            ValueOrigin::Parameter(block_id, index) => {
-                self.dfg.blocks[block_id]
-                    .parameter_ids
-                    .get(&self.dfg.suballocator, index as usize)
-                    == Some(value_id)
-            }
-            ValueOrigin::Undefined(_) => false,
-        }
-    }
-
-    pub(crate) fn resolve_aliases(&self, value_id: ValueId) -> ValueId {
-        let mut current_value = value_id;
-        for _ in 0..=self.dfg.values.count() {
-            match self.dfg.values[current_value].alias_id {
-                Some(original) => current_value = original,
-                None => return current_value,
-            }
-        }
-        panic!("value alias loop detected");
     }
 
     pub(crate) fn mark_as_alias(&mut self, destination_id: ValueId, source_id: ValueId) {
@@ -754,15 +708,64 @@ impl Cfg {
         })
     }
 
-    pub(crate) fn get_signature(&self, signature_id: SignatureId) -> &Signature {
-        &self.dfg.signatures[signature_id]
+    // NOTE: Aliases are never attached.
+    fn value_is_attached(&self, value_id: ValueId) -> bool {
+        if self.dfg.values[value_id].alias_id.is_some() {
+            return false;
+        }
+        match self.dfg.values[value_id].origin {
+            ValueOrigin::InstructionResult(instruction_id, index) => {
+                self.dfg.instruction_results[instruction_id]
+                    .get(&self.dfg.suballocator, index as usize)
+                    == Some(value_id)
+            }
+            ValueOrigin::Parameter(block_id, index) => {
+                self.dfg.blocks[block_id]
+                    .parameter_ids
+                    .get(&self.dfg.suballocator, index as usize)
+                    == Some(value_id)
+            }
+            ValueOrigin::Undefined(_) => false,
+        }
     }
 
-    pub(crate) fn get_function_reference(
-        &self,
-        function_reference_id: FunctionReferenceId,
-    ) -> &FunctionReference {
-        &self.dfg.function_references[function_reference_id]
+    fn add_instruction(
+        &mut self,
+        instruction: Instruction,
+        result_type_ids: &[TypeId],
+    ) -> InstructionId {
+        let instruction_id = self.dfg.instructions.add(instruction);
+        let result_ssa_ids: Vec<ValueId> = result_type_ids
+            .iter()
+            .enumerate()
+            .map(|(i, &type_id)| {
+                self.dfg.values.add(Value {
+                    type_id,
+                    alias_id: None,
+                    origin: ValueOrigin::InstructionResult(instruction_id, i as u16),
+                })
+            })
+            .collect();
+        self.dfg.instruction_results.add(
+            instruction_id,
+            GrowableHandleList::<ValueId>::from(&mut self.dfg.suballocator, &result_ssa_ids),
+        );
+        instruction_id
+    }
+
+    fn link_instruction_to_block(&mut self, block_id: BlockId, instruction_id: InstructionId) {
+        let prev = self.layout.blocks[block_id].last_id;
+        let node = InstructionNode {
+            block_id: Some(block_id),
+            previous_id: prev,
+            next_id: None,
+        };
+        self.layout.instructions.add(instruction_id, node);
+        match prev {
+            Some(prev) => self.layout.instructions[prev].next_id = Some(instruction_id),
+            None => self.layout.blocks[block_id].first_id = Some(instruction_id),
+        }
+        self.layout.blocks[block_id].last_id = Some(instruction_id);
     }
 }
 

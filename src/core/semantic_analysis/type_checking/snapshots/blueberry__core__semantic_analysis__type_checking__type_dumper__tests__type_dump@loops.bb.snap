@@ -1,0 +1,45 @@
+---
+source: src/core/semantic_analysis/type_checking/type_dumper.rs
+expression: "TypeDumper::dump_file(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/loops.bb
+---
+function f
+  binding x: I32
+  binding y: U64
+  binding i: I32
+  binding never: Bottom
+  16..288 '{ let ...}; x }': I32
+  30..59 'loop {...k 5; }': I32
+  35..59 '{ break 5; }': Bottom
+  45..52 'break 5': Bottom
+  51..52 '5': I32
+  78..139 'loop {...1; } }': U64
+  83..139 '{ if t...1; } }': ()
+  93..133 'if tru...k 1; }': ()
+  96..100 'true': Bool
+  101..133 '{ break 1; }': Bottom
+  115..122 'break 1': Bottom
+  121..122 '1': U64
+  157..158 '0': I32
+  164..255 'while ...e; } }': Bottom
+  164..255 'while ...e; } }': ()
+  164..255 'while ...e; } }': ()
+  164..255 'while ...e; } }': ()
+  170..171 'i': I32
+  170..176 'i < 10': Bool
+  174..176 '10': I32
+  177..255 '{ i = ...e; } }': ()
+  187..188 'i': I32
+  187..196 'i = i + 1': ()
+  191..192 'i': I32
+  191..196 'i + 1': I32
+  195..196 '1': I32
+  206..249 'if i =...nue; }': ()
+  209..210 'i': I32
+  209..215 'i == 5': Bool
+  214..215 '5': I32
+  216..249 '{ continue; }': Bottom
+  230..238 'continue': Bottom
+  272..279 'loop {}': Bottom
+  277..279 '{}': ()
+  285..286 'x': I32

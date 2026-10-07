@@ -1,0 +1,48 @@
+---
+source: src/core/semantic_analysis/type_checking/type_dumper.rs
+expression: "TypeDumper::dump_file(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/operators.bb
+---
+function f
+  binding a: I32
+  binding b: U64
+  binding c: Bool
+  binding negated: I32
+  binding literal: I32
+  binding sum: I32
+  binding unsigned: U64
+  binding compared: Bool
+  binding equal: Bool
+  40..242 '{ let ...qual }': Bool
+  60..62 '-a': I32
+  61..62 'a': I32
+  82..84 '-5': I32
+  83..84 '5': I32
+  100..101 'a': I32
+  100..109 'a + 1 * 2': I32
+  100..117 'a + 1 ... a / 3': I32
+  104..105 '1': I32
+  104..109 '1 * 2': I32
+  108..109 '2': I32
+  112..113 'a': I32
+  112..117 'a / 3': I32
+  116..117 '3': I32
+  138..139 '1': U64
+  138..143 '1 + b': U64
+  142..143 'b': U64
+  164..165 'a': I32
+  164..169 'a < 3': Bool
+  164..180 'a < 3 ...b >= 2': Bool
+  168..169 '3': I32
+  174..175 'b': U64
+  174..180 'b >= 2': Bool
+  179..180 '2': U64
+  198..199 'c': Bool
+  198..208 'c == not c': Bool
+  198..217 'c == n... false': Bool
+  203..208 'not c': Bool
+  207..208 'c': Bool
+  212..217 'false': Bool
+  223..231 'compared': Bool
+  223..240 'compar... equal': Bool
+  235..240 'equal': Bool

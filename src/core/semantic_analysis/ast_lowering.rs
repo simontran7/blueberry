@@ -1,9 +1,9 @@
+pub(crate) mod definition_body_builder;
+pub(crate) mod definition_body_lowerer;
+
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::hir::nodes::Path;
 use crate::core::syntactic_analysis::cst::ast;
-
-pub(crate) mod definition_body_builder;
-pub(crate) mod definition_body_lowerer;
 
 /// Walks an `ast::Path`'s qualifier chain and interns its names, in source order.
 /// Returns `None` if any segment is missing (a broken path after a parse error).

@@ -1,3 +1,4 @@
+use std::ops::Range;
 use std::sync::Arc;
 
 use crate::core::lexical_analysis::token_stream::{TokenKind, TokenStream};
@@ -6,7 +7,6 @@ use crate::core::syntactic_analysis::cst::SyntaxKind;
 use crate::core::syntactic_analysis::cst::{GreenChild, GreenNode};
 use crate::core::syntactic_analysis::parser::sink::{Event, Sink};
 use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
-use std::ops::Range;
 
 pub(crate) struct CstBuilder<'src> {
     source: &'src str,
@@ -129,6 +129,10 @@ impl<'src> TokenCursor<'src> {
             .is_some_and(TokenKind::is_trivia)
     }
 
+    fn is_finished(&self) -> bool {
+        self.tokens.kind_at(self.index) == Some(TokenKind::Eof)
+    }
+
     fn eat_trivia(&mut self, parent: &mut GreenNode) {
         while self.is_trivia_next() {
             self.add_token(parent);
@@ -143,9 +147,5 @@ impl<'src> TokenCursor<'src> {
             text.into(),
         ))));
         self.index += 1;
-    }
-
-    fn is_finished(&self) -> bool {
-        self.tokens.kind_at(self.index) == Some(TokenKind::Eof)
     }
 }

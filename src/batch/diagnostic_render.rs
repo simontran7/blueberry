@@ -25,6 +25,14 @@ pub(crate) fn render_diagnostic(diagnostic: &Diagnostic, filename: &str, source:
         report = report.with_label(ariadne_label);
     }
 
+    // ariadne 0.4 keeps a single note and a single help per report
+    if !description.notes.is_empty() {
+        report = report.with_note(description.notes.join("\n"));
+    }
+    if !description.helps.is_empty() {
+        report = report.with_help(description.helps.join("\n"));
+    }
+
     report
         .finish()
         .eprint((filename, Source::from(source)))

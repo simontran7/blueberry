@@ -28,11 +28,11 @@ impl<'db> DefinitionBodyBuilder<'db> {
         expression: Expression<'db>,
         node: &RedNode,
     ) -> ExpressionHandle {
-        let handle = self.expressions.add(expression);
+        let expression_handle = self.expressions.add(expression);
         self.source_map
             .expressions
-            .add(handle, RedNodeTag::new(node));
-        handle
+            .add(expression_handle, RedNodeTag::new(node));
+        expression_handle
     }
 
     pub(crate) fn add_statement(
@@ -40,11 +40,11 @@ impl<'db> DefinitionBodyBuilder<'db> {
         statement: Statement,
         node: &RedNode,
     ) -> StatementHandle {
-        let handle = self.statements.add(statement);
+        let statement_handle = self.statements.add(statement);
         self.source_map
             .statements
-            .add(handle, RedNodeTag::new(node));
-        handle
+            .add(statement_handle, RedNodeTag::new(node));
+        statement_handle
     }
 
     pub(crate) fn add_local_binding(
@@ -52,11 +52,11 @@ impl<'db> DefinitionBodyBuilder<'db> {
         binding: LocalBinding<'db>,
         node: &RedNode,
     ) -> LocalBindingHandle {
-        let handle = self.local_bindings.add(binding);
+        let binding_handle = self.local_bindings.add(binding);
         self.source_map
             .local_bindings
-            .add(handle, RedNodeTag::new(node));
-        handle
+            .add(binding_handle, RedNodeTag::new(node));
+        binding_handle
     }
 
     pub(crate) fn add_type_annotation(
@@ -64,42 +64,42 @@ impl<'db> DefinitionBodyBuilder<'db> {
         annotation: TypeAnnotation<'db>,
         node: &RedNode,
     ) -> TypeAnnotationHandle {
-        let handle = self.type_annotations.add(annotation);
+        let annotation_handle = self.type_annotations.add(annotation);
         self.source_map
             .type_annotations
-            .add(handle, RedNodeTag::new(node));
-        handle
+            .add(annotation_handle, RedNodeTag::new(node));
+        annotation_handle
     }
 
     pub(crate) fn add_binding_children(
         &mut self,
-        children: &[LocalBindingHandle],
+        child_handles: &[LocalBindingHandle],
     ) -> Segment<LocalBindingHandle> {
-        self.binding_children.add_many(children)
+        self.binding_children.add_many(child_handles)
     }
 
     pub(crate) fn add_expression_children(
         &mut self,
-        children: &[ExpressionHandle],
+        child_handles: &[ExpressionHandle],
     ) -> Segment<ExpressionHandle> {
-        self.expression_children.add_many(children)
+        self.expression_children.add_many(child_handles)
     }
 
     pub(crate) fn add_statement_children(
         &mut self,
-        children: &[StatementHandle],
+        child_handles: &[StatementHandle],
     ) -> Segment<StatementHandle> {
-        self.statement_children.add_many(children)
+        self.statement_children.add_many(child_handles)
     }
 
     pub(crate) fn finish(
         self,
-        root: ExpressionHandle,
-        parameters: Segment<LocalBindingHandle>,
+        root_handle: ExpressionHandle,
+        parameter_segment: Segment<LocalBindingHandle>,
     ) -> (DefinitionBody<'db>, DefinitionBodySourceMap) {
         let body = DefinitionBody {
-            root,
-            parameters,
+            root_handle,
+            parameter_segment,
             expressions: self.expressions,
             statements: self.statements,
             local_bindings: self.local_bindings,

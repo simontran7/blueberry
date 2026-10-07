@@ -11,6 +11,23 @@
 - Rust
 - LLVM 22
 
+The build needs to find LLVM 22. If `llvm-config` (from LLVM 22) isn't on your `PATH`, which is the case by default with Homebrew and apt, point the build at LLVM's install directory with `LLVM_SYS_221_PREFIX`:
+
+```sh
+# macOS (brew install llvm@22)
+export LLVM_SYS_221_PREFIX="$(brew --prefix llvm@22)"
+
+# Ubuntu/Debian (apt install llvm-22-dev)
+export LLVM_SYS_221_PREFIX=/usr/lib/llvm-22
+```
+
+To set it once for every `cargo` command (including your editor's rust-analyzer), add it to `~/.cargo/config.toml` instead:
+
+```toml
+[env]
+LLVM_SYS_221_PREFIX = "/usr/lib/llvm-22"  # or the output of `brew --prefix llvm@22`
+```
+
 ### Building from Source
 
 1. Git clone the repository

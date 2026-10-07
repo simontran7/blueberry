@@ -19,12 +19,12 @@ impl<T> Segment<T> {
         }
     }
 
-    pub(super) fn bounds(&self) -> Range<usize> {
-        self.start as usize..(self.start + self.len) as usize
-    }
-
     pub(crate) fn empty() -> Self {
         Self::new(0, 0)
+    }
+
+    pub(super) fn bounds(&self) -> Range<usize> {
+        self.start as usize..(self.start + self.len) as usize
     }
 
     pub(crate) fn len(&self) -> usize {

@@ -2,28 +2,12 @@ use std::collections::HashMap;
 use std::fmt::{self, Write};
 
 use crate::core::common::handle_collections::Handle;
-
 use crate::core::common::context::CompilerContext;
 use crate::middle_end::mir::{BlockId, Function, InstructionId, InstructionRef, Mir, ValueId};
 
 pub(crate) struct MirDumper<'a> {
     mir: &'a Mir,
     ctx: &'a CompilerContext,
-}
-
-impl<'a> MirDumper<'a> {
-    pub(crate) fn new(mir: &'a Mir, ctx: &'a CompilerContext) -> Self {
-        Self { mir, ctx }
-    }
-
-    pub(crate) fn dump(&self) -> Result<String, fmt::Error> {
-        let mut out = String::new();
-        for function in self.mir.functions() {
-            out.push_str(&FunctionDumper::new(function, self.ctx).dump()?);
-            out.push('\n');
-        }
-        Ok(out)
-    }
 }
 
 pub(crate) trait FunctionWriter {
@@ -50,12 +34,27 @@ pub(crate) trait FunctionWriter {
 
 pub(crate) struct PlainWriter;
 
-impl FunctionWriter for PlainWriter {}
-
 pub(crate) struct FunctionDumper<'a> {
     function: &'a Function,
     ctx: &'a CompilerContext,
 }
+
+impl<'a> MirDumper<'a> {
+    pub(crate) fn new(mir: &'a Mir, ctx: &'a CompilerContext) -> Self {
+        Self { mir, ctx }
+    }
+
+    pub(crate) fn dump(&self) -> Result<String, fmt::Error> {
+        let mut out = String::new();
+        for function in self.mir.functions() {
+            out.push_str(&FunctionDumper::new(function, self.ctx).dump()?);
+            out.push('\n');
+        }
+        Ok(out)
+    }
+}
+
+impl FunctionWriter for PlainWriter {}
 
 impl<'a> FunctionDumper<'a> {
     pub(crate) fn new(function: &'a Function, ctx: &'a CompilerContext) -> Self {
@@ -94,74 +93,6 @@ impl<'a> FunctionDumper<'a> {
             .type_interner
             .to_string(self.function.signature.return_type_id);
         format!("{name}({parameters}) -> {return_type}")
-    }
-
-    fn decorate_function<FW: FunctionWriter>(
-        &self,
-        writer: &mut FW,
-        out: &mut String,
-    ) -> fmt::Result {
-        // spec line
-        writeln!(out, "function {} {{", self.signature_line())?;
-
-        // Instructions indent 4; block headers sit outdented 4 from that.
-        let indent = 4;
-
-        // immediate-target → values aliased directly to it
-        let mut aliases = self.alias_map();
-
-        // Iterate the layout, not the dfg — block order is the layout's
-        // business.
-        let mut first = true;
-        for block in self.function.body.block_ids() {
-            if !first {
-                writeln!(out)?;
-            }
-            first = false;
-            self.decorate_block(writer, out, &mut aliases, block, indent)?;
-        }
-
-        // Aliases whose target has no printed definition site (e.g. a
-        // trivial merge resolved to an `Undefined` placeholder).
-        if !aliases.is_empty() {
-            writeln!(out)?;
-            writeln!(
-                out,
-                "{:1$}; aliases of otherwise-undefined values",
-                "",
-                indent.saturating_sub(4)
-            )?;
-            let mut targets: Vec<ValueId> = aliases.keys().copied().collect();
-            targets.sort_by_key(|value| value.index());
-            for target in targets {
-                self.write_value_aliases(out, &mut aliases, target, indent)?;
-            }
-        }
-
-        writeln!(out, "}}")
-    }
-
-    fn decorate_block<FW: FunctionWriter>(
-        &self,
-        writer: &mut FW,
-        out: &mut String,
-        aliases: &mut HashMap<ValueId, Vec<ValueId>>,
-        block: BlockId,
-        indent: usize,
-    ) -> fmt::Result {
-        writer.write_block_header(self, out, block, indent)?;
-
-        for &parameter in self.function.body.get_block(block).parameters() {
-            self.write_value_aliases(out, aliases, parameter, indent)?;
-        }
-
-        for instruction in self.function.body.get_block(block).instructions() {
-            writer.write_instruction(self, out, instruction, indent)?;
-            for &result in self.function.body.get_instruction(instruction).results() {
-                self.write_value_aliases(out, aliases, result, indent)?;
-            }
-        }
-        Ok(())
     }
 
     pub(crate) fn block_header(
@@ -271,6 +202,74 @@ impl<'a> FunctionDumper<'a> {
             InstructionRef::Unreachable => write!(out, "Unreachable")?,
         }
         writeln!(out)
+    }
+
+    fn decorate_function<FW: FunctionWriter>(
+        &self,
+        writer: &mut FW,
+        out: &mut String,
+    ) -> fmt::Result {
+        // spec line
+        writeln!(out, "function {} {{", self.signature_line())?;
+
+        // Instructions indent 4; block headers sit outdented 4 from that.
+        let indent = 4;
+
+        // immediate-target → values aliased directly to it
+        let mut aliases = self.alias_map();
+
+        // Iterate the layout, not the dfg — block order is the layout's
+        // business.
+        let mut first = true;
+        for block in self.function.body.block_ids() {
+            if !first {
+                writeln!(out)?;
+            }
+            first = false;
+            self.decorate_block(writer, out, &mut aliases, block, indent)?;
+        }
+
+        // Aliases whose target has no printed definition site (e.g. a
+        // trivial merge resolved to an `Undefined` placeholder).
+        if !aliases.is_empty() {
+            writeln!(out)?;
+            writeln!(
+                out,
+                "{:1$}; aliases of otherwise-undefined values",
+                "",
+                indent.saturating_sub(4)
+            )?;
+            let mut targets: Vec<ValueId> = aliases.keys().copied().collect();
+            targets.sort_by_key(|value| value.index());
+            for target in targets {
+                self.write_value_aliases(out, &mut aliases, target, indent)?;
+            }
+        }
+
+        writeln!(out, "}}")
+    }
+
+    fn decorate_block<FW: FunctionWriter>(
+        &self,
+        writer: &mut FW,
+        out: &mut String,
+        aliases: &mut HashMap<ValueId, Vec<ValueId>>,
+        block: BlockId,
+        indent: usize,
+    ) -> fmt::Result {
+        writer.write_block_header(self, out, block, indent)?;
+
+        for &parameter in self.function.body.get_block(block).parameters() {
+            self.write_value_aliases(out, aliases, parameter, indent)?;
+        }
+
+        for instruction in self.function.body.get_block(block).instructions() {
+            writer.write_instruction(self, out, instruction, indent)?;
+            for &result in self.function.body.get_instruction(instruction).results() {
+                self.write_value_aliases(out, aliases, result, indent)?;
+            }
+        }
+        Ok(())
     }
 
     fn block_call(&self, out: &mut String, block: BlockId, args: &[ValueId]) -> fmt::Result {

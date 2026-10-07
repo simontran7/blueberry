@@ -18,12 +18,26 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
         }
     }
 
+    /// Returns every handle made so far, in creation order.
+    pub(crate) fn handles(&self) -> impl Iterator<Item = H> + '_ {
+        self.parent.keys()
+    }
+
     pub(crate) fn make_set(&mut self, value: V) -> H {
         let handle = self.parent.next_handle();
         self.parent.add(handle);
         self.rank.add(handle, 0);
         self.value.add(handle, value);
         handle
+    }
+
+    /// Returns the value of every set, once per set.
+    pub(crate) fn values_mut(&mut self) -> impl Iterator<Item = &mut V> + '_ {
+        let parent = &self.parent;
+        self.value
+            .iter_mut()
+            .filter(move |(handle, _)| parent[*handle] == *handle)
+            .map(|(_, value)| value)
     }
 
     pub(crate) fn find(&mut self, x: H) -> H {
@@ -72,10 +86,10 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
         self.value[rep].clone()
     }
 
-    /// Replaces the value of the set containing `a`.
-    pub(crate) fn set_value(&mut self, a: H, value: V) {
+    /// Updates the value of the set containing `a` in place.
+    pub(crate) fn update_value(&mut self, a: H, update: impl FnOnce(&mut V)) {
         let rep = self.find(a);
-        self.value[rep] = value;
+        update(&mut self.value[rep]);
     }
 }
 
@@ -193,14 +207,14 @@ mod tests {
     }
 
     #[test]
-    fn test_set_value() {
+    fn test_update_value() {
         let mut ds: HandleDisjointSet<TestHandle, TestValue> = HandleDisjointSet::new();
 
         let a = ds.make_set(TestValue(None));
         let b = ds.make_set(TestValue(None));
 
         ds.union(a, b).unwrap();
-        ds.set_value(a, TestValue(Some(5)));
+        ds.update_value(a, |value| *value = TestValue(Some(5)));
 
         assert_eq!(ds.get_value(b), TestValue(Some(5)));
     }

@@ -1,0 +1,55 @@
+---
+source: src/core/semantic_analysis/type_checking/type_dumper.rs
+expression: "TypeDumper::dump_file(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/return.bb
+---
+function early
+  binding c: Bool
+  27..71 '{ if c... } 2 }': I32
+  33..63 'if c {...n 1; }': ()
+  36..37 'c': Bool
+  38..63 '{ return 1; }': Bottom
+  48..56 'return 1': Bottom
+  55..56 '1': I32
+  68..69 '2': I32
+
+function only_return
+  99..116 '{ return 5; }': Bottom
+  105..113 'return 5': Bottom
+  112..113 '5': I32
+
+function diverging_tail
+  binding x: I32
+  148..182 '{ let ...true }': Bool
+  162..163 '1': I32
+  169..180 'return true': Bottom
+  176..180 'true': Bool
+
+function unit_return
+  203..218 '{ return; }': Bottom
+  209..215 'return': Bottom
+
+function diverging_branches
+  binding c: Bool
+  binding never: Bottom
+  binding later: U64
+  binding used: U64
+  260..402 '{ let ...r; 0 }': I32
+  278..313 'if c {...rn 2 }': Bottom
+  281..282 'c': Bool
+  283..295 '{ return 1 }': Bottom
+  285..293 'return 1': Bottom
+  292..293 '1': I32
+  301..313 '{ return 2 }': Bottom
+  303..311 'return 2': Bottom
+  310..311 '2': I32
+  331..366 'if c {...rn 4 }': U64
+  334..335 'c': Bool
+  336..348 '{ return 3 }': U64
+  338..346 'return 3': Bottom
+  345..346 '3': I32
+  354..366 '{ return 4 }': U64
+  356..364 'return 4': Bottom
+  363..364 '4': I32
+  388..393 'later': U64
+  399..400 '0': I32

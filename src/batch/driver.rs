@@ -5,10 +5,11 @@ use std::time::Instant;
 
 use crate::batch::arg_parser::EmitKind;
 use crate::batch::diagnostic_render::render_diagnostic;
-use crate::core::common::diagnostic::DiagnosticAccumulator;
+use crate::core::common::diagnostic::{Diagnostic, DiagnosticAccumulator};
 use crate::core::db::BlueberryDatabase;
 use crate::core::lexical_analysis::token_stream_dumper::TokenDumper;
 use crate::core::lexical_analysis::tokens_of;
+use crate::core::semantic_analysis::semantic_diagnostics_of;
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
 use crate::core::syntactic_analysis::cst_of;
@@ -76,6 +77,17 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     }
 
     // ---- Stage 3: Semantic Analysis ----
+    let semantic_diagnostics = semantic_diagnostics_of(&db, file);
+    if !semantic_diagnostics.is_empty() {
+        for semantic_diagnostic in semantic_diagnostics {
+            render_diagnostic(
+                &Diagnostic::Semantic(semantic_diagnostic),
+                &file_stem,
+                file.contents(&db),
+            );
+        }
+        return;
+    }
 
     // print compile time
     println!(

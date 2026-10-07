@@ -28,12 +28,12 @@ impl Sink {
         Self { events: Vec::new() }
     }
 
-    pub(crate) fn push(&mut self, event: Event) {
-        self.events.push(event);
-    }
-
     pub(crate) fn len(&self) -> usize {
         self.events.len()
+    }
+
+    pub(crate) fn push(&mut self, event: Event) {
+        self.events.push(event);
     }
 
     pub(crate) fn into_events(self) -> Vec<Event> {

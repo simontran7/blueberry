@@ -1,0 +1,20 @@
+---
+source: src/core/semantic_analysis/type_checking/type_dumper.rs
+expression: "TypeDumper::dump_file(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/nested_definitions.bb
+---
+function outer
+  20..122 '{ cons...r(1) }': I32
+  111..117 'helper': (I32) -> I32
+  111..120 'helper(1)': I32
+  118..119 '1': I32
+
+constant LOCAL
+  45..46 '5': I32
+
+function helper
+  binding x: I32
+  80..105 '{ x + LOCAL }': I32
+  90..91 'x': I32
+  90..99 'x + LOCAL': I32
+  94..99 'LOCAL': I32

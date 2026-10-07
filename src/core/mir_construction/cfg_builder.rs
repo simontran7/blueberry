@@ -58,6 +58,25 @@ impl CfgBuilder {
         }
     }
 
+    pub(crate) fn first_result(&self, instruction_id: InstructionId) -> Option<ValueId> {
+        self.cfg.get_instruction(instruction_id).first_result()
+    }
+
+    pub(crate) fn current_block(&self) -> Option<BlockId> {
+        match self.position {
+            Position::Nowhere => None,
+            Position::At(instruction_id) => {
+                self.cfg.get_instruction(instruction_id).containing_block()
+            }
+            Position::Before(block_id) | Position::After(block_id) => Some(block_id),
+        }
+    }
+
+    pub(crate) fn is_filled_here(&self) -> bool {
+        self.current_block()
+            .is_some_and(|block_id| self.block_states[block_id].status == BlockStatus::Filled)
+    }
+
     pub(crate) fn finish(&mut self) -> Cfg {
         let mut cfg = std::mem::replace(&mut self.cfg, Cfg::new());
         cfg.flush_aliases();
@@ -73,10 +92,6 @@ impl CfgBuilder {
 
     pub(crate) fn append_block_parameter(&mut self, block_id: BlockId, type_id: TypeId) -> ValueId {
         self.cfg.get_block_mut(block_id).append_parameter(type_id)
-    }
-
-    pub(crate) fn first_result(&self, instruction_id: InstructionId) -> Option<ValueId> {
-        self.cfg.get_instruction(instruction_id).first_result()
     }
 
     pub(crate) fn add_signature(&mut self, signature: Signature) -> SignatureId {
@@ -117,21 +132,6 @@ impl CfgBuilder {
         self.position = Position::After(block_id);
     }
 
-    pub(crate) fn current_block(&self) -> Option<BlockId> {
-        match self.position {
-            Position::Nowhere => None,
-            Position::At(instruction_id) => {
-                self.cfg.get_instruction(instruction_id).containing_block()
-            }
-            Position::Before(block_id) | Position::After(block_id) => Some(block_id),
-        }
-    }
-
-    pub(crate) fn is_filled_here(&self) -> bool {
-        self.current_block()
-            .is_some_and(|block_id| self.block_states[block_id].status == BlockStatus::Filled)
-    }
-
     pub(crate) fn seal_block(&mut self, block_id: BlockId) {
         assert!(
             !self.block_states[block_id].sealed,
@@ -147,16 +147,6 @@ impl CfgBuilder {
         }
 
         self.block_states[block_id].sealed = true;
-    }
-
-    fn track_predecessor(&mut self, block_id: BlockId, instruction_id: InstructionId) {
-        assert!(
-            !self.block_states[block_id].sealed,
-            "cannot add a predecessor to an already-sealed block"
-        );
-        self.block_states[block_id]
-            .predecessors
-            .add_last(&mut self.predecessor_edge_suballocator, instruction_id);
     }
 
     pub(crate) fn write_variable(
@@ -178,6 +168,115 @@ impl CfgBuilder {
             return value_id;
         }
         self.read_variable_recursive(variable, ty, block)
+    }
+
+    pub(crate) fn emit_binary(
+        &mut self,
+        operator: BinOp,
+        lhs_id: ValueId,
+        rhs_id: ValueId,
+        type_id: TypeId,
+    ) -> ValueId {
+        let instruction = self.cfg.allocate_binary(operator, [lhs_id, rhs_id]);
+        let instruction_id = self.add_instruction(instruction, &[type_id]);
+        self.cfg
+            .get_instruction(instruction_id)
+            .first_result()
+            .unwrap()
+    }
+
+    pub(crate) fn emit_unary(
+        &mut self,
+        operator: UnOp,
+        operand_id: ValueId,
+        type_id: TypeId,
+    ) -> ValueId {
+        let instruction = self.cfg.allocate_unary(operator, operand_id);
+        let instruction_id = self.add_instruction(instruction, &[type_id]);
+        self.cfg
+            .get_instruction(instruction_id)
+            .first_result()
+            .unwrap()
+    }
+
+    pub(crate) fn emit_integer_literal(&mut self, ty: TypeId, value: u128) -> ValueId {
+        let instruction = self.cfg.allocate_integer_literal(value);
+        let instruction_id = self.add_instruction(instruction, &[ty]);
+        self.cfg
+            .get_instruction(instruction_id)
+            .first_result()
+            .unwrap()
+    }
+
+    pub(crate) fn emit_boolean_literal(&mut self, value: bool, type_id: TypeId) -> ValueId {
+        let instruction = self.cfg.allocate_boolean_literal(value);
+        let instruction_id = self.add_instruction(instruction, &[type_id]);
+        self.cfg
+            .get_instruction(instruction_id)
+            .first_result()
+            .unwrap()
+    }
+
+    pub(crate) fn emit_call(
+        &mut self,
+        callee_reference_id: FunctionReferenceId,
+        argument_ids: &[ValueId],
+        result_type_ids: &[TypeId],
+    ) -> InstructionId {
+        let instruction = self.cfg.allocate_call(callee_reference_id, argument_ids);
+        self.add_instruction(instruction, result_type_ids)
+    }
+
+    pub(crate) fn emit_jump(
+        &mut self,
+        destination_id: BlockId,
+        block_argument_ids: &[ValueId],
+    ) -> InstructionId {
+        let instruction = self.cfg.allocate_jump(destination_id, block_argument_ids);
+        let instruction_id = self.add_instruction(instruction, &[]);
+        self.track_predecessor(destination_id, instruction_id);
+        instruction_id
+    }
+
+    pub(crate) fn emit_conditional_branch(
+        &mut self,
+        operand_id: ValueId,
+        true_block_id: BlockId,
+        true_block_argument_ids: &[ValueId],
+        false_block_id: BlockId,
+        false_block_argument_ids: &[ValueId],
+    ) -> InstructionId {
+        let instruction = self.cfg.allocate_conditional_branch(
+            operand_id,
+            true_block_id,
+            true_block_argument_ids,
+            false_block_id,
+            false_block_argument_ids,
+        );
+        let instruction_id = self.add_instruction(instruction, &[]);
+        self.track_predecessor(true_block_id, instruction_id);
+        self.track_predecessor(false_block_id, instruction_id);
+        instruction_id
+    }
+
+    pub(crate) fn emit_return(&mut self, output_ids: &[ValueId]) -> InstructionId {
+        let instruction = self.cfg.allocate_return(output_ids);
+        self.add_instruction(instruction, &[])
+    }
+
+    pub(crate) fn emit_unreachable(&mut self) -> InstructionId {
+        let instruction = self.cfg.allocate_unreachable();
+        self.add_instruction(instruction, &[])
+    }
+
+    fn track_predecessor(&mut self, block_id: BlockId, instruction_id: InstructionId) {
+        assert!(
+            !self.block_states[block_id].sealed,
+            "cannot add a predecessor to an already-sealed block"
+        );
+        self.block_states[block_id]
+            .predecessors
+            .add_last(&mut self.predecessor_edge_suballocator, instruction_id);
     }
 
     fn read_variable_recursive(
@@ -327,105 +426,6 @@ impl CfgBuilder {
                 panic!("invalid builder position for add_instruction")
             }
         }
-    }
-
-    pub(crate) fn emit_binary(
-        &mut self,
-        operator: BinOp,
-        lhs_id: ValueId,
-        rhs_id: ValueId,
-        type_id: TypeId,
-    ) -> ValueId {
-        let instruction = self.cfg.allocate_binary(operator, [lhs_id, rhs_id]);
-        let instruction_id = self.add_instruction(instruction, &[type_id]);
-        self.cfg
-            .get_instruction(instruction_id)
-            .first_result()
-            .unwrap()
-    }
-
-    pub(crate) fn emit_unary(
-        &mut self,
-        operator: UnOp,
-        operand_id: ValueId,
-        type_id: TypeId,
-    ) -> ValueId {
-        let instruction = self.cfg.allocate_unary(operator, operand_id);
-        let instruction_id = self.add_instruction(instruction, &[type_id]);
-        self.cfg
-            .get_instruction(instruction_id)
-            .first_result()
-            .unwrap()
-    }
-
-    pub(crate) fn emit_integer_literal(&mut self, ty: TypeId, value: u128) -> ValueId {
-        let instruction = self.cfg.allocate_integer_literal(value);
-        let instruction_id = self.add_instruction(instruction, &[ty]);
-        self.cfg
-            .get_instruction(instruction_id)
-            .first_result()
-            .unwrap()
-    }
-
-    pub(crate) fn emit_boolean_literal(&mut self, value: bool, type_id: TypeId) -> ValueId {
-        let instruction = self.cfg.allocate_boolean_literal(value);
-        let instruction_id = self.add_instruction(instruction, &[type_id]);
-        self.cfg
-            .get_instruction(instruction_id)
-            .first_result()
-            .unwrap()
-    }
-
-    pub(crate) fn emit_call(
-        &mut self,
-        callee_reference_id: FunctionReferenceId,
-        argument_ids: &[ValueId],
-        result_type_ids: &[TypeId],
-    ) -> InstructionId {
-        let instruction = self.cfg.allocate_call(callee_reference_id, argument_ids);
-        self.add_instruction(instruction, result_type_ids)
-    }
-
-    pub(crate) fn emit_jump(
-        &mut self,
-        destination_id: BlockId,
-        block_argument_ids: &[ValueId],
-    ) -> InstructionId {
-        let instruction = self.cfg.allocate_jump(destination_id, block_argument_ids);
-        let instruction_id = self.add_instruction(instruction, &[]);
-        self.track_predecessor(destination_id, instruction_id);
-        instruction_id
-    }
-
-    pub(crate) fn emit_conditional_branch(
-        &mut self,
-        operand_id: ValueId,
-        true_block_id: BlockId,
-        true_block_argument_ids: &[ValueId],
-        false_block_id: BlockId,
-        false_block_argument_ids: &[ValueId],
-    ) -> InstructionId {
-        let instruction = self.cfg.allocate_conditional_branch(
-            operand_id,
-            true_block_id,
-            true_block_argument_ids,
-            false_block_id,
-            false_block_argument_ids,
-        );
-        let instruction_id = self.add_instruction(instruction, &[]);
-        self.track_predecessor(true_block_id, instruction_id);
-        self.track_predecessor(false_block_id, instruction_id);
-        instruction_id
-    }
-
-    pub(crate) fn emit_return(&mut self, output_ids: &[ValueId]) -> InstructionId {
-        let instruction = self.cfg.allocate_return(output_ids);
-        self.add_instruction(instruction, &[])
-    }
-
-    pub(crate) fn emit_unreachable(&mut self) -> InstructionId {
-        let instruction = self.cfg.allocate_unreachable();
-        self.add_instruction(instruction, &[])
     }
 }
 

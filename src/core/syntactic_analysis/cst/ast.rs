@@ -231,318 +231,6 @@ impl File {
     }
 }
 
-impl ImportDeclaration {
-    pub(crate) fn path(&self) -> Option<Path> {
-        child(self.red())
-    }
-}
-
-impl Path {
-    pub(crate) fn qualifier(&self) -> Option<Path> {
-        child(self.red())
-    }
-
-    pub(crate) fn segment(&self) -> Option<PathSegment> {
-        child(self.red())
-    }
-
-    pub(crate) fn segments(&self) -> Vec<PathSegment> {
-        let mut segments = Vec::new();
-        let mut path = Some(self.clone());
-        while let Some(current) = path {
-            segments.extend(current.segment());
-            path = current.qualifier();
-        }
-        segments.reverse();
-        segments
-    }
-}
-
-impl PathSegment {
-    pub(crate) fn name(&self) -> Option<RedToken> {
-        token(self.red(), SyntaxKind::Identifier)
-    }
-}
-
-impl FunctionDefinition {
-    pub(crate) fn name(&self) -> Option<RedToken> {
-        token(self.red(), SyntaxKind::Identifier)
-    }
-
-    pub(crate) fn parameter_list(&self) -> Option<ParameterList> {
-        child(self.red())
-    }
-
-    pub(crate) fn return_type(&self) -> Option<TypeExpression> {
-        child(self.red())
-    }
-
-    pub(crate) fn body(&self) -> Option<Block> {
-        child(self.red())
-    }
-}
-
-impl ConstantDefinition {
-    pub(crate) fn name(&self) -> Option<RedToken> {
-        token(self.red(), SyntaxKind::Identifier)
-    }
-
-    pub(crate) fn type_annotation(&self) -> Option<TypeExpression> {
-        child(self.red())
-    }
-
-    pub(crate) fn value(&self) -> Option<Expression> {
-        child(self.red())
-    }
-}
-
-impl LetStatement {
-    pub(crate) fn is_mutable(&self) -> bool {
-        token(self.red(), SyntaxKind::Mut).is_some()
-    }
-
-    pub(crate) fn name(&self) -> Option<RedToken> {
-        token(self.red(), SyntaxKind::Identifier)
-    }
-
-    pub(crate) fn type_annotation(&self) -> Option<TypeExpression> {
-        child(self.red())
-    }
-
-    pub(crate) fn value(&self) -> Option<Expression> {
-        child(self.red())
-    }
-}
-
-impl DefinitionStatement {
-    pub(crate) fn definition(&self) -> Option<Definition> {
-        child(self.red())
-    }
-}
-
-impl ExpressionStatement {
-    pub(crate) fn expression(&self) -> Option<Expression> {
-        child(self.red())
-    }
-
-    pub(crate) fn has_semicolon(&self) -> bool {
-        token(self.red(), SyntaxKind::Semicolon).is_some()
-    }
-}
-
-impl Return {
-    pub(crate) fn value(&self) -> Option<Expression> {
-        child(self.red())
-    }
-}
-
-impl Break {
-    pub(crate) fn value(&self) -> Option<Expression> {
-        child(self.red())
-    }
-}
-
-impl IfExpression {
-    pub(crate) fn condition(&self) -> Option<Expression> {
-        nth_child(self.red(), 0)
-    }
-
-    pub(crate) fn then_branch(&self) -> Option<Block> {
-        nth_child(self.red(), 1)
-    }
-
-    pub(crate) fn else_branch(&self) -> Option<ElseBranch> {
-        nth_child(self.red(), 2)
-    }
-}
-
-impl WhileLoop {
-    pub(crate) fn condition(&self) -> Option<Expression> {
-        child(self.red())
-    }
-
-    pub(crate) fn body(&self) -> Option<Block> {
-        child(self.red())
-    }
-}
-
-impl InfiniteLoop {
-    pub(crate) fn body(&self) -> Option<Block> {
-        child(self.red())
-    }
-}
-
-impl BinaryOperation {
-    pub(crate) fn lhs(&self) -> Option<Expression> {
-        children(self.red()).next()
-    }
-
-    pub(crate) fn operator(&self) -> Option<RedToken> {
-        self.red().children().find_map(|child| match child {
-            RedChild::Token(t)
-                if matches!(
-                    t.kind(),
-                    SyntaxKind::Plus
-                        | SyntaxKind::Minus
-                        | SyntaxKind::Star
-                        | SyntaxKind::Slash
-                        | SyntaxKind::LessThan
-                        | SyntaxKind::GreaterThan
-                        | SyntaxKind::LessEqual
-                        | SyntaxKind::GreaterEqual
-                        | SyntaxKind::EqualEqual
-                        | SyntaxKind::NotEqual
-                        | SyntaxKind::LogicalAnd
-                        | SyntaxKind::LogicalOr
-                ) =>
-            {
-                Some(t)
-            }
-            _ => None,
-        })
-    }
-
-    pub(crate) fn rhs(&self) -> Option<Expression> {
-        children(self.red()).nth(1)
-    }
-}
-
-impl UnaryOperation {
-    pub(crate) fn operator(&self) -> Option<RedToken> {
-        self.red().children().find_map(|child| match child {
-            RedChild::Token(t)
-                if matches!(t.kind(), SyntaxKind::Minus | SyntaxKind::LogicalNot) =>
-            {
-                Some(t)
-            }
-            _ => None,
-        })
-    }
-
-    pub(crate) fn operand(&self) -> Option<Expression> {
-        child(self.red())
-    }
-}
-
-impl Assignment {
-    pub(crate) fn target(&self) -> Option<Expression> {
-        children(self.red()).next()
-    }
-
-    pub(crate) fn operator(&self) -> Option<RedToken> {
-        token(self.red(), SyntaxKind::Equal)
-    }
-
-    pub(crate) fn value(&self) -> Option<Expression> {
-        children(self.red()).nth(1)
-    }
-}
-
-impl Call {
-    pub(crate) fn callee(&self) -> Option<Expression> {
-        child(self.red())
-    }
-
-    pub(crate) fn arguments(&self) -> Option<ArgumentList> {
-        child(self.red())
-    }
-}
-
-impl ArgumentList {
-    pub(crate) fn arguments(&self) -> impl Iterator<Item = Argument> {
-        children(self.red())
-    }
-}
-
-impl Argument {
-    pub(crate) fn value(&self) -> Option<Expression> {
-        child(self.red())
-    }
-}
-
-impl ParenthesizedExpression {
-    pub(crate) fn expression(&self) -> Option<Expression> {
-        child(self.red())
-    }
-}
-
-impl PathExpression {
-    pub(crate) fn path(&self) -> Option<Path> {
-        child(self.red())
-    }
-}
-
-impl IntegerLiteral {
-    pub(crate) fn token(&self) -> Option<RedToken> {
-        token(self.red(), SyntaxKind::Integer)
-    }
-
-    pub(crate) fn value(&self) -> Result<u128, std::num::ParseIntError> {
-        let token = self
-            .token()
-            .expect("the parser only builds an `IntegerLiteral` around an Integer token");
-
-        let cleaned: String = token.lexeme().chars().filter(|&c| c != '_').collect();
-
-        let (digits, radix) = if let Some(rest) = cleaned.strip_prefix("0x") {
-            (rest, 16)
-        } else if let Some(rest) = cleaned.strip_prefix("0b") {
-            (rest, 2)
-        } else if let Some(rest) = cleaned.strip_prefix("0o") {
-            (rest, 8)
-        } else {
-            (cleaned.as_str(), 10)
-        };
-
-        u128::from_str_radix(digits, radix)
-    }
-}
-
-impl BooleanLiteral {
-    pub(crate) fn value(&self) -> Option<bool> {
-        self.red().children().find_map(|child| match child {
-            RedChild::Token(t) if t.kind() == SyntaxKind::True => Some(true),
-            RedChild::Token(t) if t.kind() == SyntaxKind::False => Some(false),
-            _ => None,
-        })
-    }
-}
-
-impl Block {
-    pub(crate) fn statements(&self) -> impl Iterator<Item = Statement> {
-        children(self.red())
-    }
-
-    pub(crate) fn definitions(&self) -> impl Iterator<Item = Definition> {
-        self.statements().filter_map(|stmt| match stmt {
-            Statement::DefinitionStatement(stmt) => stmt.definition(),
-            Statement::LetStatement(_) | Statement::ExpressionStatement(_) => None,
-        })
-    }
-}
-
-impl ParameterList {
-    pub(crate) fn parameters(&self) -> impl Iterator<Item = Parameter> {
-        children(self.red())
-    }
-}
-
-impl Parameter {
-    pub(crate) fn name(&self) -> Option<RedToken> {
-        token(self.red(), SyntaxKind::Identifier)
-    }
-
-    pub(crate) fn type_expression(&self) -> Option<TypeExpression> {
-        child(self.red())
-    }
-}
-
-impl TypeExpression {
-    pub(crate) fn name(&self) -> Option<RedToken> {
-        token(self.red(), SyntaxKind::Identifier)
-    }
-}
-
 impl AstNode for File {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::File
@@ -611,6 +299,12 @@ impl AstNode for Item {
     }
 }
 
+impl ImportDeclaration {
+    pub(crate) fn path(&self) -> Option<Path> {
+        child(self.red())
+    }
+}
+
 impl AstNode for ImportDeclaration {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ImportDeclaration
@@ -622,6 +316,27 @@ impl AstNode for ImportDeclaration {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl Path {
+    pub(crate) fn qualifier(&self) -> Option<Path> {
+        child(self.red())
+    }
+
+    pub(crate) fn segment(&self) -> Option<PathSegment> {
+        child(self.red())
+    }
+
+    pub(crate) fn segments(&self) -> Vec<PathSegment> {
+        let mut segments = Vec::new();
+        let mut path = Some(self.clone());
+        while let Some(current) = path {
+            segments.extend(current.segment());
+            path = current.qualifier();
+        }
+        segments.reverse();
+        segments
     }
 }
 
@@ -639,6 +354,12 @@ impl AstNode for Path {
     }
 }
 
+impl PathSegment {
+    pub(crate) fn name(&self) -> Option<RedToken> {
+        token(self.red(), SyntaxKind::Identifier)
+    }
+}
+
 impl AstNode for PathSegment {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::PathSegment
@@ -653,6 +374,24 @@ impl AstNode for PathSegment {
     }
 }
 
+impl FunctionDefinition {
+    pub(crate) fn name(&self) -> Option<RedToken> {
+        token(self.red(), SyntaxKind::Identifier)
+    }
+
+    pub(crate) fn parameter_list(&self) -> Option<ParameterList> {
+        child(self.red())
+    }
+
+    pub(crate) fn return_type(&self) -> Option<TypeExpression> {
+        child(self.red())
+    }
+
+    pub(crate) fn body(&self) -> Option<Block> {
+        child(self.red())
+    }
+}
+
 impl AstNode for FunctionDefinition {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::FunctionDefinition
@@ -664,6 +403,20 @@ impl AstNode for FunctionDefinition {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl ConstantDefinition {
+    pub(crate) fn name(&self) -> Option<RedToken> {
+        token(self.red(), SyntaxKind::Identifier)
+    }
+
+    pub(crate) fn type_annotation(&self) -> Option<TypeExpression> {
+        child(self.red())
+    }
+
+    pub(crate) fn value(&self) -> Option<Expression> {
+        child(self.red())
     }
 }
 
@@ -714,6 +467,24 @@ impl AstNode for Statement {
     }
 }
 
+impl LetStatement {
+    pub(crate) fn is_mutable(&self) -> bool {
+        token(self.red(), SyntaxKind::Mut).is_some()
+    }
+
+    pub(crate) fn name(&self) -> Option<RedToken> {
+        token(self.red(), SyntaxKind::Identifier)
+    }
+
+    pub(crate) fn type_annotation(&self) -> Option<TypeExpression> {
+        child(self.red())
+    }
+
+    pub(crate) fn value(&self) -> Option<Expression> {
+        child(self.red())
+    }
+}
+
 impl AstNode for LetStatement {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::LetStatement
@@ -725,6 +496,12 @@ impl AstNode for LetStatement {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl DefinitionStatement {
+    pub(crate) fn definition(&self) -> Option<Definition> {
+        child(self.red())
     }
 }
 
@@ -742,6 +519,16 @@ impl AstNode for DefinitionStatement {
     }
 }
 
+impl ExpressionStatement {
+    pub(crate) fn expression(&self) -> Option<Expression> {
+        child(self.red())
+    }
+
+    pub(crate) fn has_semicolon(&self) -> bool {
+        token(self.red(), SyntaxKind::Semicolon).is_some()
+    }
+}
+
 impl AstNode for ExpressionStatement {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ExpressionStatement
@@ -756,6 +543,12 @@ impl AstNode for ExpressionStatement {
     }
 }
 
+impl Return {
+    pub(crate) fn value(&self) -> Option<Expression> {
+        child(self.red())
+    }
+}
+
 impl AstNode for Return {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ReturnExpression
@@ -767,6 +560,12 @@ impl AstNode for Return {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl Break {
+    pub(crate) fn value(&self) -> Option<Expression> {
+        child(self.red())
     }
 }
 
@@ -868,6 +667,20 @@ impl AstNode for Expression {
     }
 }
 
+impl IfExpression {
+    pub(crate) fn condition(&self) -> Option<Expression> {
+        nth_child(self.red(), 0)
+    }
+
+    pub(crate) fn then_branch(&self) -> Option<Block> {
+        nth_child(self.red(), 1)
+    }
+
+    pub(crate) fn else_branch(&self) -> Option<ElseBranch> {
+        nth_child(self.red(), 2)
+    }
+}
+
 impl AstNode for IfExpression {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::IfExpression
@@ -903,6 +716,16 @@ impl AstNode for ElseBranch {
     }
 }
 
+impl WhileLoop {
+    pub(crate) fn condition(&self) -> Option<Expression> {
+        child(self.red())
+    }
+
+    pub(crate) fn body(&self) -> Option<Block> {
+        child(self.red())
+    }
+}
+
 impl AstNode for WhileLoop {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::WhileLoop
@@ -914,6 +737,12 @@ impl AstNode for WhileLoop {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl InfiniteLoop {
+    pub(crate) fn body(&self) -> Option<Block> {
+        child(self.red())
     }
 }
 
@@ -931,6 +760,41 @@ impl AstNode for InfiniteLoop {
     }
 }
 
+impl BinaryOperation {
+    pub(crate) fn lhs(&self) -> Option<Expression> {
+        children(self.red()).next()
+    }
+
+    pub(crate) fn operator(&self) -> Option<RedToken> {
+        self.red().children().find_map(|child| match child {
+            RedChild::Token(t)
+                if matches!(
+                    t.kind(),
+                    SyntaxKind::Plus
+                        | SyntaxKind::Minus
+                        | SyntaxKind::Star
+                        | SyntaxKind::Slash
+                        | SyntaxKind::LessThan
+                        | SyntaxKind::GreaterThan
+                        | SyntaxKind::LessEqual
+                        | SyntaxKind::GreaterEqual
+                        | SyntaxKind::EqualEqual
+                        | SyntaxKind::NotEqual
+                        | SyntaxKind::LogicalAnd
+                        | SyntaxKind::LogicalOr
+                ) =>
+            {
+                Some(t)
+            }
+            _ => None,
+        })
+    }
+
+    pub(crate) fn rhs(&self) -> Option<Expression> {
+        children(self.red()).nth(1)
+    }
+}
+
 impl AstNode for BinaryOperation {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::BinaryOperation
@@ -942,6 +806,23 @@ impl AstNode for BinaryOperation {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl UnaryOperation {
+    pub(crate) fn operator(&self) -> Option<RedToken> {
+        self.red().children().find_map(|child| match child {
+            RedChild::Token(t)
+                if matches!(t.kind(), SyntaxKind::Minus | SyntaxKind::LogicalNot) =>
+            {
+                Some(t)
+            }
+            _ => None,
+        })
+    }
+
+    pub(crate) fn operand(&self) -> Option<Expression> {
+        child(self.red())
     }
 }
 
@@ -959,6 +840,20 @@ impl AstNode for UnaryOperation {
     }
 }
 
+impl Assignment {
+    pub(crate) fn target(&self) -> Option<Expression> {
+        children(self.red()).next()
+    }
+
+    pub(crate) fn operator(&self) -> Option<RedToken> {
+        token(self.red(), SyntaxKind::Equal)
+    }
+
+    pub(crate) fn value(&self) -> Option<Expression> {
+        children(self.red()).nth(1)
+    }
+}
+
 impl AstNode for Assignment {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::Assignment
@@ -970,6 +865,16 @@ impl AstNode for Assignment {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl Call {
+    pub(crate) fn callee(&self) -> Option<Expression> {
+        child(self.red())
+    }
+
+    pub(crate) fn arguments(&self) -> Option<ArgumentList> {
+        child(self.red())
     }
 }
 
@@ -987,6 +892,12 @@ impl AstNode for Call {
     }
 }
 
+impl ArgumentList {
+    pub(crate) fn arguments(&self) -> impl Iterator<Item = Argument> {
+        children(self.red())
+    }
+}
+
 impl AstNode for ArgumentList {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ArgumentList
@@ -998,6 +909,12 @@ impl AstNode for ArgumentList {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl Argument {
+    pub(crate) fn value(&self) -> Option<Expression> {
+        child(self.red())
     }
 }
 
@@ -1015,6 +932,12 @@ impl AstNode for Argument {
     }
 }
 
+impl ParenthesizedExpression {
+    pub(crate) fn expression(&self) -> Option<Expression> {
+        child(self.red())
+    }
+}
+
 impl AstNode for ParenthesizedExpression {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ParenthesizedExpression
@@ -1026,6 +949,12 @@ impl AstNode for ParenthesizedExpression {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl PathExpression {
+    pub(crate) fn path(&self) -> Option<Path> {
+        child(self.red())
     }
 }
 
@@ -1043,6 +972,32 @@ impl AstNode for PathExpression {
     }
 }
 
+impl IntegerLiteral {
+    pub(crate) fn token(&self) -> Option<RedToken> {
+        token(self.red(), SyntaxKind::Integer)
+    }
+
+    pub(crate) fn value(&self) -> Result<u128, std::num::ParseIntError> {
+        let token = self
+            .token()
+            .expect("the parser only builds an `IntegerLiteral` around an Integer token");
+
+        let cleaned: String = token.lexeme().chars().filter(|&c| c != '_').collect();
+
+        let (digits, radix) = if let Some(rest) = cleaned.strip_prefix("0x") {
+            (rest, 16)
+        } else if let Some(rest) = cleaned.strip_prefix("0b") {
+            (rest, 2)
+        } else if let Some(rest) = cleaned.strip_prefix("0o") {
+            (rest, 8)
+        } else {
+            (cleaned.as_str(), 10)
+        };
+
+        u128::from_str_radix(digits, radix)
+    }
+}
+
 impl AstNode for IntegerLiteral {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::IntegerLiteral
@@ -1054,6 +1009,16 @@ impl AstNode for IntegerLiteral {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl BooleanLiteral {
+    pub(crate) fn value(&self) -> Option<bool> {
+        self.red().children().find_map(|child| match child {
+            RedChild::Token(t) if t.kind() == SyntaxKind::True => Some(true),
+            RedChild::Token(t) if t.kind() == SyntaxKind::False => Some(false),
+            _ => None,
+        })
     }
 }
 
@@ -1085,6 +1050,19 @@ impl AstNode for UnitLiteral {
     }
 }
 
+impl Block {
+    pub(crate) fn statements(&self) -> impl Iterator<Item = Statement> {
+        children(self.red())
+    }
+
+    pub(crate) fn definitions(&self) -> impl Iterator<Item = Definition> {
+        self.statements().filter_map(|stmt| match stmt {
+            Statement::DefinitionStatement(stmt) => stmt.definition(),
+            Statement::LetStatement(_) | Statement::ExpressionStatement(_) => None,
+        })
+    }
+}
+
 impl AstNode for Block {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::Block
@@ -1096,6 +1074,12 @@ impl AstNode for Block {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl ParameterList {
+    pub(crate) fn parameters(&self) -> impl Iterator<Item = Parameter> {
+        children(self.red())
     }
 }
 
@@ -1113,6 +1097,16 @@ impl AstNode for ParameterList {
     }
 }
 
+impl Parameter {
+    pub(crate) fn name(&self) -> Option<RedToken> {
+        token(self.red(), SyntaxKind::Identifier)
+    }
+
+    pub(crate) fn type_expression(&self) -> Option<TypeExpression> {
+        child(self.red())
+    }
+}
+
 impl AstNode for Parameter {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::Parameter
@@ -1124,6 +1118,12 @@ impl AstNode for Parameter {
 
     fn red(&self) -> &RedNode {
         &self.red
+    }
+}
+
+impl TypeExpression {
+    pub(crate) fn name(&self) -> Option<RedToken> {
+        token(self.red(), SyntaxKind::Identifier)
     }
 }
 

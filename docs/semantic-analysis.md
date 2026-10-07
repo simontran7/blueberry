@@ -8,9 +8,9 @@ TO WRITE
 
 ## Name Resolution
 
-In blueberry, the same name can be declared many times. This introduces issues.
+In blueberry, the same name can be declared many times.
 
-Scenario 1: a name is redeclared in the same scope
+For example, a name is redeclared in the same scope:
 
 ```
 let x = 1;
@@ -20,28 +20,7 @@ println(x);
 
 Both variables are called `x`. If the compiler only remembered names, it would have a single entry for `x` and couldn't tell whether `println(x)` means the number or the boolean.
 
-Scenario 2: the same name in different blocks
-
-```
-{ let x = 1; }
-{ let x = true; }
-```
-
-These two `x`s have nothing to do with each other. One is a number, and one is a boolean value. If we kept a lasting table of each variable's type keyed by its name, the second `x` would overwrite the first.
-
-Scenario 3: a variable and a function both share the same name
-
-```
-func x() { ... }
-func main() {
-    let x = 5;
-    x;   // the variable, not the function
-}
-```
-
-The name `x` fits two different kinds of things here, so the compiler needs a rule for which one wins.
-
-The fix for scenario 1 and 2 is to assign every declaration its own ID, called a **binding**:
+The fix is to give every declaration its own ID: a **binding** for each `let` and parameter, and a **key** (`FunctionKey`, `ConstantKey`) for each definition. The output of name resolution is always one of these IDs:
 
 ```
 let x = 1; // binding #1
@@ -49,28 +28,20 @@ let x = true; // binding #2
 println(x);        
 ```
 
-now, in `println(x)`, we know it's referencing binding #2.
+Now, `println(x)` can be resolved to binding #2.
 
-and for scenario 2:
-
-```
-{ let x = 1; } // binding #1
-{ let x = true; } // binding #2
-```
-
-Types can now be recorded by binding instead of by name, so both fit:
+Bindings let us tell declarations apart, but it doesn't enforce _how_ choose between them. That's the job of a fixed lookup order. The idea is to search from the closest scope outward and stop at the first match. This picks the latest `x` above, and the local `x` over the function below:
 
 ```
-let some_data_structure = {
-    binding #1 -> I32,
-    binding #2 -> Bool,
+func x() { ... } // FunctionKey(x)
+func main() {
+    let x = 5;   // binding #1
+    x;           // binding #1, not FunctionKey(x)
 }
 ```
 
 > [!NOTE]
-> Without bindings, scenario 1 and scenario 2 face ambiguity, and, with a lasting name-keyed table, overwritten types.
-
-However, the third scenario is solved by a fixed lookup order: search from the closest scope outward and stop at the first match, so the local `x` is found before the function.
+> Bindings also matter after name resolution. Later passes store facts per variable, such as its type, and keep them around. Keying those tables by binding instead of by name means `{ let x = 1; }` and `{ let x = true; }` never overwrite each other.
 
 **Name resolution** is the process of determining which declaration (i.e., `let` binding, `const` definitions, or `func` definitions) each identifier in a program refers to.
 
@@ -139,7 +110,7 @@ Lastly, an `ImportList` is a flat list of paths from all the file's `import` dec
 ### Resolving
 
 Blueberry's `Resolver` attempts to resolve a given name in the following order:
-1. each scope, starting from the given name's innermost scope and moving outward: its `let` bindings, then (if the scope is a block) the nested definitions declared in that block
+1. each scope, starting from the given name's innermost scope and moving outward: its `let` bindings, then, if the scope is a block, the nested definitions declared in that block if any
 2. top-level definitions in the current file
 3. import declarations (representing top-level definitions in other files)
 
@@ -300,7 +271,7 @@ As the type checker walks either a function body, or a constant body, the follow
 | `if c { a }` | `unify(Bool, ty(c))`, `unify((), ty(a))` | `()` |
 | `{ s1; s2; e }` | none | `ty(e)`, or `()` if there's no tail |
 | `f(a1, .., an)` where `f: fn(p1, .., pn) -> r` | `unify(pi, ty(ai))` for each argument | `r` |
-| `-e` | `ty(e)` must be an integer type or integer variable | `ty(e)` |
+| `-e` | `ty(e)` must be a signed integer type, or an integer variable that ends up signed | `ty(e)` |
 | `!e` | `unify(Bool, ty(e))` | `Bool` |
 | `a + b`, `a - b`, `a * b`, `a / b` | `unify(ty(a), ty(b))`, which must be an integer | `ty(a)` |
 | `a < b`, `a == b`, … | `unify(ty(a), ty(b))` | `Bool` |
@@ -389,7 +360,7 @@ _In the code:_ `function_signature_of(f)`, `constant_signature_of(c)`
 
 ### 4. Definition Bodies are lowered (AST → HIR)
 
-Every body is lowered into **HIR** (a `DefinitionBody`): flat tables of expressions, statements and local bindings, each referred to by a handle. Every `let` and parameter becomes its own **binding**, so two `x`s are never confused (see [Name Resolution](#name-resolution)).
+Every body is lowered into a **HIR** (a `DefinitionBody`) consisting of flat tables of expressions, statements and local bindings, each referred to by a handle. Every `let` and parameter becomes its own **binding**, so two `x`s are never confused (see [Name Resolution](#name-resolution)).
 
 For diagnostics, a source map is also built, storing information about which HIR node came from which AST node.
 

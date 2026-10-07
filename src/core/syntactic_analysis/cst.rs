@@ -211,6 +211,56 @@ impl GreenToken {
     }
 }
 
+impl From<TokenKind> for SyntaxKind {
+    fn from(kind: TokenKind) -> Self {
+        match kind {
+            TokenKind::Identifier => Self::Identifier,
+            TokenKind::Integer => Self::Integer,
+            TokenKind::Equal => Self::Equal,
+            TokenKind::Plus => Self::Plus,
+            TokenKind::Minus => Self::Minus,
+            TokenKind::Star => Self::Star,
+            TokenKind::Slash => Self::Slash,
+            TokenKind::LessThan => Self::LessThan,
+            TokenKind::GreaterThan => Self::GreaterThan,
+            TokenKind::LessEqual => Self::LessEqual,
+            TokenKind::GreaterEqual => Self::GreaterEqual,
+            TokenKind::EqualEqual => Self::EqualEqual,
+            TokenKind::NotEqual => Self::NotEqual,
+            TokenKind::Comma => Self::Comma,
+            TokenKind::Colon => Self::Colon,
+            TokenKind::ColonColon => Self::ColonColon,
+            TokenKind::Semicolon => Self::Semicolon,
+            TokenKind::OpenParen => Self::OpenParen,
+            TokenKind::CloseParen => Self::CloseParen,
+            TokenKind::OpenBrace => Self::OpenBrace,
+            TokenKind::CloseBrace => Self::CloseBrace,
+            TokenKind::ThinArrow => Self::ThinArrow,
+            TokenKind::LogicalAnd => Self::LogicalAnd,
+            TokenKind::LogicalOr => Self::LogicalOr,
+            TokenKind::LogicalNot => Self::LogicalNot,
+            TokenKind::Let => Self::Let,
+            TokenKind::Mut => Self::Mut,
+            TokenKind::Const => Self::Const,
+            TokenKind::Func => Self::Func,
+            TokenKind::If => Self::If,
+            TokenKind::Else => Self::Else,
+            TokenKind::Return => Self::Return,
+            TokenKind::True => Self::True,
+            TokenKind::False => Self::False,
+            TokenKind::While => Self::While,
+            TokenKind::Loop => Self::Loop,
+            TokenKind::Break => Self::Break,
+            TokenKind::Continue => Self::Continue,
+            TokenKind::Import => Self::Import,
+            TokenKind::Whitespace => Self::Whitespace,
+            TokenKind::InlineComment => Self::InlineComment,
+            TokenKind::Error => Self::Error,
+            TokenKind::Eof => panic!("`eof` token is never pushed as a tree token"),
+        }
+    }
+}
+
 impl RedNode {
     pub(crate) fn new(green: Arc<GreenNode>) -> Self {
         Self {
@@ -286,6 +336,14 @@ impl RedNode {
     }
 }
 
+impl PartialEq for RedNode {
+    fn eq(&self, other: &Self) -> bool {
+        self.offset == other.offset && Arc::ptr_eq(&self.green, &other.green)
+    }
+}
+
+impl Eq for RedNode {}
+
 impl RedToken {
     pub(crate) fn kind(&self) -> SyntaxKind {
         self.green.kind()
@@ -305,6 +363,12 @@ impl RedToken {
 
     pub(crate) fn parent(&self) -> &RedNode {
         &self.parent
+    }
+}
+
+impl PartialEq for RedToken {
+    fn eq(&self, other: &Self) -> bool {
+        self.offset == other.offset && Arc::ptr_eq(&self.green, &other.green)
     }
 }
 
@@ -328,20 +392,6 @@ impl RedNodeTag {
             })?;
             current = next;
         }
-    }
-}
-
-impl PartialEq for RedNode {
-    fn eq(&self, other: &Self) -> bool {
-        self.offset == other.offset && Arc::ptr_eq(&self.green, &other.green)
-    }
-}
-
-impl Eq for RedNode {}
-
-impl PartialEq for RedToken {
-    fn eq(&self, other: &Self) -> bool {
-        self.offset == other.offset && Arc::ptr_eq(&self.green, &other.green)
     }
 }
 
@@ -399,55 +449,5 @@ impl Iterator for DescendantsIter {
         self.stack.extend(children.into_iter().rev());
 
         Some(node)
-    }
-}
-
-impl From<TokenKind> for SyntaxKind {
-    fn from(kind: TokenKind) -> Self {
-        match kind {
-            TokenKind::Identifier => Self::Identifier,
-            TokenKind::Integer => Self::Integer,
-            TokenKind::Equal => Self::Equal,
-            TokenKind::Plus => Self::Plus,
-            TokenKind::Minus => Self::Minus,
-            TokenKind::Star => Self::Star,
-            TokenKind::Slash => Self::Slash,
-            TokenKind::LessThan => Self::LessThan,
-            TokenKind::GreaterThan => Self::GreaterThan,
-            TokenKind::LessEqual => Self::LessEqual,
-            TokenKind::GreaterEqual => Self::GreaterEqual,
-            TokenKind::EqualEqual => Self::EqualEqual,
-            TokenKind::NotEqual => Self::NotEqual,
-            TokenKind::Comma => Self::Comma,
-            TokenKind::Colon => Self::Colon,
-            TokenKind::ColonColon => Self::ColonColon,
-            TokenKind::Semicolon => Self::Semicolon,
-            TokenKind::OpenParen => Self::OpenParen,
-            TokenKind::CloseParen => Self::CloseParen,
-            TokenKind::OpenBrace => Self::OpenBrace,
-            TokenKind::CloseBrace => Self::CloseBrace,
-            TokenKind::ThinArrow => Self::ThinArrow,
-            TokenKind::LogicalAnd => Self::LogicalAnd,
-            TokenKind::LogicalOr => Self::LogicalOr,
-            TokenKind::LogicalNot => Self::LogicalNot,
-            TokenKind::Let => Self::Let,
-            TokenKind::Mut => Self::Mut,
-            TokenKind::Const => Self::Const,
-            TokenKind::Func => Self::Func,
-            TokenKind::If => Self::If,
-            TokenKind::Else => Self::Else,
-            TokenKind::Return => Self::Return,
-            TokenKind::True => Self::True,
-            TokenKind::False => Self::False,
-            TokenKind::While => Self::While,
-            TokenKind::Loop => Self::Loop,
-            TokenKind::Break => Self::Break,
-            TokenKind::Continue => Self::Continue,
-            TokenKind::Import => Self::Import,
-            TokenKind::Whitespace => Self::Whitespace,
-            TokenKind::InlineComment => Self::InlineComment,
-            TokenKind::Error => Self::Error,
-            TokenKind::Eof => panic!("`eof` token is never pushed as a tree token"),
-        }
     }
 }

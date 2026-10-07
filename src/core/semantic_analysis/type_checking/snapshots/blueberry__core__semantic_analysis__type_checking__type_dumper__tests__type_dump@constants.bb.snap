@@ -1,0 +1,19 @@
+---
+source: src/core/semantic_analysis/type_checking/type_dumper.rs
+expression: "TypeDumper::dump_file(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/constants.bb
+---
+constant SMALL
+  19..20 '5': U32
+
+constant BIG
+  39..40 '5': I64
+
+constant READY
+  62..66 'true': Bool
+
+constant ALIAS
+  87..92 'SMALL': U32
+
+constant NOTHING
+  116..118 '()': ()

@@ -81,7 +81,7 @@ impl<'db> Ty<'db> {
         )
     }
 
-    pub(crate) fn primitive(db: &'db dyn crate::Db, name: &str) -> Option<Self> {
+    pub(crate) fn to_primitive(db: &'db dyn crate::Db, name: &str) -> Option<Self> {
         Some(match name {
             "Unit" => Self::unit(db),
             "Bottom" => Self::bottom(db),
@@ -92,6 +92,20 @@ impl<'db> Ty<'db> {
             "U64" => Self::unsigned(db, UnsignedIntTy::U64),
             _ => return None,
         })
+    }
+
+    pub(crate) fn is_poisoned(self, db: &'db dyn crate::Db) -> bool {
+        match self.kind(db) {
+            TyKind::Error => true,
+            TyKind::Function {
+                parameters,
+                r#return,
+            } => {
+                parameters.iter().any(|parameter| parameter.is_poisoned(db))
+                    || r#return.is_poisoned(db)
+            }
+            _ => false,
+        }
     }
 
     pub(crate) fn display(self, db: &'db dyn crate::Db) -> String {
@@ -113,8 +127,8 @@ impl<'db> Ty<'db> {
                     .collect();
                 format!("({}) -> {}", parameters.join(", "), r#return.display(db))
             }
-            TyKind::InferenceVariable(InferenceVariable::General(_)) => "unknown".to_string(),
-            TyKind::InferenceVariable(InferenceVariable::Integer(_)) => "Int".to_string(),
+            TyKind::InferenceVariable(InferenceVariable::General(_)) => "{unknown}".to_string(),
+            TyKind::InferenceVariable(InferenceVariable::Integer(_)) => "{integer}".to_string(),
             TyKind::Error => "Error".to_string(),
         }
     }

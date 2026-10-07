@@ -15,14 +15,6 @@ pub(crate) struct ScopeTree<'db> {
     containing_scopes: SideHandleMap<ExpressionHandle, ScopeHandle>,
 }
 
-/// Node in the scope tree
-#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
-struct Scope<'db> {
-    parent_handle: Option<ScopeHandle>,
-    block_key: Option<BlockKey<'db>>,
-    entries: Segment<ScopeEntry<'db>>,
-}
-
 /// A single name visible in a scope, and the binding it currently refers to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct ScopeEntry<'db> {
@@ -43,6 +35,14 @@ pub(crate) struct ScopeViewMut<'a, 'db> {
     scope_handle: ScopeHandle,
 }
 
+/// Node in the scope tree
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
+struct Scope<'db> {
+    parent_handle: Option<ScopeHandle>,
+    block_key: Option<BlockKey<'db>>,
+    entries: Segment<ScopeEntry<'db>>,
+}
+
 impl<'db> ScopeTree<'db> {
     /// Builds the scope tree for a body, starting from its parameters.
     pub(crate) fn new(body: &DefinitionBody<'db>) -> Self {
@@ -59,9 +59,9 @@ impl<'db> ScopeTree<'db> {
         });
         scope_tree
             .get_scope_mut(root_handle)
-            .add_entries(body, &body.binding_children[body.parameters]);
+            .add_entries(body, &body.binding_children[body.parameter_segment]);
 
-        scope_tree.visit_expression(body, body.root, root_handle);
+        scope_tree.visit_expression(body, body.root_handle, root_handle);
 
         scope_tree
     }
@@ -119,7 +119,7 @@ impl<'db> ScopeTree<'db> {
             }
             Expression::Block {
                 block_key,
-                statements,
+                statement_segment,
                 tail_handle,
             } => {
                 let mut parent_handle = self.scopes.add(Scope {
@@ -128,8 +128,8 @@ impl<'db> ScopeTree<'db> {
                     entries: Segment::empty(),
                 });
 
-                for statement in &body.statement_children[*statements] {
-                    match &body.statements[*statement] {
+                for statement_handle in &body.statement_children[*statement_segment] {
+                    match &body.statements[*statement_handle] {
                         Statement::Let {
                             name_handle,
                             initializer_handle,
@@ -165,10 +165,10 @@ impl<'db> ScopeTree<'db> {
             } => self.visit_expression(body, *loop_body_handle, parent_handle),
             Expression::Call {
                 callee_handle,
-                arguments,
+                argument_segment,
             } => {
                 self.visit_expression(body, *callee_handle, parent_handle);
-                for argument_handle in &body.expression_children[*arguments] {
+                for argument_handle in &body.expression_children[*argument_segment] {
                     self.visit_expression(body, *argument_handle, parent_handle);
                 }
             }
@@ -225,8 +225,8 @@ impl<'a, 'db> ScopeView<'a, 'db> {
 
     /// Resolves a name to the local binding it refers to, searching outward from this scope.
     pub(crate) fn get_local_binding(self, name: Symbol<'db>) -> Option<LocalBindingHandle> {
-        self.chain().find_map(|scope| {
-            scope
+        self.chain().find_map(|scope_view| {
+            scope_view
                 .entries()
                 .iter()
                 .rev()

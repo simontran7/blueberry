@@ -1,7 +1,8 @@
-use crate::core::common::handle_collections::Handle;
 use std::marker::PhantomData;
 use std::ops::{Index, IndexMut};
 use std::{fmt, slice};
+
+use crate::core::common::handle_collections::Handle;
 
 #[derive(Clone, salsa::SalsaValue)]
 pub(crate) struct SideHandleMap<K, V> {
@@ -51,12 +52,30 @@ impl<K: Handle, V> SideHandleMap<K, V> {
         self.data.get(key.index())?.as_ref()
     }
 
-    pub(crate) fn get_mut(&mut self, key: K) -> Option<&mut V> {
-        self.data.get_mut(key.index())?.as_mut()
-    }
-
     pub(crate) fn contains_key(&self, key: K) -> bool {
         self.get(key).is_some()
+    }
+
+    pub(crate) fn keys(&self) -> impl Iterator<Item = K> + '_ {
+        self.data
+            .iter()
+            .enumerate()
+            .filter_map(|(i, v)| v.is_some().then(|| K::new(i)))
+    }
+
+    pub(crate) fn values(&self) -> impl Iterator<Item = &V> + '_ {
+        self.data.iter().filter_map(Option::as_ref)
+    }
+
+    pub(crate) fn iter(&self) -> Iter<'_, K, V> {
+        Iter {
+            inner: self.data.iter().enumerate(),
+            _marker: PhantomData,
+        }
+    }
+
+    pub(crate) fn get_mut(&mut self, key: K) -> Option<&mut V> {
+        self.data.get_mut(key.index())?.as_mut()
     }
 
     pub(crate) fn add(&mut self, key: K, value: V) -> Option<V> {
@@ -75,26 +94,8 @@ impl<K: Handle, V> SideHandleMap<K, V> {
         self.data.resize_with(n, || None);
     }
 
-    pub(crate) fn keys(&self) -> impl Iterator<Item = K> + '_ {
-        self.data
-            .iter()
-            .enumerate()
-            .filter_map(|(i, v)| v.is_some().then(|| K::new(i)))
-    }
-
-    pub(crate) fn values(&self) -> impl Iterator<Item = &V> + '_ {
-        self.data.iter().filter_map(Option::as_ref)
-    }
-
     pub(crate) fn values_mut(&mut self) -> impl Iterator<Item = &mut V> + '_ {
         self.data.iter_mut().filter_map(Option::as_mut)
-    }
-
-    pub(crate) fn iter(&self) -> Iter<'_, K, V> {
-        Iter {
-            inner: self.data.iter().enumerate(),
-            _marker: PhantomData,
-        }
     }
 
     pub(crate) fn iter_mut(&mut self) -> IterMut<'_, K, V> {
@@ -179,6 +180,7 @@ impl<K: Handle, V: PartialEq> PartialEq for SideHandleMap<K, V> {
         self.data == other.data
     }
 }
+
 impl<K: Handle, V: Eq> Eq for SideHandleMap<K, V> {}
 
 // for `iter.next()` on shared references

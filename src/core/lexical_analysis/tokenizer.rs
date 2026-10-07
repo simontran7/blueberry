@@ -33,6 +33,18 @@ impl<'src> Tokenizer<'src> {
         (self.tokens, self.diagnostics)
     }
 
+    fn peek(&self) -> Option<char> {
+        self.cursor.clone().next()
+    }
+
+    fn at_eof(&self) -> bool {
+        self.cursor.as_str().is_empty()
+    }
+
+    fn offset(&self) -> usize {
+        self.source.len() - self.cursor.as_str().len()
+    }
+
     fn tokenize_one(&mut self) -> (TokenKind, TextSize) {
         let start = self.offset();
         let current = self.peek().unwrap();
@@ -140,18 +152,6 @@ impl<'src> Tokenizer<'src> {
 
     fn eat_lexeme(&mut self) {
         self.advance_while(|c| c.is_alphanumeric() || c == '_')
-    }
-
-    fn peek(&self) -> Option<char> {
-        self.cursor.clone().next()
-    }
-
-    fn at_eof(&self) -> bool {
-        self.cursor.as_str().is_empty()
-    }
-
-    fn offset(&self) -> usize {
-        self.source.len() - self.cursor.as_str().len()
     }
 
     fn advance(&mut self) {

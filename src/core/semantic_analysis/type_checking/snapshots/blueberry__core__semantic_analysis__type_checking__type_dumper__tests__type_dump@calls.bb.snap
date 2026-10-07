@@ -1,0 +1,33 @@
+---
+source: src/core/semantic_analysis/type_checking/type_dumper.rs
+expression: "TypeDumper::dump_file(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/calls.bb
+---
+function add
+  binding a: I64
+  binding b: I64
+  32..45 '{ a + b }': I64
+  38..39 'a': I64
+  38..43 'a + b': I64
+  42..43 'b': I64
+
+function nothing
+  62..64 '{}': ()
+
+function main
+  binding sum: I64
+  binding unit: ()
+  binding function: (I64, I64) -> I64
+  binding again: I64
+  78..190 '{ let ... 3); }': ()
+  94..97 'add': (I64, I64) -> I64
+  94..103 'add(1, 2)': I64
+  98..99 '1': I64
+  101..102 '2': I64
+  120..127 'nothing': () -> ()
+  120..129 'nothing()': ()
+  150..153 'add': (I64, I64) -> I64
+  171..179 'function': (I64, I64) -> I64
+  171..187 'functi...um, 3)': I64
+  180..183 'sum': I64
+  185..186 '3': I64
