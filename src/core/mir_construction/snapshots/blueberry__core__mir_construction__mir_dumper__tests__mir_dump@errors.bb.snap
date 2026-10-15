@@ -1,0 +1,14 @@
+---
+source: src/core/mir_construction/mir_dumper.rs
+expression: "MirBodyDumper::dump_file(&db, file).unwrap()"
+input_file: src/core/mir_construction/snapshot_inputs/errors.bb
+---
+function broken has errors
+
+function fine() -> I32 {
+Block0:
+    v0 = IntegerLiteral 1
+    Return v0
+}
+
+function missing_initializer has errors

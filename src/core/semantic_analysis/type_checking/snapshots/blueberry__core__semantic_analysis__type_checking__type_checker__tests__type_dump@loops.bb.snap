@@ -1,0 +1,51 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/loops.bb
+---
+function f() -> I32
+└─ Block 16..288: I32
+   ├─ Let x: I32
+   │  └─ initializer: Loop Loop 30..59: I32
+   │     └─ Block 35..59: Bottom
+   │        └─ Expression ;
+   │           └─ Break 45..52: Bottom
+   │              └─ Integer 5 51..52: I32
+   ├─ Let y: U64
+   │  ├─ type: U64
+   │  └─ initializer: Loop Loop 78..139: U64
+   │     └─ Block 83..139: ()
+   │        └─ tail: If 93..133: ()
+   │           ├─ condition: Boolean true 96..100: Bool
+   │           └─ then: Block 101..133: Bottom
+   │              └─ Expression ;
+   │                 └─ Break 115..122: Bottom
+   │                    └─ Integer 1 121..122: U64
+   ├─ Let mut i: I32
+   │  └─ initializer: Integer 0 157..158: I32
+   ├─ Expression
+   │  └─ Loop While 164..255: ()
+   │     └─ Block 164..255: ()
+   │        └─ tail: If 164..255: ()
+   │           ├─ condition: Binary < 170..176: Bool
+   │           │  ├─ Path i 170..171: I32
+   │           │  └─ Integer 10 174..176: I32
+   │           ├─ then: Block 177..255: ()
+   │           │  ├─ Expression ;
+   │           │  │  └─ Assignment 187..196: ()
+   │           │  │     ├─ Path i 187..188: I32
+   │           │  │     └─ Binary + 191..196: I32
+   │           │  │        ├─ Path i 191..192: I32
+   │           │  │        └─ Integer 1 195..196: I32
+   │           │  └─ tail: If 206..249: ()
+   │           │     ├─ condition: Binary == 209..215: Bool
+   │           │     │  ├─ Path i 209..210: I32
+   │           │     │  └─ Integer 5 214..215: I32
+   │           │     └─ then: Block 216..249: Bottom
+   │           │        └─ Expression ;
+   │           │           └─ Continue 230..238: Bottom
+   │           └─ else: Break 164..255: Bottom
+   ├─ Let never: Bottom
+   │  └─ initializer: Loop Loop 272..279: Bottom
+   │     └─ Block 277..279: ()
+   └─ tail: Path x 285..286: I32

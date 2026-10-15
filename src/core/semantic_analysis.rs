@@ -20,8 +20,6 @@ use crate::core::semantic_analysis::ids::keys::{
     BlockKey, ConstantKey, DefinitionSource, FunctionKey,
 };
 
-use crate::core::semantic_analysis::ids::red_node_directory::RedNodeDirectory;
-
 use crate::core::semantic_analysis::name_resolution::definition_list::{
     Definition, DefinitionList,
 };
@@ -29,7 +27,9 @@ use crate::core::semantic_analysis::name_resolution::definition_list::{
 use crate::core::semantic_analysis::name_resolution::import_list::ImportList;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
 use crate::core::semantic_analysis::semantic_diagnostic::{OwnerSpans, SemanticDiagnostic};
-use crate::core::semantic_analysis::type_checking::type_checker::{TypeCheckSink, TypeChecker};
+use crate::core::semantic_analysis::type_checking::type_checker::{
+    TypeCheckSink, check_constant, check_function,
+};
 use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::RedNode;
@@ -43,11 +43,10 @@ pub(crate) fn file_scoped_definitions_of<'db>(
 ) -> Arc<DefinitionList<'db>> {
     let root = RedNode::new(cst_of(db, file).clone());
     let root = File::cast(root).unwrap();
-    let directory = red_node_directory_of(db, file).clone();
     collect_definitions(
         db,
+        file,
         DefinitionSource::File(file),
-        directory,
         root.items().filter_map(|item| match item {
             ast::Item::Definition(definition) => Some(definition),
             ast::Item::Import(_) => None,
@@ -60,14 +59,12 @@ pub(crate) fn block_scoped_definitions_of<'db>(
     db: &'db dyn crate::Db,
     block: BlockKey<'db>,
 ) -> Arc<DefinitionList<'db>> {
-    let source = DefinitionSource::Block(block);
-
-    let file = *block.id(db).file(db);
-    let directory = red_node_directory_of(db, file).clone();
-
-    let ast_node = block.id(db).to_ast_node(db);
-
-    collect_definitions(db, source, directory, ast_node.definitions())
+    collect_definitions(
+        db,
+        block.file(db),
+        DefinitionSource::Block(block),
+        block.to_ast_node(db).definitions(),
+    )
 }
 
 #[salsa::tracked]
@@ -87,6 +84,33 @@ pub(crate) fn imports_of<'db>(db: &'db dyn crate::Db, file: SourceFileKey) -> Ar
     Arc::new(ImportList::new(paths))
 }
 
+pub(crate) fn import_diagnostics_of(
+    db: &dyn crate::Db,
+    file: SourceFileKey,
+) -> Vec<SemanticDiagnostic> {
+    let root = RedNode::new(cst_of(db, file).clone());
+    let root = File::cast(root).unwrap();
+    root.items()
+        .filter_map(|item| match item {
+            ast::Item::Import(import_declaration) => import_declaration.path(),
+            ast::Item::Definition(_) => None,
+        })
+        .filter_map(|path| {
+            let lowered = ast_lowering::lower_path(db, &path)?;
+            module_file_of(db, lowered)
+                .is_none()
+                .then(|| SemanticDiagnostic::UnresolvedImport {
+                    path: lowered
+                        .segments(db)
+                        .iter()
+                        .map(|segment| segment.text(db).to_string())
+                        .collect(),
+                    span: path.red().span(),
+                })
+        })
+        .collect()
+}
+
 #[salsa::tracked]
 pub(crate) fn module_file_of<'db>(
     db: &'db dyn crate::Db,
@@ -98,25 +122,16 @@ pub(crate) fn module_file_of<'db>(
 }
 
 #[salsa::tracked]
-pub(crate) fn red_node_directory_of<'db>(
-    db: &'db dyn crate::Db,
-    file: SourceFileKey,
-) -> Arc<RedNodeDirectory<'db>> {
-    let root = RedNode::new(cst_of(db, file).clone());
-    Arc::new(RedNodeDirectory::new(db, file, &root))
-}
-
-#[salsa::tracked]
 pub(crate) fn function_signature_of<'db>(
     db: &'db dyn crate::Db,
     key: FunctionKey<'db>,
 ) -> FunctionSignature<'db> {
-    let node = key.id(db).to_ast_node(db);
+    let node = key.to_ast_node(db);
 
     let name = node
         .name()
         .map(|token| Symbol::new(db, token.lexeme().to_string()))
-        .expect("nameless definitions are skipped in `collect_definitions`");
+        .unwrap();
 
     let parameters = match node.parameter_list() {
         Some(list) => list
@@ -148,12 +163,12 @@ pub(crate) fn constant_signature_of<'db>(
     db: &'db dyn crate::Db,
     key: ConstantKey<'db>,
 ) -> ConstantSignature<'db> {
-    let node = key.id(db).to_ast_node(db);
+    let node = key.to_ast_node(db);
 
     let name = node
         .name()
         .map(|token| Symbol::new(db, token.lexeme().to_string()))
-        .expect("nameless definitions are skipped in `collect_definitions`");
+        .unwrap();
 
     let type_annotation = node
         .type_annotation()
@@ -205,7 +220,11 @@ pub(crate) fn function_scopes_of<'db>(
     db: &'db dyn crate::Db,
     key: FunctionKey<'db>,
 ) -> Arc<ScopeTree<'db>> {
-    Arc::new(ScopeTree::new(&function_body_of(db, key)))
+    Arc::new(ScopeTree::new(
+        function_body_of(db, key),
+        key.file(db),
+        key.source(db).block(),
+    ))
 }
 
 #[salsa::tracked]
@@ -213,7 +232,11 @@ pub(crate) fn constant_scopes_of<'db>(
     db: &'db dyn crate::Db,
     key: ConstantKey<'db>,
 ) -> Arc<ScopeTree<'db>> {
-    Arc::new(ScopeTree::new(&constant_body_of(db, key)))
+    Arc::new(ScopeTree::new(
+        constant_body_of(db, key),
+        key.file(db),
+        key.source(db).block(),
+    ))
 }
 
 #[salsa::tracked]
@@ -223,17 +246,12 @@ pub(crate) fn function_types_of<'db>(
 ) -> Arc<TypeCheckSink<'db>> {
     let body = function_body_of(db, key);
     let scopes = function_scopes_of(db, key);
-    let file = *key.id(db).file(db);
-    let mut checker = TypeChecker::for_function(
+    Arc::new(check_function(
         db,
-        &body,
-        &scopes,
-        file,
-        enclosing_block(*key.source(db)),
+        body,
+        scopes,
         *function_signature_type_of(db, key),
-    );
-    checker.check_body();
-    Arc::new(checker.finish())
+    ))
 }
 
 #[salsa::tracked]
@@ -243,17 +261,12 @@ pub(crate) fn constant_types_of<'db>(
 ) -> Arc<TypeCheckSink<'db>> {
     let body = constant_body_of(db, key);
     let scopes = constant_scopes_of(db, key);
-    let file = *key.id(db).file(db);
-    let mut checker = TypeChecker::for_constant(
+    Arc::new(check_constant(
         db,
-        &body,
-        &scopes,
-        file,
-        enclosing_block(*key.source(db)),
+        body,
+        scopes,
         *constant_signature_type_of(db, key),
-    );
-    checker.check_body();
-    Arc::new(checker.finish())
+    ))
 }
 
 #[salsa::tracked]
@@ -345,65 +358,60 @@ pub(crate) fn checked_body_of<'db>(
     }
 }
 
-/// Collects the semantic errors of every definition in `file`: unknown types in signatures, and
-/// whatever type checking each body found. This isn't a query itself, but is built from
-/// queries.
-pub(crate) fn semantic_diagnostics_of<'db>(
+pub(crate) fn definition_diagnostics_of<'db>(
     db: &'db dyn crate::Db,
-    file: SourceFileKey,
+    definition: Definition<'db>,
 ) -> Vec<SemanticDiagnostic> {
+    let file = match definition {
+        Definition::Function(key) => key.file(db),
+        Definition::Constant(key) => key.file(db),
+    };
     let mut diagnostics = Vec::new();
-    for definition in all_definitions_of(db, file) {
-        let type_expressions: Vec<ast::TypeExpression> = match definition {
-            Definition::Function(key) => {
-                let node = key.id(db).to_ast_node(db);
-                node.parameter_list()
-                    .into_iter()
-                    .flat_map(|list| list.parameters().collect::<Vec<_>>())
-                    .filter_map(|parameter| parameter.type_expression())
-                    .chain(node.return_type())
-                    .collect()
-            }
-            Definition::Constant(key) => key
-                .id(db)
-                .to_ast_node(db)
-                .type_annotation()
+    let type_expressions: Vec<ast::TypeExpression> = match definition {
+        Definition::Function(key) => {
+            let node = key.to_ast_node(db);
+            node.parameter_list()
                 .into_iter()
-                .collect(),
-        };
-        for type_expression in type_expressions {
-            if let Some(name) = type_expression.name()
-                && Ty::to_primitive(db, name.lexeme()).is_none()
-            {
-                diagnostics.push(SemanticDiagnostic::UnknownType {
-                    name: name.lexeme().to_string(),
-                    span: type_expression.red().span(),
-                });
+                .flat_map(|list| list.parameters().collect::<Vec<_>>())
+                .filter_map(|parameter| parameter.type_expression())
+                .chain(node.return_type())
+                .collect()
+        }
+        Definition::Constant(key) => key.to_ast_node(db).type_annotation().into_iter().collect(),
+    };
+    for type_expression in type_expressions {
+        if let Some(name) = type_expression.name()
+            && Ty::to_primitive(db, name.lexeme()).is_none()
+        {
+            diagnostics.push(SemanticDiagnostic::UnknownType {
+                name: name.lexeme().to_string(),
+                span: type_expression.red().span(),
+            });
+        }
+    }
+
+    let owner = match definition {
+        Definition::Function(key) => {
+            let node = key.to_ast_node(db);
+            OwnerSpans {
+                file,
+                name: node.name().map(|name| name.span()),
+                return_type: node.return_type().map(|ty| ty.red().span()),
             }
         }
-
-        let owner = match definition {
-            Definition::Function(key) => {
-                let node = key.id(db).to_ast_node(db);
-                OwnerSpans {
-                    file,
-                    name: node.name().map(|name| name.span()),
-                    return_type: node.return_type().map(|ty| ty.red().span()),
-                }
-            }
-            Definition::Constant(key) => OwnerSpans {
-                file,
-                name: key.id(db).to_ast_node(db).name().map(|name| name.span()),
-                return_type: None,
-            },
-        };
-        let (body, source_map, types) = checked_body_of(db, definition);
-        diagnostics.extend(types.diagnostics().iter().map(|diagnostic| {
-            SemanticDiagnostic::from_inference(db, &body, &source_map, &types, &owner, diagnostic)
-        }));
-    }
-    // Nested definitions are checked after their parent, so this puts errors back in source order.
-    diagnostics.sort_by_key(|diagnostic| diagnostic.describe().span.start());
+        Definition::Constant(key) => OwnerSpans {
+            file,
+            name: key.to_ast_node(db).name().map(|name| name.span()),
+            return_type: None,
+        },
+    };
+    let (body, source_map, types) = checked_body_of(db, definition);
+    diagnostics.extend(
+        types
+            .diagnostics()
+            .iter()
+            .map(|diagnostic| diagnostic.resolve(db, &body, &source_map, &types, &owner)),
+    );
     diagnostics
 }
 
@@ -412,9 +420,8 @@ fn function_body_with_source_map_of<'db>(
     db: &'db dyn crate::Db,
     key: FunctionKey<'db>,
 ) -> (Arc<DefinitionBody<'db>>, Arc<DefinitionBodySourceMap>) {
-    let node = key.id(db).to_ast_node(db);
-    let file = *key.id(db).file(db);
-    let lowerer = DefinitionBodyLowerer::new(db, red_node_directory_of(db, file).clone());
+    let node = key.to_ast_node(db);
+    let lowerer = DefinitionBodyLowerer::new(db, key.file(db), Definition::Function(key));
     let (body, source_map) = lowerer.lower_function(&node);
     (Arc::new(body), Arc::new(source_map))
 }
@@ -424,33 +431,25 @@ fn constant_body_with_source_map_of<'db>(
     db: &'db dyn crate::Db,
     key: ConstantKey<'db>,
 ) -> (Arc<DefinitionBody<'db>>, Arc<DefinitionBodySourceMap>) {
-    let node = key.id(db).to_ast_node(db);
-    let file = *key.id(db).file(db);
-    let lowerer = DefinitionBodyLowerer::new(db, red_node_directory_of(db, file).clone());
+    let node = key.to_ast_node(db);
+    let lowerer = DefinitionBodyLowerer::new(db, key.file(db), Definition::Constant(key));
     let (body, source_map) = lowerer.lower_constant(&node);
     (Arc::new(body), Arc::new(source_map))
 }
 
-/// Returns the block a definition is nested in, if any.
-fn enclosing_block(source: DefinitionSource<'_>) -> Option<BlockKey<'_>> {
-    match source {
-        DefinitionSource::File(_) => None,
-        DefinitionSource::Block(block) => Some(block),
-    }
-}
-
 fn collect_definitions<'db>(
     db: &'db dyn crate::Db,
+    file: SourceFileKey,
     source: DefinitionSource<'db>,
-    directory: Arc<RedNodeDirectory<'db>>,
     definitions: impl Iterator<Item = ast::Definition>,
 ) -> Arc<DefinitionList<'db>> {
-    let mut definition_list = DefinitionList::new(directory);
+    let mut definition_list = DefinitionList::new();
     for definition in definitions {
-        if definition.name().is_none() {
+        let Some(name) = definition.name() else {
             continue;
-        }
-        definition_list.add_definition(db, source, definition);
+        };
+        let name = Symbol::new(db, name.lexeme().to_string());
+        definition_list.add_definition(db, file, source, name, definition);
     }
     Arc::new(definition_list)
 }

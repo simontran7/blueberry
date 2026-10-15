@@ -62,7 +62,7 @@ Braun's algorithm would tackle the SSA construction as follows (assuming the loo
 
 1. `let x = ...;` and `x = ...;` are both simple assignments. We record for `let x = ...;` as `v0`, and `x = ...;` inside the if expression as `v1`.
 
-<img src="docs/step-1-state.png" width="350">
+<img src="step-1-state.png" width="350">
 
 2. For `println(x);`, it does not contain a local definition of `x`, so we recurse upwards to its single predecessor block $B$ (this is example of the fast path executing), requesting for the definition of `x`.
 

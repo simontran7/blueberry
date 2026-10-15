@@ -30,7 +30,7 @@ use crate::core::common::handle_collections::Handle;
 /// list.add_last(&mut allocator, ValueId::new(3));
 /// assert_eq!(list.to_slice(&allocator), &[ValueId::new(1), ValueId::new(2), ValueId::new(3)]);
 /// ```
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct HandleArrayList<H> {
     pub(super) start: u32,
     _marker: PhantomData<H>,
@@ -61,6 +61,7 @@ pub(crate) struct HandleArrayList<H> {
 /// Every free block's header is `H::new(0)`, and the free list's node's next pointer is also
 /// embedded in `data` as an `H`.
 /// The tail node of a free list's next pointer is `0`.
+#[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct HandleArrayListAllocator<H> {
     pub(super) data: Vec<H>,
     free: Vec<usize>,

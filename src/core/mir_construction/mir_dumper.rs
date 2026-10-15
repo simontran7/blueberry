@@ -2,18 +2,26 @@ use std::collections::HashMap;
 use std::fmt::{self, Write};
 
 use crate::core::common::handle_collections::Handle;
-use crate::core::common::context::CompilerContext;
-use crate::middle_end::mir::{BlockId, Function, InstructionId, InstructionRef, Mir, ValueId};
+use crate::core::mir_construction::mir::{
+    BlockId, InstructionId, InstructionRef, MirBody, ValueId,
+};
+use crate::core::mir_construction::{constant_mir_of, function_mir_of};
+use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
+use crate::core::semantic_analysis::{
+    all_definitions_of, constant_signature_of, function_signature_of,
+};
+use crate::core::source_file_key::SourceFileKey;
 
-pub(crate) struct MirDumper<'a> {
-    mir: &'a Mir,
-    ctx: &'a CompilerContext,
+pub(crate) struct MirBodyDumper<'a, 'db> {
+    db: &'db dyn crate::Db,
+    definition: Definition<'db>,
+    body: &'a MirBody<'db>,
 }
 
-pub(crate) trait FunctionWriter {
+pub(crate) trait BodyWriter {
     fn write_block_header(
         &mut self,
-        dumper: &FunctionDumper,
+        dumper: &MirBodyDumper,
         out: &mut String,
         block: BlockId,
         indent: usize,
@@ -23,7 +31,7 @@ pub(crate) trait FunctionWriter {
 
     fn write_instruction(
         &mut self,
-        dumper: &FunctionDumper,
+        dumper: &MirBodyDumper,
         out: &mut String,
         instruction: InstructionId,
         indent: usize,
@@ -34,64 +42,64 @@ pub(crate) trait FunctionWriter {
 
 pub(crate) struct PlainWriter;
 
-pub(crate) struct FunctionDumper<'a> {
-    function: &'a Function,
-    ctx: &'a CompilerContext,
-}
-
-impl<'a> MirDumper<'a> {
-    pub(crate) fn new(mir: &'a Mir, ctx: &'a CompilerContext) -> Self {
-        Self { mir, ctx }
+impl<'a, 'db> MirBodyDumper<'a, 'db> {
+    pub(crate) fn new(
+        db: &'db dyn crate::Db,
+        definition: Definition<'db>,
+        body: &'a MirBody<'db>,
+    ) -> Self {
+        Self {
+            db,
+            definition,
+            body,
+        }
     }
 
-    pub(crate) fn dump(&self) -> Result<String, fmt::Error> {
+    pub(crate) fn dump_file(
+        db: &'db dyn crate::Db,
+        file: SourceFileKey,
+    ) -> Result<String, fmt::Error> {
         let mut out = String::new();
-        for function in self.mir.functions() {
-            out.push_str(&FunctionDumper::new(function, self.ctx).dump()?);
+        for definition in all_definitions_of(db, file) {
+            let body = match definition {
+                Definition::Function(key) => function_mir_of(db, key),
+                Definition::Constant(key) => constant_mir_of(db, key),
+            };
+            match body {
+                Some(body) => out.push_str(&MirBodyDumper::new(db, definition, body).dump()?),
+                None => writeln!(
+                    out,
+                    "{} {} has errors",
+                    keyword(definition),
+                    name(db, definition)
+                )?,
+            }
             out.push('\n');
         }
         Ok(out)
-    }
-}
-
-impl FunctionWriter for PlainWriter {}
-
-impl<'a> FunctionDumper<'a> {
-    pub(crate) fn new(function: &'a Function, ctx: &'a CompilerContext) -> Self {
-        Self { function, ctx }
     }
 
     pub(crate) fn dump(&self) -> Result<String, fmt::Error> {
         self.dump_with(&mut PlainWriter)
     }
 
-    pub(crate) fn dump_with<FW: FunctionWriter>(
-        &self,
-        writer: &mut FW,
-    ) -> Result<String, fmt::Error> {
+    pub(crate) fn dump_with<FW: BodyWriter>(&self, writer: &mut FW) -> Result<String, fmt::Error> {
         let mut out = String::new();
-        self.decorate_function(writer, &mut out)?;
+        self.decorate_body(writer, &mut out)?;
         Ok(out)
     }
 
     pub(crate) fn signature_line(&self) -> String {
-        let name = self
-            .ctx
-            .string_interner
-            .resolve(self.function.name)
-            .unwrap();
+        let name = name(self.db, self.definition);
         let parameters = self
-            .function
+            .body
             .signature
-            .parameter_type_ids
+            .parameter_types
             .iter()
-            .map(|&ty| self.ctx.type_interner.to_string(ty))
+            .map(|&ty| ty.display(self.db))
             .collect::<Vec<_>>()
             .join(", ");
-        let return_type = self
-            .ctx
-            .type_interner
-            .to_string(self.function.signature.return_type_id);
+        let return_type = self.body.signature.return_type.display(self.db);
         format!("{name}({parameters}) -> {return_type}")
     }
 
@@ -103,17 +111,13 @@ impl<'a> FunctionDumper<'a> {
     ) -> fmt::Result {
         write!(out, "{:1$}Block{2}", "", indent - 4, block.index())?;
 
-        let parameters = self.function.body.get_block(block).parameters();
+        let parameters = self.body.cfg.get_block(block).parameters();
         if !parameters.is_empty() {
             let rendered = parameters
                 .iter()
                 .map(|&parameter| {
-                    let ty = self.function.body.get_value(parameter).ty();
-                    format!(
-                        "v{}: {}",
-                        parameter.index(),
-                        self.ctx.type_interner.to_string(ty)
-                    )
+                    let ty = self.body.cfg.get_value(parameter).ty();
+                    format!("v{}: {}", parameter.index(), ty.display(self.db))
                 })
                 .collect::<Vec<_>>()
                 .join(", ");
@@ -130,7 +134,7 @@ impl<'a> FunctionDumper<'a> {
     ) -> fmt::Result {
         write!(out, "{:indent$}", "")?;
 
-        let view = self.function.body.get_instruction(instruction);
+        let view = self.body.cfg.get_instruction(instruction);
 
         let results = view.results();
         if !results.is_empty() {
@@ -162,16 +166,31 @@ impl<'a> FunctionDumper<'a> {
             InstructionRef::BooleanLiteral { value } => {
                 write!(out, "BooleanLiteral {value}")?;
             }
+            InstructionRef::Constant { constant } => {
+                let name = name(self.db, Definition::Constant(constant));
+                write!(out, "Constant {name}")?;
+            }
+            InstructionRef::FunctionAddress { function } => {
+                let name = name(self.db, Definition::Function(function));
+                write!(out, "FunctionAddress {name}")?;
+            }
             InstructionRef::Call {
-                callee_id,
+                function,
                 argument_ids,
             } => {
-                let name = self
-                    .ctx
-                    .string_interner
-                    .resolve(self.function.body.get_function_reference(callee_id).name)
-                    .unwrap();
+                let name = name(self.db, Definition::Function(function));
                 write!(out, "Call {name}({})", join_values(argument_ids))?;
+            }
+            InstructionRef::CallIndirect {
+                callee_and_argument_ids,
+            } => {
+                let (callee_id, argument_ids) = callee_and_argument_ids.split_first().unwrap();
+                write!(
+                    out,
+                    "CallIndirect v{}({})",
+                    callee_id.index(),
+                    join_values(argument_ids)
+                )?;
             }
             InstructionRef::Jump {
                 destination_id,
@@ -204,13 +223,14 @@ impl<'a> FunctionDumper<'a> {
         writeln!(out)
     }
 
-    fn decorate_function<FW: FunctionWriter>(
-        &self,
-        writer: &mut FW,
-        out: &mut String,
-    ) -> fmt::Result {
+    fn decorate_body<FW: BodyWriter>(&self, writer: &mut FW, out: &mut String) -> fmt::Result {
         // spec line
-        writeln!(out, "function {} {{", self.signature_line())?;
+        writeln!(
+            out,
+            "{} {} {{",
+            keyword(self.definition),
+            self.signature_line()
+        )?;
 
         // Instructions indent 4; block headers sit outdented 4 from that.
         let indent = 4;
@@ -221,7 +241,7 @@ impl<'a> FunctionDumper<'a> {
         // Iterate the layout, not the dfg — block order is the layout's
         // business.
         let mut first = true;
-        for block in self.function.body.block_ids() {
+        for block in self.body.cfg.block_ids() {
             if !first {
                 writeln!(out)?;
             }
@@ -249,7 +269,7 @@ impl<'a> FunctionDumper<'a> {
         writeln!(out, "}}")
     }
 
-    fn decorate_block<FW: FunctionWriter>(
+    fn decorate_block<FW: BodyWriter>(
         &self,
         writer: &mut FW,
         out: &mut String,
@@ -259,13 +279,13 @@ impl<'a> FunctionDumper<'a> {
     ) -> fmt::Result {
         writer.write_block_header(self, out, block, indent)?;
 
-        for &parameter in self.function.body.get_block(block).parameters() {
+        for &parameter in self.body.cfg.get_block(block).parameters() {
             self.write_value_aliases(out, aliases, parameter, indent)?;
         }
 
-        for instruction in self.function.body.get_block(block).instructions() {
+        for instruction in self.body.cfg.get_block(block).instructions() {
             writer.write_instruction(self, out, instruction, indent)?;
-            for &result in self.function.body.get_instruction(instruction).results() {
+            for &result in self.body.cfg.get_instruction(instruction).results() {
                 self.write_value_aliases(out, aliases, result, indent)?;
             }
         }
@@ -282,8 +302,8 @@ impl<'a> FunctionDumper<'a> {
 
     fn alias_map(&self) -> HashMap<ValueId, Vec<ValueId>> {
         let mut map: HashMap<ValueId, Vec<ValueId>> = HashMap::new();
-        for value in self.function.body.ssa_ids() {
-            if let Some(target) = self.function.body.get_value(value).alias_target() {
+        for value in self.body.cfg.ssa_ids() {
+            if let Some(target) = self.body.cfg.get_value(value).alias_target() {
                 map.entry(target).or_default().push(value);
             }
         }
@@ -317,10 +337,44 @@ impl<'a> FunctionDumper<'a> {
     }
 }
 
+impl BodyWriter for PlainWriter {}
+
+fn keyword(definition: Definition<'_>) -> &'static str {
+    match definition {
+        Definition::Function(_) => "function",
+        Definition::Constant(_) => "constant",
+    }
+}
+
+fn name<'db>(db: &'db dyn crate::Db, definition: Definition<'db>) -> &'db str {
+    match definition {
+        Definition::Function(key) => function_signature_of(db, key).name.text(db),
+        Definition::Constant(key) => constant_signature_of(db, key).name.text(db),
+    }
+}
+
 fn join_values(values: &[ValueId]) -> String {
     values
         .iter()
         .map(|value| format!("v{}", value.index()))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+    use crate::core::db::BlueberryDatabase;
+
+    #[test]
+    fn test_mir_dump() {
+        insta::glob!("snapshot_inputs", "**/*.bb", |path| {
+            let input = fs::read_to_string(path).unwrap();
+            let db = BlueberryDatabase::default();
+            let file = SourceFileKey::new(&db, path.to_path_buf(), input);
+            insta::assert_snapshot!(MirBodyDumper::dump_file(&db, file).unwrap());
+        })
+    }
 }

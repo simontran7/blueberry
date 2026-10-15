@@ -6,16 +6,18 @@ use crate::core::semantic_analysis::hir::nodes::{
     DefinitionBody, Expression, ExpressionHandle, LocalBindingHandle, Statement,
 };
 use crate::core::semantic_analysis::ids::keys::BlockKey;
+use crate::core::semantic_analysis::name_resolution::resolver::Resolver;
+use crate::core::source_file_key::SourceFileKey;
 
-/// Tree of scopes for one function or constant body.
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct ScopeTree<'db> {
+    file: SourceFileKey,
+    enclosing_block: Option<BlockKey<'db>>,
     scopes: HandleMap<ScopeHandle, Scope<'db>>,
     scope_entries: SegmentList<ScopeEntry<'db>>,
     containing_scopes: SideHandleMap<ExpressionHandle, ScopeHandle>,
 }
 
-/// A single name visible in a scope, and the binding it currently refers to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct ScopeEntry<'db> {
     pub(crate) name: Symbol<'db>,
@@ -35,7 +37,6 @@ pub(crate) struct ScopeViewMut<'a, 'db> {
     scope_handle: ScopeHandle,
 }
 
-/// Node in the scope tree
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 struct Scope<'db> {
     parent_handle: Option<ScopeHandle>,
@@ -44,9 +45,14 @@ struct Scope<'db> {
 }
 
 impl<'db> ScopeTree<'db> {
-    /// Builds the scope tree for a body, starting from its parameters.
-    pub(crate) fn new(body: &DefinitionBody<'db>) -> Self {
+    pub(crate) fn new(
+        body: &DefinitionBody<'db>,
+        file: SourceFileKey,
+        enclosing_block: Option<BlockKey<'db>>,
+    ) -> Self {
         let mut scope_tree = Self {
+            file,
+            enclosing_block,
             scopes: HandleMap::new(),
             scope_entries: SegmentList::new(),
             containing_scopes: SideHandleMap::new(),
@@ -66,15 +72,19 @@ impl<'db> ScopeTree<'db> {
         scope_tree
     }
 
-    /// Returns a view of the scope that contains the expression pointed by `expression_handle`, if any.
     pub(crate) fn containing_scope(
         &self,
         expression_handle: ExpressionHandle,
-    ) -> Option<ScopeView<'_, 'db>> {
-        self.containing_scopes
-            .get(expression_handle)
-            .copied()
-            .map(|scope_handle| self.get_scope(scope_handle))
+    ) -> ScopeView<'_, 'db> {
+        self.get_scope(self.containing_scopes[expression_handle])
+    }
+
+    pub(crate) fn resolver_for(&self, expression_handle: ExpressionHandle) -> Resolver<'_, 'db> {
+        Resolver {
+            file: self.file,
+            scope_view: self.containing_scope(expression_handle),
+            enclosing_block: self.enclosing_block,
+        }
     }
 
     fn get_scope(&self, scope_handle: ScopeHandle) -> ScopeView<'_, 'db> {
@@ -135,9 +145,7 @@ impl<'db> ScopeTree<'db> {
                             initializer_handle,
                             ..
                         } => {
-                            if let Some(initializer_handle) = initializer_handle {
-                                self.visit_expression(body, *initializer_handle, parent_handle);
-                            }
+                            self.visit_expression(body, *initializer_handle, parent_handle);
                             parent_handle = self.scopes.add(Scope {
                                 parent_handle: Some(parent_handle),
                                 block_key: None,
@@ -200,30 +208,25 @@ impl<'db> ScopeTree<'db> {
 }
 
 impl<'a, 'db> ScopeView<'a, 'db> {
-    /// Returns the block this scope corresponds to, if it's a block's own initial scope.
     pub(crate) fn block(&self) -> Option<BlockKey<'db>> {
         self.store.scopes[self.scope_handle].block_key
     }
 
-    /// Returns the entries declared directly in this scope, not its ancestors.
     pub(crate) fn entries(&self) -> &'a [ScopeEntry<'db>] {
         let segment = self.store.scopes[self.scope_handle].entries;
         &self.store.scope_entries[segment]
     }
 
-    /// Returns a view of this scope's parent, if it has one.
     pub(crate) fn parent(&self) -> Option<Self> {
         self.store.scopes[self.scope_handle]
             .parent_handle
             .map(|parent_handle| self.store.get_scope(parent_handle))
     }
 
-    /// Walks from this scope up through its ancestors to the root.
     pub(crate) fn chain(self) -> impl Iterator<Item = Self> {
         std::iter::successors(Some(self), Self::parent)
     }
 
-    /// Resolves a name to the local binding it refers to, searching outward from this scope.
     pub(crate) fn get_local_binding(self, name: Symbol<'db>) -> Option<LocalBindingHandle> {
         self.chain().find_map(|scope_view| {
             scope_view
@@ -237,7 +240,6 @@ impl<'a, 'db> ScopeView<'a, 'db> {
 }
 
 impl<'db> ScopeViewMut<'_, 'db> {
-    /// Sets this scope's entries, given the local bindings it declares.
     pub(crate) fn add_entries(
         &mut self,
         body: &DefinitionBody<'db>,

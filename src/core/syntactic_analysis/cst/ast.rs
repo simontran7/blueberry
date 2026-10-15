@@ -74,9 +74,9 @@ pub(crate) struct ConstantDefinition {
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) enum Statement {
-    LetStatement(LetStatement),
-    DefinitionStatement(DefinitionStatement),
-    ExpressionStatement(ExpressionStatement),
+    Let(LetStatement),
+    Definition(DefinitionStatement),
+    Expression(ExpressionStatement),
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -237,7 +237,7 @@ impl AstNode for File {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -311,7 +311,7 @@ impl AstNode for ImportDeclaration {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -346,7 +346,7 @@ impl AstNode for Path {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -366,7 +366,7 @@ impl AstNode for PathSegment {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -398,7 +398,7 @@ impl AstNode for FunctionDefinition {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -426,7 +426,7 @@ impl AstNode for ConstantDefinition {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -446,13 +446,9 @@ impl AstNode for Statement {
 
     fn cast(red: RedNode) -> Option<Self> {
         let result = match red.kind() {
-            SyntaxKind::LetStatement => Self::LetStatement(LetStatement { red }),
-            SyntaxKind::DefinitionStatement => {
-                Self::DefinitionStatement(DefinitionStatement { red })
-            }
-            SyntaxKind::ExpressionStatement => {
-                Self::ExpressionStatement(ExpressionStatement { red })
-            }
+            SyntaxKind::LetStatement => Self::Let(LetStatement { red }),
+            SyntaxKind::DefinitionStatement => Self::Definition(DefinitionStatement { red }),
+            SyntaxKind::ExpressionStatement => Self::Expression(ExpressionStatement { red }),
             _ => return None,
         };
         Some(result)
@@ -460,9 +456,9 @@ impl AstNode for Statement {
 
     fn red(&self) -> &RedNode {
         match self {
-            Self::LetStatement(n) => n.red(),
-            Self::DefinitionStatement(n) => n.red(),
-            Self::ExpressionStatement(n) => n.red(),
+            Self::Let(n) => n.red(),
+            Self::Definition(n) => n.red(),
+            Self::Expression(n) => n.red(),
         }
     }
 }
@@ -491,7 +487,7 @@ impl AstNode for LetStatement {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -511,7 +507,7 @@ impl AstNode for DefinitionStatement {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -535,7 +531,7 @@ impl AstNode for ExpressionStatement {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -555,7 +551,7 @@ impl AstNode for Return {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -575,7 +571,7 @@ impl AstNode for Break {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -589,7 +585,7 @@ impl AstNode for Continue {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -687,7 +683,7 @@ impl AstNode for IfExpression {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -732,7 +728,7 @@ impl AstNode for WhileLoop {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -752,7 +748,7 @@ impl AstNode for InfiniteLoop {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -801,7 +797,7 @@ impl AstNode for BinaryOperation {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -832,7 +828,7 @@ impl AstNode for UnaryOperation {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -860,7 +856,7 @@ impl AstNode for Assignment {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -884,7 +880,7 @@ impl AstNode for Call {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -904,7 +900,7 @@ impl AstNode for ArgumentList {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -924,7 +920,7 @@ impl AstNode for Argument {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -944,7 +940,7 @@ impl AstNode for ParenthesizedExpression {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -964,7 +960,7 @@ impl AstNode for PathExpression {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -978,9 +974,7 @@ impl IntegerLiteral {
     }
 
     pub(crate) fn value(&self) -> Result<u128, std::num::ParseIntError> {
-        let token = self
-            .token()
-            .expect("the parser only builds an `IntegerLiteral` around an Integer token");
+        let token = self.token().unwrap();
 
         let cleaned: String = token.lexeme().chars().filter(|&c| c != '_').collect();
 
@@ -1004,7 +998,7 @@ impl AstNode for IntegerLiteral {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -1028,7 +1022,7 @@ impl AstNode for BooleanLiteral {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -1042,7 +1036,7 @@ impl AstNode for UnitLiteral {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -1057,8 +1051,8 @@ impl Block {
 
     pub(crate) fn definitions(&self) -> impl Iterator<Item = Definition> {
         self.statements().filter_map(|stmt| match stmt {
-            Statement::DefinitionStatement(stmt) => stmt.definition(),
-            Statement::LetStatement(_) | Statement::ExpressionStatement(_) => None,
+            Statement::Definition(stmt) => stmt.definition(),
+            Statement::Let(_) | Statement::Expression(_) => None,
         })
     }
 }
@@ -1069,7 +1063,7 @@ impl AstNode for Block {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -1089,7 +1083,7 @@ impl AstNode for ParameterList {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -1113,7 +1107,7 @@ impl AstNode for Parameter {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {
@@ -1133,7 +1127,7 @@ impl AstNode for TypeExpression {
     }
 
     fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then(|| Self { red })
+        Self::can_cast(red.kind()).then_some(Self { red })
     }
 
     fn red(&self) -> &RedNode {

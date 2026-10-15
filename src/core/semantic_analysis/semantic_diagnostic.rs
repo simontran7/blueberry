@@ -2,26 +2,21 @@ use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, La
 use crate::core::common::span::Span;
 use crate::core::semantic_analysis::hir::nodes::{
     BinaryOperator, DefinitionBody, DefinitionBodySourceMap, Expression, ExpressionHandle,
-    TypeAnnotation, UnaryOperator,
+    TypeAnnotation, TypeAnnotationHandle, UnaryOperator,
 };
-use crate::core::semantic_analysis::type_checking::inference_diagnostic::{
-    InferenceDiagnostic, MismatchCause,
-};
+use crate::core::semantic_analysis::ids::keys::FunctionKey;
+use crate::core::semantic_analysis::name_resolution::resolver::{Resolution, ResolveError};
 use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckSink;
 use crate::core::source_file_key::SourceFileKey;
 
-/// A semantic error, ready to be shown: types are rendered, and HIR handles are turned into
-/// source spans.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum SemanticDiagnostic {
     TypeMismatch {
         expected: String,
         found: String,
         span: Span,
-        /// The function's return type, when the expected type comes from it.
         return_type_span: Option<Span>,
     },
-    /// A function's body has no tail, so it returns `()` where `expected` is declared.
     ImplicitUnitReturn {
         expected: String,
         return_type_span: Span,
@@ -44,13 +39,32 @@ pub(crate) enum SemanticDiagnostic {
         expected: usize,
         found: usize,
         callee_span: Span,
-        /// One label per unexpected or missing argument.
         argument_labels: Vec<(Span, String)>,
-        /// The called function's name, when it's defined in the same file.
         definition_span: Option<Span>,
     },
     UnresolvedName {
-        /// `"value"`, or `"function"` when the name is called.
+        name: String,
+        span: Span,
+    },
+    UnresolvedModule {
+        name: String,
+        span: Span,
+    },
+    UnresolvedImport {
+        path: Vec<String>,
+        span: Span,
+    },
+    MissingFromModule {
+        name: String,
+        module: String,
+        span: Span,
+    },
+    NotAModule {
+        name: String,
+        found: &'static str,
+        span: Span,
+    },
+    ExpectedValueFoundModule {
         kind: &'static str,
         name: String,
         span: Span,
@@ -61,7 +75,6 @@ pub(crate) enum SemanticDiagnostic {
     },
     ExpectedFunction {
         found: String,
-        /// The callee's name, if it's a path.
         callee_name: Option<String>,
         callee_span: Span,
         call_span: Span,
@@ -99,230 +112,98 @@ pub(crate) enum SemanticDiagnostic {
     TypeMustBeKnown {
         span: Span,
     },
+    LiteralOutOfRange {
+        literal: String,
+        ty: String,
+        range: String,
+        suggested_ty: Option<String>,
+        span: Span,
+    },
 }
 
-/// Where the definition owning a body is written, for labels pointing back at its signature.
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum UnresolvedSemanticDiagnostic<'db> {
+    TypeMismatch {
+        expression_handle: ExpressionHandle,
+        expected: String,
+        found: String,
+        cause: TypeMismatchCause,
+    },
+    ReturnWithoutValue {
+        expression_handle: ExpressionHandle,
+    },
+    UnresolvedPath {
+        expression_handle: ExpressionHandle,
+        error: ResolveError<'db>,
+    },
+    ExpectedValueFoundModule {
+        expression_handle: ExpressionHandle,
+    },
+    UnknownType {
+        annotation_handle: TypeAnnotationHandle,
+    },
+    ExpectedFunction {
+        call_handle: ExpressionHandle,
+        found: String,
+    },
+    MismatchedArgumentCount {
+        call_handle: ExpressionHandle,
+        function: Option<FunctionKey<'db>>,
+        parameters: Vec<String>,
+    },
+    UnaryOperatorCannotBeApplied {
+        expression_handle: ExpressionHandle,
+        operator: UnaryOperator,
+        found: String,
+        is_unsigned: bool,
+    },
+    BinaryOperatorCannotBeApplied {
+        expression_handle: ExpressionHandle,
+        operator: BinaryOperator,
+        lhs: String,
+        rhs: String,
+    },
+    InvalidAssignmentTarget {
+        assignment_handle: ExpressionHandle,
+        target_handle: ExpressionHandle,
+    },
+    BreakOutsideOfLoop {
+        expression_handle: ExpressionHandle,
+        is_break: bool,
+        bad_value_break: bool,
+    },
+    ReturnOutsideFunction {
+        expression_handle: ExpressionHandle,
+    },
+    TypeMustBeKnown {
+        expression_handle: ExpressionHandle,
+    },
+    LiteralOutOfRange {
+        expression_handle: ExpressionHandle,
+        ty: String,
+        range: String,
+        suggested_ty: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum TypeMismatchCause {
+    General,
+    ReturnValue,
+    ImplicitUnitReturn,
+    IfElse {
+        then_branch_handle: ExpressionHandle,
+    },
+    IfWithoutElse,
+}
+
 pub(crate) struct OwnerSpans {
     pub(crate) file: SourceFileKey,
     pub(crate) name: Option<Span>,
-    /// A function's return type annotation, if it has one.
     pub(crate) return_type: Option<Span>,
 }
 
 impl SemanticDiagnostic {
-    pub(crate) fn from_inference<'db>(
-        db: &'db dyn crate::Db,
-        body: &DefinitionBody<'db>,
-        source_map: &DefinitionBodySourceMap,
-        types: &TypeCheckSink<'db>,
-        owner: &OwnerSpans,
-        diagnostic: &InferenceDiagnostic<'db>,
-    ) -> Self {
-        let span_of =
-            |expression_handle: ExpressionHandle| source_map.expressions[expression_handle].span;
-        let path_text =
-            |expression_handle: ExpressionHandle| match &body.expressions[expression_handle] {
-                Expression::Path(path) => Some(
-                    path.segments(db)
-                        .iter()
-                        .map(|segment| segment.text(db))
-                        .collect::<Vec<_>>()
-                        .join("::"),
-                ),
-                _ => None,
-            };
-        match diagnostic {
-            InferenceDiagnostic::TypeMismatch {
-                expression_handle,
-                expected,
-                found,
-                cause,
-            } => match (cause, owner.return_type) {
-                (MismatchCause::ImplicitUnitReturn, Some(return_type_span)) => {
-                    Self::ImplicitUnitReturn {
-                        expected: expected.clone(),
-                        return_type_span,
-                        function_name_span: owner.name,
-                    }
-                }
-                _ => Self::TypeMismatch {
-                    expected: expected.clone(),
-                    found: found.clone(),
-                    span: span_of(*expression_handle),
-                    return_type_span: match cause {
-                        MismatchCause::ReturnValue => owner.return_type,
-                        _ => None,
-                    },
-                },
-            },
-            InferenceDiagnostic::IfElseMismatch {
-                then_branch_handle,
-                else_branch_handle,
-                expected,
-                found,
-            } => Self::IfElseMismatch {
-                expected: expected.clone(),
-                found: found.clone(),
-                then_span: span_of(value_expression(body, *then_branch_handle)),
-                else_span: span_of(value_expression(body, *else_branch_handle)),
-            },
-            InferenceDiagnostic::IfWithoutElse {
-                expression_handle,
-                expected,
-            } => Self::IfWithoutElse {
-                expected: expected.clone(),
-                span: span_of(*expression_handle),
-            },
-            InferenceDiagnostic::ReturnWithoutValue {
-                expression_handle, ..
-            } => Self::ReturnWithoutValue {
-                span: span_of(*expression_handle),
-            },
-            InferenceDiagnostic::UnresolvedName { expression_handle } => {
-                let is_callee = body.expressions.values().any(|other| {
-                    matches!(other, Expression::Call { callee_handle, .. } if callee_handle == expression_handle)
-                });
-                Self::UnresolvedName {
-                    kind: if is_callee { "function" } else { "value" },
-                    name: path_text(*expression_handle).expect("only paths are resolved"),
-                    span: span_of(*expression_handle),
-                }
-            }
-            InferenceDiagnostic::UnknownType { annotation_handle } => {
-                let TypeAnnotation::Path(name) = &body.type_annotations[*annotation_handle] else {
-                    unreachable!("only named annotations can be unknown")
-                };
-                Self::UnknownType {
-                    name: name.text(db).to_string(),
-                    span: source_map.type_annotations[*annotation_handle].span,
-                }
-            }
-            InferenceDiagnostic::ExpectedFunction { call_handle, found } => {
-                let Expression::Call { callee_handle, .. } = &body.expressions[*call_handle] else {
-                    unreachable!("reported on calls")
-                };
-                Self::ExpectedFunction {
-                    found: found.clone(),
-                    callee_name: path_text(*callee_handle),
-                    callee_span: span_of(*callee_handle),
-                    call_span: span_of(*call_handle),
-                }
-            }
-            InferenceDiagnostic::MismatchedArgumentCount {
-                call_handle,
-                function,
-                parameters,
-            } => {
-                let Expression::Call {
-                    callee_handle,
-                    argument_segment,
-                } = &body.expressions[*call_handle]
-                else {
-                    unreachable!("reported on calls")
-                };
-                let argument_handles = &body.expression_children[*argument_segment];
-                let argument_labels = if argument_handles.len() > parameters.len() {
-                    (parameters.len()..argument_handles.len())
-                        .map(|index| {
-                            let argument_handle = argument_handles[index];
-                            let ty = types.expression_type(argument_handle).display(db);
-                            (
-                                span_of(argument_handle),
-                                format!("unexpected argument #{} of type `{ty}`", index + 1),
-                            )
-                        })
-                        .collect()
-                } else {
-                    (argument_handles.len()..parameters.len())
-                        .map(|index| {
-                            let ty = &parameters[index];
-                            (
-                                span_of(*call_handle),
-                                format!("argument #{} of type `{ty}` is missing", index + 1),
-                            )
-                        })
-                        .collect()
-                };
-                // Only a definition in the same file can be shown alongside the call.
-                let definition_span = function
-                    .filter(|function| *function.id(db).file(db) == owner.file)
-                    .and_then(|function| function.id(db).to_ast_node(db).name())
-                    .map(|name| name.span());
-                Self::MismatchedArgumentCount {
-                    expected: parameters.len(),
-                    found: argument_handles.len(),
-                    callee_span: span_of(*callee_handle),
-                    argument_labels,
-                    definition_span,
-                }
-            }
-            InferenceDiagnostic::UnaryOperatorCannotBeApplied {
-                expression_handle,
-                operator,
-                found,
-                is_unsigned,
-            } => Self::UnaryOperatorCannotBeApplied {
-                operator: match operator {
-                    UnaryOperator::Neg => "-".to_string(),
-                    UnaryOperator::Not => "not".to_string(),
-                },
-                found: found.clone(),
-                is_unsigned: *is_unsigned,
-                span: span_of(*expression_handle),
-            },
-            InferenceDiagnostic::BinaryOperatorCannotBeApplied {
-                expression_handle,
-                operator,
-                lhs,
-                rhs,
-            } => {
-                let Expression::BinaryOperation {
-                    lhs_handle,
-                    rhs_handle,
-                    ..
-                } = &body.expressions[*expression_handle]
-                else {
-                    unreachable!("reported on binary operations")
-                };
-                Self::BinaryOperatorCannotBeApplied {
-                    operator: *operator,
-                    lhs: lhs.clone(),
-                    rhs: rhs.clone(),
-                    span: span_of(*expression_handle),
-                    lhs_span: span_of(*lhs_handle),
-                    rhs_span: span_of(*rhs_handle),
-                }
-            }
-            InferenceDiagnostic::InvalidAssignmentTarget {
-                assignment_handle,
-                target_handle,
-            } => Self::InvalidAssignmentTarget {
-                span: span_of(*assignment_handle),
-                target_span: span_of(*target_handle),
-            },
-            InferenceDiagnostic::BreakOutsideOfLoop {
-                expression_handle,
-                is_break,
-                bad_value_break,
-            } => {
-                let span = span_of(*expression_handle);
-                match (is_break, bad_value_break) {
-                    (true, true) => Self::BreakWithValueFromWhile { span },
-                    (true, false) => Self::BreakOutsideOfLoop { span },
-                    (false, _) => Self::ContinueOutsideOfLoop { span },
-                }
-            }
-            InferenceDiagnostic::ReturnOutsideFunction { expression_handle } => {
-                Self::ReturnOutsideFunction {
-                    span: span_of(*expression_handle),
-                }
-            }
-            InferenceDiagnostic::TypeMustBeKnown { expression_handle } => Self::TypeMustBeKnown {
-                span: span_of(*expression_handle),
-            },
-        }
-    }
-
     pub(crate) fn describe(&self) -> DiagnosticDescription {
         match self {
             Self::TypeMismatch {
@@ -415,11 +296,54 @@ impl SemanticDiagnostic {
                     labels,
                 )
             }
-            Self::UnresolvedName { kind, name, span } => description(
+            Self::UnresolvedName { name, span } => description(
                 "E0425",
-                &format!("cannot find {kind} `{name}` in this scope"),
+                &format!("cannot find `{name}` in this scope"),
                 *span,
                 vec![primary(*span, "not found in this scope")],
+            ),
+            Self::UnresolvedModule { name, span } => {
+                let message = format!("use of unresolved module `{name}`");
+                description(
+                    "E0433",
+                    &format!("failed to resolve: {message}"),
+                    *span,
+                    vec![primary(*span, message)],
+                )
+            }
+            Self::MissingFromModule { name, module, span } => description(
+                "E0425",
+                &format!("cannot find `{name}` in module `{module}`"),
+                *span,
+                vec![primary(*span, format!("not found in `{module}`"))],
+            ),
+            Self::UnresolvedImport { path, span } => {
+                let label = match path.split_last() {
+                    Some((name, [])) => format!("no `{name}` in the root"),
+                    Some((name, parent)) => format!("no `{name}` in `{}`", parent.join("::")),
+                    None => unreachable!("an import path has at least one segment"),
+                };
+                description(
+                    "E0432",
+                    &format!("unresolved import `{}`", path.join("::")),
+                    *span,
+                    vec![primary(*span, label)],
+                )
+            }
+            Self::NotAModule { name, found, span } => {
+                let message = format!("`{name}` is {found}, not a module");
+                description(
+                    "E0433",
+                    &format!("failed to resolve: {message}"),
+                    *span,
+                    vec![primary(*span, message)],
+                )
+            }
+            Self::ExpectedValueFoundModule { kind, name, span } => description(
+                "E0423",
+                &format!("expected {kind}, found module `{name}`"),
+                *span,
+                vec![primary(*span, format!("not a {kind}"))],
             ),
             Self::UnknownType { name, span } => description(
                 "E0412",
@@ -538,12 +462,298 @@ impl SemanticDiagnostic {
                 *span,
                 vec![primary(*span, "cannot infer type")],
             ),
+            Self::LiteralOutOfRange {
+                literal,
+                ty,
+                range,
+                suggested_ty,
+                span,
+            } => DiagnosticDescription {
+                notes: vec![format!(
+                    "the literal `{literal}` does not fit into the type `{ty}` whose range is `{range}`"
+                )],
+                helps: suggested_ty
+                    .iter()
+                    .map(|suggested_ty| format!("consider using the type `{suggested_ty}` instead"))
+                    .collect(),
+                ..description(
+                    "E0103",
+                    &format!("literal out of range for `{ty}`"),
+                    *span,
+                    vec![unlabeled(*span)],
+                )
+            },
         }
     }
 }
 
-/// Returns the expression whose value a branch produces: a block's tail, recursively. `if`/`else`
-/// mismatches point at it rather than at the whole block.
+impl<'db> UnresolvedSemanticDiagnostic<'db> {
+    pub(crate) fn resolve(
+        &self,
+        db: &'db dyn crate::Db,
+        body: &DefinitionBody<'db>,
+        source_map: &DefinitionBodySourceMap,
+        types: &TypeCheckSink<'db>,
+        owner: &OwnerSpans,
+    ) -> SemanticDiagnostic {
+        let span_of =
+            |expression_handle: ExpressionHandle| source_map.expressions[expression_handle].span;
+        let path_text =
+            |expression_handle: ExpressionHandle| match &body.expressions[expression_handle] {
+                Expression::Path(path) => Some(
+                    path.segments(db)
+                        .iter()
+                        .map(|segment| segment.text(db))
+                        .collect::<Vec<_>>()
+                        .join("::"),
+                ),
+                _ => None,
+            };
+        match self {
+            Self::TypeMismatch {
+                expression_handle,
+                expected,
+                found,
+                cause,
+            } => match (*cause, owner.return_type) {
+                (TypeMismatchCause::ImplicitUnitReturn, Some(return_type_span)) => {
+                    SemanticDiagnostic::ImplicitUnitReturn {
+                        expected: expected.clone(),
+                        return_type_span,
+                        function_name_span: owner.name,
+                    }
+                }
+                (TypeMismatchCause::IfElse { then_branch_handle }, _) => {
+                    SemanticDiagnostic::IfElseMismatch {
+                        expected: expected.clone(),
+                        found: found.clone(),
+                        then_span: span_of(value_expression(body, then_branch_handle)),
+                        else_span: span_of(value_expression(body, *expression_handle)),
+                    }
+                }
+                (TypeMismatchCause::IfWithoutElse, _) => SemanticDiagnostic::IfWithoutElse {
+                    expected: expected.clone(),
+                    span: span_of(*expression_handle),
+                },
+                (cause, _) => SemanticDiagnostic::TypeMismatch {
+                    expected: expected.clone(),
+                    found: found.clone(),
+                    span: span_of(*expression_handle),
+                    return_type_span: match cause {
+                        TypeMismatchCause::ReturnValue => owner.return_type,
+                        _ => None,
+                    },
+                },
+            },
+            Self::ReturnWithoutValue {
+                expression_handle, ..
+            } => SemanticDiagnostic::ReturnWithoutValue {
+                span: span_of(*expression_handle),
+            },
+            Self::UnresolvedPath {
+                expression_handle,
+                error,
+            } => {
+                let Expression::Path(path) = &body.expressions[*expression_handle] else {
+                    unreachable!("reported on paths")
+                };
+                let segments = path.segments(db);
+                let segment = |index: usize| segments[index].text(db).to_string();
+                let span = span_of(*expression_handle);
+                match *error {
+                    ResolveError::Unresolved { .. } if segments.len() == 1 => {
+                        SemanticDiagnostic::UnresolvedName {
+                            name: segment(0),
+                            span,
+                        }
+                    }
+                    ResolveError::Unresolved { segment_index } => {
+                        SemanticDiagnostic::UnresolvedModule {
+                            name: segment(segment_index),
+                            span,
+                        }
+                    }
+                    ResolveError::MissingFromModule { segment_index } => {
+                        SemanticDiagnostic::MissingFromModule {
+                            name: segment(segment_index),
+                            module: segment(segment_index - 1),
+                            span,
+                        }
+                    }
+                    ResolveError::NotAModule {
+                        segment_index,
+                        found,
+                    } => SemanticDiagnostic::NotAModule {
+                        name: segment(segment_index),
+                        found: match found {
+                            Resolution::Local(_) => "a local variable",
+                            Resolution::Function(_) => "a function",
+                            Resolution::Constant(_) => "a constant",
+                            Resolution::Module(_) | Resolution::Error => {
+                                unreachable!("a module, or a failed import, can be qualified")
+                            }
+                        },
+                        span,
+                    },
+                }
+            }
+            Self::ExpectedValueFoundModule { expression_handle } => {
+                SemanticDiagnostic::ExpectedValueFoundModule {
+                    kind: value_kind(body, *expression_handle),
+                    name: path_text(*expression_handle).unwrap(),
+                    span: span_of(*expression_handle),
+                }
+            }
+            Self::UnknownType { annotation_handle } => {
+                let TypeAnnotation::Path(name) = &body.type_annotations[*annotation_handle] else {
+                    unreachable!("only named annotations can be unknown")
+                };
+                SemanticDiagnostic::UnknownType {
+                    name: name.text(db).to_string(),
+                    span: source_map.type_annotations[*annotation_handle].span,
+                }
+            }
+            Self::ExpectedFunction { call_handle, found } => {
+                let Expression::Call { callee_handle, .. } = &body.expressions[*call_handle] else {
+                    unreachable!("reported on calls")
+                };
+                SemanticDiagnostic::ExpectedFunction {
+                    found: found.clone(),
+                    callee_name: path_text(*callee_handle),
+                    callee_span: span_of(*callee_handle),
+                    call_span: span_of(*call_handle),
+                }
+            }
+            Self::MismatchedArgumentCount {
+                call_handle,
+                function,
+                parameters,
+            } => {
+                let Expression::Call {
+                    callee_handle,
+                    argument_segment,
+                } = &body.expressions[*call_handle]
+                else {
+                    unreachable!("reported on calls")
+                };
+                let argument_handles = &body.expression_children[*argument_segment];
+                let argument_labels = if argument_handles.len() > parameters.len() {
+                    (parameters.len()..argument_handles.len())
+                        .map(|index| {
+                            let argument_handle = argument_handles[index];
+                            let ty = types.expression_type(argument_handle).display(db);
+                            (
+                                span_of(argument_handle),
+                                format!("unexpected argument #{} of type `{ty}`", index + 1),
+                            )
+                        })
+                        .collect()
+                } else {
+                    (argument_handles.len()..parameters.len())
+                        .map(|index| {
+                            let ty = &parameters[index];
+                            (
+                                span_of(*call_handle),
+                                format!("argument #{} of type `{ty}` is missing", index + 1),
+                            )
+                        })
+                        .collect()
+                };
+                // Only a definition in the same file can be shown alongside the call.
+                let definition_span = function
+                    .filter(|function| function.file(db) == owner.file)
+                    .and_then(|function| function.to_ast_node(db).name())
+                    .map(|name| name.span());
+                SemanticDiagnostic::MismatchedArgumentCount {
+                    expected: parameters.len(),
+                    found: argument_handles.len(),
+                    callee_span: span_of(*callee_handle),
+                    argument_labels,
+                    definition_span,
+                }
+            }
+            Self::UnaryOperatorCannotBeApplied {
+                expression_handle,
+                operator,
+                found,
+                is_unsigned,
+            } => SemanticDiagnostic::UnaryOperatorCannotBeApplied {
+                operator: match operator {
+                    UnaryOperator::Neg => "-".to_string(),
+                    UnaryOperator::Not => "not".to_string(),
+                },
+                found: found.clone(),
+                is_unsigned: *is_unsigned,
+                span: span_of(*expression_handle),
+            },
+            Self::BinaryOperatorCannotBeApplied {
+                expression_handle,
+                operator,
+                lhs,
+                rhs,
+            } => {
+                let Expression::BinaryOperation {
+                    lhs_handle,
+                    rhs_handle,
+                    ..
+                } = &body.expressions[*expression_handle]
+                else {
+                    unreachable!("reported on binary operations")
+                };
+                SemanticDiagnostic::BinaryOperatorCannotBeApplied {
+                    operator: *operator,
+                    lhs: lhs.clone(),
+                    rhs: rhs.clone(),
+                    span: span_of(*expression_handle),
+                    lhs_span: span_of(*lhs_handle),
+                    rhs_span: span_of(*rhs_handle),
+                }
+            }
+            Self::InvalidAssignmentTarget {
+                assignment_handle,
+                target_handle,
+            } => SemanticDiagnostic::InvalidAssignmentTarget {
+                span: span_of(*assignment_handle),
+                target_span: span_of(*target_handle),
+            },
+            Self::BreakOutsideOfLoop {
+                expression_handle,
+                is_break,
+                bad_value_break,
+            } => {
+                let span = span_of(*expression_handle);
+                match (is_break, bad_value_break) {
+                    (true, true) => SemanticDiagnostic::BreakWithValueFromWhile { span },
+                    (true, false) => SemanticDiagnostic::BreakOutsideOfLoop { span },
+                    (false, _) => SemanticDiagnostic::ContinueOutsideOfLoop { span },
+                }
+            }
+            Self::ReturnOutsideFunction { expression_handle } => {
+                SemanticDiagnostic::ReturnOutsideFunction {
+                    span: span_of(*expression_handle),
+                }
+            }
+            Self::TypeMustBeKnown { expression_handle } => SemanticDiagnostic::TypeMustBeKnown {
+                span: span_of(*expression_handle),
+            },
+            Self::LiteralOutOfRange {
+                expression_handle,
+                ty,
+                range,
+                suggested_ty,
+            } => SemanticDiagnostic::LiteralOutOfRange {
+                literal: owner.file.contents(db)
+                    [std::ops::Range::from(span_of(*expression_handle))]
+                .to_string(),
+                ty: ty.clone(),
+                range: range.clone(),
+                suggested_ty: suggested_ty.clone(),
+                span: span_of(*expression_handle),
+            },
+        }
+    }
+}
+
 fn value_expression(
     body: &DefinitionBody<'_>,
     expression_handle: ExpressionHandle,
@@ -557,7 +767,13 @@ fn value_expression(
     }
 }
 
-/// Formats the `expected X, found Y` label, where an unknown integer type is written `integer`.
+fn value_kind(body: &DefinitionBody<'_>, expression_handle: ExpressionHandle) -> &'static str {
+    let is_callee = body.expressions.values().any(|other| {
+        matches!(other, Expression::Call { callee_handle, .. } if *callee_handle == expression_handle)
+    });
+    if is_callee { "function" } else { "value" }
+}
+
 fn expected_found(expected: &str, found: &str) -> String {
     format!(
         "expected {}, found {}",
@@ -573,7 +789,6 @@ fn quote_type(ty: &str) -> String {
     }
 }
 
-/// Formats a count with its noun, e.g. `1 argument`, `2 arguments`.
 fn count(n: usize, noun: &str) -> String {
     format!("{n} {noun}{}", if n == 1 { "" } else { "s" })
 }

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::core::common::segments::Segment;
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::ast_lowering::definition_body_builder::DefinitionBodyBuilder;
@@ -9,32 +7,35 @@ use crate::core::semantic_analysis::hir::nodes::{
     TypeAnnotationHandle, UnaryOperator,
 };
 use crate::core::semantic_analysis::ids::keys::BlockKey;
-use crate::core::semantic_analysis::ids::red_node_directory::RedNodeDirectory;
-use crate::core::semantic_analysis::ids::red_node_id::RedNodeId;
-use crate::core::syntactic_analysis::cst::RedNode;
+use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
+use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
+use crate::core::syntactic_analysis::cst::{RedNode, RedNodeTag};
 
 pub(crate) struct DefinitionBodyLowerer<'db> {
     db: &'db dyn crate::Db,
-    directory: Arc<RedNodeDirectory<'db>>,
+    file: SourceFileKey,
+    owner: Definition<'db>,
+    current_block: Option<BlockKey<'db>>,
     builder: DefinitionBodyBuilder<'db>,
 }
 
 impl<'db> DefinitionBodyLowerer<'db> {
-    pub(crate) fn new(db: &'db dyn crate::Db, directory: Arc<RedNodeDirectory<'db>>) -> Self {
+    pub(crate) fn new(db: &'db dyn crate::Db, file: SourceFileKey, owner: Definition<'db>) -> Self {
         Self {
             db,
-            directory,
+            file,
+            owner,
+            current_block: None,
             builder: DefinitionBodyBuilder::new(),
         }
     }
 
     pub(crate) fn lower_expression(&mut self, expression: ast::Expression) -> ExpressionHandle {
         match expression {
-            ast::Expression::IntegerLiteral(literal) => self.builder.add_expression(
-                Expression::Integer(literal.value().unwrap_or(0)),
-                literal.red(),
-            ),
+            ast::Expression::IntegerLiteral(literal) => self
+                .builder
+                .add_expression(Expression::Integer(literal.value().ok()), literal.red()),
             ast::Expression::BooleanLiteral(literal) => self.builder.add_expression(
                 literal
                     .value()
@@ -206,14 +207,9 @@ impl<'db> DefinitionBodyLowerer<'db> {
         super::lower_path(self.db, path)
     }
 
-    fn block_key(&self, block: &ast::Block) -> Option<BlockKey<'db>> {
-        let id = self.directory.id_of(block.red())?;
-        Some(BlockKey::new(self.db, RedNodeId::new(id)))
-    }
-
     fn lower_statement(&mut self, statement: ast::Statement) -> StatementHandle {
         match statement {
-            ast::Statement::LetStatement(let_statement) => {
+            ast::Statement::Let(let_statement) => {
                 let name = let_statement
                     .name()
                     .map_or_else(String::new, |token| token.lexeme().to_string());
@@ -229,9 +225,8 @@ impl<'db> DefinitionBodyLowerer<'db> {
                     .type_annotation()
                     .map(|type_expression| self.lower_type_annotation(&type_expression));
 
-                let initializer_handle = let_statement
-                    .value()
-                    .map(|value| self.lower_expression(value));
+                let initializer_handle =
+                    self.lower_optional_expression(let_statement.value(), let_statement.red());
 
                 self.builder.add_statement(
                     Statement::Let {
@@ -242,10 +237,10 @@ impl<'db> DefinitionBodyLowerer<'db> {
                     let_statement.red(),
                 )
             }
-            ast::Statement::DefinitionStatement(definition) => self
+            ast::Statement::Definition(definition) => self
                 .builder
                 .add_statement(Statement::Definition, definition.red()),
-            ast::Statement::ExpressionStatement(expression_statement) => {
+            ast::Statement::Expression(expression_statement) => {
                 let expression_handle = self.lower_optional_expression(
                     expression_statement.expression(),
                     expression_statement.red(),
@@ -291,7 +286,6 @@ impl<'db> DefinitionBodyLowerer<'db> {
         self.builder.add_binding_children(&parameter_handles)
     }
 
-    /// Lowers `while c { b }` to `loop { if c { b } else { break } }`.
     fn lower_while_loop(&mut self, while_loop: ast::WhileLoop) -> ExpressionHandle {
         let node = while_loop.red();
 
@@ -346,14 +340,21 @@ impl<'db> DefinitionBodyLowerer<'db> {
     }
 
     fn lower_block(&mut self, block: ast::Block) -> ExpressionHandle {
-        let block_key = self.block_key(&block);
+        let block_key = BlockKey::new(
+            self.db,
+            self.file,
+            self.owner,
+            self.current_block,
+            RedNodeTag::new(block.red()),
+        );
+        let parent_block = self.current_block.replace(block_key);
 
         let mut statements = block.statements().peekable();
         let mut statement_handles: Vec<StatementHandle> = Vec::new();
         let mut tail_handle = None;
         while let Some(statement) = statements.next() {
             match statement {
-                ast::Statement::ExpressionStatement(last)
+                ast::Statement::Expression(last)
                     if statements.peek().is_none() && !last.has_semicolon() =>
                 {
                     tail_handle = last
@@ -364,10 +365,11 @@ impl<'db> DefinitionBodyLowerer<'db> {
             }
         }
         let statement_segment = self.builder.add_statement_children(&statement_handles);
+        self.current_block = parent_block;
 
         self.builder.add_expression(
             Expression::Block {
-                block_key,
+                block_key: Some(block_key),
                 statement_segment,
                 tail_handle,
             },

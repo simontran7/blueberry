@@ -1,0 +1,61 @@
+---
+source: src/core/mir_construction/mir_dumper.rs
+expression: "MirBodyDumper::dump_file(&db, file).unwrap()"
+input_file: src/core/mir_construction/snapshot_inputs/calls_and_constants.bb
+---
+constant LIMIT() -> I32 {
+Block0:
+    v0 = IntegerLiteral 10
+    Return v0
+}
+
+constant DOUBLED() -> I32 {
+Block0:
+    v0 = Constant LIMIT
+    v1 = IntegerLiteral 2
+    v2 = Binary Mul v0, v1
+    Return v2
+}
+
+function add(I32, I32) -> I32 {
+Block0(v0: I32, v1: I32):
+    v2 = Binary Add v0, v1
+    Return v2
+}
+
+function nothing() -> () {
+Block0:
+    Return
+}
+
+function main() -> I32 {
+Block0:
+    Call nothing()
+    v0 = FunctionAddress add
+    v1 = IntegerLiteral 1
+    v2 = Constant LIMIT
+    v3 = Call add(v1, v2)
+    v4 = Constant DOUBLED
+    v5 = CallIndirect v0(v3, v4)
+    Return v5
+}
+
+function nested() -> I32 {
+Block0:
+    v0 = IntegerLiteral 1
+    v1 = Call helper(v0)
+    Return v1
+}
+
+constant LOCAL() -> I32 {
+Block0:
+    v0 = IntegerLiteral 5
+    Return v0
+}
+
+function helper(I32) -> I32 {
+Block0(v0: I32):
+    v1 = Constant LOCAL
+    v2 = Binary Add v0, v1
+    Return v2
+}

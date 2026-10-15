@@ -1,0 +1,58 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/return.bb
+---
+function early(c: Bool) -> I32
+└─ Block 27..71: I32
+   ├─ Expression
+   │  └─ If 33..63: ()
+   │     ├─ condition: Path c 36..37: Bool
+   │     └─ then: Block 38..63: Bottom
+   │        └─ Expression ;
+   │           └─ Return 48..56: Bottom
+   │              └─ Integer 1 55..56: I32
+   └─ tail: Integer 2 68..69: I32
+
+function only_return() -> I32
+└─ Block 99..116: Bottom
+   └─ Expression ;
+      └─ Return 105..113: Bottom
+         └─ Integer 5 112..113: I32
+
+function diverging_tail() -> Bool
+└─ Block 148..182: Bool
+   ├─ Let x: I32
+   │  └─ initializer: Integer 1 162..163: I32
+   └─ tail: Return 169..180: Bottom
+      └─ Boolean true 176..180: Bool
+
+function unit_return()
+└─ Block 203..218: Bottom
+   └─ Expression ;
+      └─ Return 209..215: Bottom
+
+function diverging_branches(c: Bool) -> I32
+└─ Block 260..402: I32
+   ├─ Let never: Bottom
+   │  └─ initializer: If 278..313: Bottom
+   │     ├─ condition: Path c 281..282: Bool
+   │     ├─ then: Block 283..295: Bottom
+   │     │  └─ tail: Return 285..293: Bottom
+   │     │     └─ Integer 1 292..293: I32
+   │     └─ else: Block 301..313: Bottom
+   │        └─ tail: Return 303..311: Bottom
+   │           └─ Integer 2 310..311: I32
+   ├─ Let later: U64
+   │  └─ initializer: If 331..366: U64
+   │     ├─ condition: Path c 334..335: Bool
+   │     ├─ then: Block 336..348: U64
+   │     │  └─ tail: Return 338..346: Bottom
+   │     │     └─ Integer 3 345..346: I32
+   │     └─ else: Block 354..366: U64
+   │        └─ tail: Return 356..364: Bottom
+   │           └─ Integer 4 363..364: I32
+   ├─ Let used: U64
+   │  ├─ type: U64
+   │  └─ initializer: Path later 388..393: U64
+   └─ tail: Integer 0 399..400: I32

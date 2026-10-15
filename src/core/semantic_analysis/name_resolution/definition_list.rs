@@ -1,28 +1,24 @@
-use std::sync::Arc;
-
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::ids::keys::{ConstantKey, DefinitionSource, FunctionKey};
-use crate::core::semantic_analysis::ids::red_node_directory::RedNodeDirectory;
-use crate::core::semantic_analysis::ids::red_node_id::RedNodeId;
 use crate::core::semantic_analysis::{constant_signature_of, function_signature_of};
+use crate::core::source_file_key::SourceFileKey;
+use crate::core::syntactic_analysis::cst::RedNodeTag;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct DefinitionList<'db> {
-    directory: Arc<RedNodeDirectory<'db>>,
     definitions: Vec<Definition<'db>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::SalsaValue)]
 pub(crate) enum Definition<'db> {
     Function(FunctionKey<'db>),
     Constant(ConstantKey<'db>),
 }
 
 impl<'db> DefinitionList<'db> {
-    pub(crate) fn new(directory: Arc<RedNodeDirectory<'db>>) -> Self {
+    pub(crate) fn new() -> Self {
         Self {
-            directory,
             definitions: Vec::new(),
         }
     }
@@ -48,18 +44,36 @@ impl<'db> DefinitionList<'db> {
     pub(crate) fn add_definition(
         &mut self,
         db: &'db dyn crate::Db,
+        file: SourceFileKey,
         source: DefinitionSource<'db>,
+        name: Symbol<'db>,
         definition: ast::Definition,
     ) {
-        let id = self.directory.id_of(definition.red()).unwrap();
+        let node = RedNodeTag::new(definition.red());
         let key = match definition {
             ast::Definition::FunctionDefinition(_) => {
-                Definition::Function(FunctionKey::new(db, source, RedNodeId::new(id)))
+                Definition::Function(FunctionKey::new(db, file, source, name, node))
             }
             ast::Definition::ConstantDefinition(_) => {
-                Definition::Constant(ConstantKey::new(db, source, RedNodeId::new(id)))
+                Definition::Constant(ConstantKey::new(db, file, source, name, node))
             }
         };
         self.definitions.push(key);
+    }
+}
+
+impl<'db> Definition<'db> {
+    pub(crate) fn source(self, db: &'db dyn crate::Db) -> DefinitionSource<'db> {
+        match self {
+            Self::Function(key) => key.source(db),
+            Self::Constant(key) => key.source(db),
+        }
+    }
+
+    pub(crate) fn file(self, db: &'db dyn crate::Db) -> SourceFileKey {
+        match self {
+            Self::Function(key) => key.file(db),
+            Self::Constant(key) => key.file(db),
+        }
     }
 }

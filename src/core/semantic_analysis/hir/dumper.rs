@@ -1,15 +1,30 @@
+use std::sync::Arc;
+
+use crate::core::common::span::Span;
 use crate::core::semantic_analysis::hir::nodes::{
-    DefinitionBody, Expression, ExpressionHandle, Statement, StatementHandle, TypeAnnotation,
+    DefinitionBody, DefinitionBodySourceMap, Expression, ExpressionHandle, Statement,
+    StatementHandle, TypeAnnotation,
 };
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
+use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
+use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckSink;
 use crate::core::semantic_analysis::{
-    block_scoped_definitions_of, constant_body_of, constant_signature_of,
-    file_scoped_definitions_of, function_body_of, function_signature_of,
+    all_definitions_of, block_scoped_definitions_of, constant_body_of, constant_signature_of,
+    constant_source_map_of, constant_types_of, definition_diagnostics_of,
+    file_scoped_definitions_of, function_body_of, function_signature_of, function_source_map_of,
+    function_types_of, import_diagnostics_of,
 };
 use crate::core::source_file_key::SourceFileKey;
 
-pub(crate) struct HirDumper<'db> {
+pub(crate) struct HirBodyDumper<'db> {
     db: &'db dyn crate::Db,
+    source: &'db str,
+    with_types: bool,
+}
+
+struct BodyTypes<'db> {
+    sink: Arc<TypeCheckSink<'db>>,
+    source_map: Arc<DefinitionBodySourceMap>,
 }
 
 struct Node {
@@ -17,9 +32,21 @@ struct Node {
     children: Vec<Node>,
 }
 
-impl<'db> HirDumper<'db> {
+impl<'db> HirBodyDumper<'db> {
     pub(crate) fn dump_file(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
-        let dumper = Self { db };
+        Self::dump(db, file, false)
+    }
+
+    pub(crate) fn dump_file_with_types(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
+        Self::dump(db, file, true)
+    }
+
+    fn dump(db: &'db dyn crate::Db, file: SourceFileKey, with_types: bool) -> String {
+        let dumper = Self {
+            db,
+            source: file.contents(db),
+            with_types,
+        };
         let mut out = String::new();
         for (index, definition) in file_scoped_definitions_of(db, file)
             .definitions()
@@ -30,6 +57,27 @@ impl<'db> HirDumper<'db> {
                 out.push('\n');
             }
             dumper.definition(*definition).write(&mut out);
+        }
+        if with_types {
+            out.push_str(&dumper.diagnostics(file));
+        }
+        out
+    }
+
+    fn diagnostics(&self, file: SourceFileKey) -> String {
+        let mut diagnostics = import_diagnostics_of(self.db, file);
+        diagnostics.extend(
+            all_definitions_of(self.db, file)
+                .into_iter()
+                .flat_map(|definition| definition_diagnostics_of(self.db, definition)),
+        );
+        diagnostics.sort_by_key(|diagnostic| diagnostic.describe().span.start());
+        let mut out = String::new();
+        if !diagnostics.is_empty() {
+            out.push_str("\ndiagnostics\n");
+            for diagnostic in &diagnostics {
+                out.push_str(&self.diagnostic(diagnostic));
+            }
         }
         out
     }
@@ -46,6 +94,11 @@ impl<'db> HirDumper<'db> {
             Definition::Function(key) => {
                 let signature = function_signature_of(self.db, key);
                 let body = function_body_of(self.db, key);
+                let types = self.with_types.then(|| BodyTypes {
+                    sink: function_types_of(self.db, key).clone(),
+                    source_map: function_source_map_of(self.db, key),
+                });
+                let types = types.as_ref();
                 let parameters: Vec<String> = body.binding_children[body.parameter_segment]
                     .iter()
                     .zip(&signature.parameters)
@@ -69,28 +122,39 @@ impl<'db> HirDumper<'db> {
                         signature.name.text(self.db),
                         parameters.join(", ")
                     ),
-                    vec![self.expression(&body, body.root_handle)],
+                    vec![self.expression(body, types, body.root_handle)],
                 )
             }
             Definition::Constant(key) => {
                 let signature = constant_signature_of(self.db, key);
                 let body = constant_body_of(self.db, key);
+                let types = self.with_types.then(|| BodyTypes {
+                    sink: constant_types_of(self.db, key).clone(),
+                    source_map: constant_source_map_of(self.db, key),
+                });
+                let types = types.as_ref();
                 let ty = signature
                     .type_annotation
                     .as_ref()
                     .map_or_else(String::new, |ty| format!(": {}", self.annotation_text(ty)));
                 Node::new(
                     format!("constant {}{ty}", signature.name.text(self.db)),
-                    vec![self.expression(&body, body.root_handle)],
+                    vec![self.expression(body, types, body.root_handle)],
                 )
             }
         }
     }
 
-    fn expression(&self, body: &DefinitionBody<'db>, expression_handle: ExpressionHandle) -> Node {
-        match &body.expressions[expression_handle] {
+    fn expression(
+        &self,
+        body: &DefinitionBody<'db>,
+        types: Option<&BodyTypes<'db>>,
+        expression_handle: ExpressionHandle,
+    ) -> Node {
+        let node = match &body.expressions[expression_handle] {
             Expression::Unit => Node::leaf("Unit"),
-            Expression::Integer(value) => Node::leaf(format!("Integer {value}")),
+            Expression::Integer(Some(value)) => Node::leaf(format!("Integer {value}")),
+            Expression::Integer(None) => Node::leaf("Integer (too large)"),
             Expression::Boolean(value) => Node::leaf(format!("Boolean {value}")),
             Expression::Path(path) => {
                 let segments: Vec<&str> = path
@@ -107,12 +171,16 @@ impl<'db> HirDumper<'db> {
                 else_branch_handle,
             } => {
                 let mut children = vec![
-                    self.expression(body, *condition_handle)
+                    self.expression(body, types, *condition_handle)
                         .labeled("condition"),
-                    self.expression(body, *then_branch_handle).labeled("then"),
+                    self.expression(body, types, *then_branch_handle)
+                        .labeled("then"),
                 ];
                 if let Some(else_branch_handle) = else_branch_handle {
-                    children.push(self.expression(body, *else_branch_handle).labeled("else"));
+                    children.push(
+                        self.expression(body, types, *else_branch_handle)
+                            .labeled("else"),
+                    );
                 }
                 Node::new("If", children)
             }
@@ -123,10 +191,10 @@ impl<'db> HirDumper<'db> {
             } => {
                 let mut children: Vec<Node> = body.statement_children[*statement_segment]
                     .iter()
-                    .map(|statement_handle| self.statement(body, *statement_handle))
+                    .map(|statement_handle| self.statement(body, types, *statement_handle))
                     .collect();
                 if let Some(tail_handle) = tail_handle {
-                    children.push(self.expression(body, *tail_handle).labeled("tail"));
+                    children.push(self.expression(body, types, *tail_handle).labeled("tail"));
                 }
                 if let Some(block_key) = block_key {
                     let definitions = block_scoped_definitions_of(self.db, *block_key);
@@ -148,15 +216,21 @@ impl<'db> HirDumper<'db> {
                 body_handle: loop_body_handle,
             } => Node::new(
                 format!("Loop {source:?}"),
-                vec![self.expression(body, *loop_body_handle)],
+                vec![self.expression(body, types, *loop_body_handle)],
             ),
             Expression::Call {
                 callee_handle,
                 argument_segment,
             } => {
-                let mut children = vec![self.expression(body, *callee_handle).labeled("callee")];
+                let mut children = vec![
+                    self.expression(body, types, *callee_handle)
+                        .labeled("callee"),
+                ];
                 children.extend(body.expression_children[*argument_segment].iter().map(
-                    |argument_handle| self.expression(body, *argument_handle).labeled("argument"),
+                    |argument_handle| {
+                        self.expression(body, types, *argument_handle)
+                            .labeled("argument")
+                    },
                 ));
                 Node::new("Call", children)
             }
@@ -165,14 +239,14 @@ impl<'db> HirDumper<'db> {
                 "Break",
                 value_handle
                     .iter()
-                    .map(|value_handle| self.expression(body, *value_handle))
+                    .map(|value_handle| self.expression(body, types, *value_handle))
                     .collect(),
             ),
             Expression::Return { value_handle } => Node::new(
                 "Return",
                 value_handle
                     .iter()
-                    .map(|value_handle| self.expression(body, *value_handle))
+                    .map(|value_handle| self.expression(body, types, *value_handle))
                     .collect(),
             ),
             Expression::UnaryOperation {
@@ -180,7 +254,7 @@ impl<'db> HirDumper<'db> {
                 operator,
             } => Node::new(
                 format!("Unary {operator}"),
-                vec![self.expression(body, *operand_handle)],
+                vec![self.expression(body, types, *operand_handle)],
             ),
             Expression::BinaryOperation {
                 lhs_handle,
@@ -191,8 +265,8 @@ impl<'db> HirDumper<'db> {
                 Node::new(
                     format!("Binary {operator}"),
                     vec![
-                        self.expression(body, *lhs_handle),
-                        self.expression(body, *rhs_handle),
+                        self.expression(body, types, *lhs_handle),
+                        self.expression(body, types, *rhs_handle),
                     ],
                 )
             }
@@ -202,14 +276,30 @@ impl<'db> HirDumper<'db> {
             } => Node::new(
                 "Assignment",
                 vec![
-                    self.expression(body, *target_handle),
-                    self.expression(body, *value_handle),
+                    self.expression(body, types, *target_handle),
+                    self.expression(body, types, *value_handle),
                 ],
             ),
+        };
+        match types {
+            Some(types) => node
+                .ranged(&self.range(types.source_map.expressions[expression_handle].span))
+                .typed(
+                    &types
+                        .sink
+                        .expression_type(expression_handle)
+                        .display(self.db),
+                ),
+            None => node,
         }
     }
 
-    fn statement(&self, body: &DefinitionBody<'db>, statement_handle: StatementHandle) -> Node {
+    fn statement(
+        &self,
+        body: &DefinitionBody<'db>,
+        types: Option<&BodyTypes<'db>>,
+        statement_handle: StatementHandle,
+    ) -> Node {
         match &body.statements[statement_handle] {
             Statement::Let {
                 name_handle,
@@ -223,16 +313,20 @@ impl<'db> HirDumper<'db> {
                     let text = self.annotation_text(&body.type_annotations[*annotation_handle]);
                     children.push(Node::leaf(format!("type: {text}")));
                 }
-                if let Some(initializer_handle) = initializer_handle {
-                    children.push(
-                        self.expression(body, *initializer_handle)
-                            .labeled("initializer"),
-                    );
-                }
-                Node::new(
+                children.push(
+                    self.expression(body, types, *initializer_handle)
+                        .labeled("initializer"),
+                );
+                let node = Node::new(
                     format!("Let {mutability}{}", binding.name.text(self.db)),
                     children,
-                )
+                );
+                match types {
+                    Some(types) => {
+                        node.typed(&types.sink.local_binding_type(*name_handle).display(self.db))
+                    }
+                    None => node,
+                }
             }
             Statement::Expression {
                 expression_handle,
@@ -241,11 +335,62 @@ impl<'db> HirDumper<'db> {
                 let semicolon = if *has_semicolon { " ;" } else { "" };
                 Node::new(
                     format!("Expression{semicolon}"),
-                    vec![self.expression(body, *expression_handle)],
+                    vec![self.expression(body, types, *expression_handle)],
                 )
             }
             Statement::Definition => Node::leaf("Definition"),
         }
+    }
+
+    fn diagnostic(&self, diagnostic: &SemanticDiagnostic) -> String {
+        let description = diagnostic.describe();
+        let mut line = format!(
+            "  {} {} '{}': {}",
+            description.code,
+            self.range(description.span),
+            self.text(description.span),
+            description.message
+        );
+        let main_label = description
+            .labels
+            .iter()
+            .position(|label| label.span == description.span && label.message.is_some());
+        if let Some(index) = main_label {
+            let message = description.labels[index].message.as_ref().unwrap();
+            line.push_str(&format!(" ({message})"));
+        }
+        line.push('\n');
+        for (index, label) in description.labels.iter().enumerate() {
+            if Some(index) == main_label {
+                continue;
+            }
+            if let Some(message) = &label.message {
+                line.push_str(&format!(
+                    "    {} '{}': {message}\n",
+                    self.range(label.span),
+                    self.text(label.span)
+                ));
+            }
+        }
+        for note in &description.notes {
+            line.push_str(&format!("    note: {note}\n"));
+        }
+        for help in &description.helps {
+            line.push_str(&format!("    help: {help}\n"));
+        }
+        line
+    }
+
+    fn range(&self, span: Span) -> String {
+        format!("{}..{}", usize::from(span.start()), usize::from(span.end()))
+    }
+
+    fn text(&self, span: Span) -> String {
+        let text = self.source[std::ops::Range::from(span)]
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        ellipsize(text, 15)
     }
 }
 
@@ -284,6 +429,33 @@ impl Node {
         self.label = format!("{name}: {}", self.label);
         self
     }
+
+    fn ranged(mut self, range: &str) -> Self {
+        self.label = format!("{} {range}", self.label);
+        self
+    }
+
+    fn typed(mut self, ty: &str) -> Self {
+        self.label = format!("{}: {ty}", self.label);
+        self
+    }
+}
+
+fn ellipsize(mut text: String, max_len: usize) -> String {
+    if text.len() <= max_len {
+        return text;
+    }
+    let ellipsis = "...";
+    let mut prefix_len = (max_len - ellipsis.len()) / 2;
+    while !text.is_char_boundary(prefix_len) {
+        prefix_len += 1;
+    }
+    let mut suffix_len = max_len - ellipsis.len() - prefix_len;
+    while !text.is_char_boundary(text.len() - suffix_len) {
+        suffix_len += 1;
+    }
+    text.replace_range(prefix_len..text.len() - suffix_len, ellipsis);
+    text
 }
 
 #[cfg(test)]
@@ -302,7 +474,7 @@ mod tests {
                 let input = fs::read_to_string(path).unwrap();
                 let db = BlueberryDatabase::default();
                 let file = SourceFileKey::new(&db, path.to_path_buf(), input);
-                insta::assert_snapshot!(HirDumper::dump_file(&db, file));
+                insta::assert_snapshot!(HirBodyDumper::dump_file(&db, file));
             }
         )
     }

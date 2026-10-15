@@ -1,6 +1,7 @@
 pub(crate) mod common;
 pub(crate) mod db;
 pub(crate) mod lexical_analysis;
+pub(crate) mod mir_construction;
 pub(crate) mod module_map;
 pub(crate) mod semantic_analysis;
 pub(crate) mod source_file_key;

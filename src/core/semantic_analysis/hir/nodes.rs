@@ -47,7 +47,7 @@ pub(crate) struct DefinitionBodySourceMap {
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) enum Expression<'db> {
     Unit,
-    Integer(u128),
+    Integer(Option<u128>),
     Boolean(bool),
     Path(Path<'db>),
     If {
@@ -103,7 +103,7 @@ pub(crate) enum Statement {
     Let {
         name_handle: LocalBindingHandle,
         annotation_handle: Option<TypeAnnotationHandle>,
-        initializer_handle: Option<ExpressionHandle>,
+        initializer_handle: ExpressionHandle,
     },
     Expression {
         expression_handle: ExpressionHandle,

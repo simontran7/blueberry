@@ -1,0 +1,57 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/modules/qualified_paths/main.bb
+---
+function unit_area() -> I32
+└─ Block 83..106: I32
+   └─ tail: Call 89..104: I32
+      ├─ callee: Path circle::area 89..101: (I32) -> I32
+      └─ argument: Integer 1 102..103: I32
+
+constant DOUBLE_PI: I32
+└─ Binary * 131..145: I32
+   ├─ Path circle::PI 131..141: I32
+   └─ Integer 2 144..145: I32
+
+function errors(x: I32)
+└─ Block 168..406: ()
+   ├─ Let a: Error
+   │  └─ initializer: Path circle::nope 182..194: Error
+   ├─ Expression ;
+   │  └─ Call 200..218: Error
+   │     ├─ callee: Path circle::missing 200..215: Error
+   │     └─ argument: Integer 1 216..217: I32
+   ├─ Let b: Error
+   │  └─ initializer: Path nope::area 232..242: Error
+   ├─ Let c: Error
+   │  └─ initializer: Path circle 256..262: Error
+   ├─ Let d: Error
+   │  └─ initializer: Path unit_area::x 276..288: Error
+   ├─ Let e: Error
+   │  └─ initializer: Path x::y 302..306: Error
+   ├─ Let f: Error
+   │  └─ initializer: Call 320..327: Error
+   │     ├─ callee: Path area 320..324: Error
+   │     └─ argument: Integer 1 325..326: I32
+   ├─ Expression ;
+   │  └─ Assignment 333..347: ()
+   │     ├─ Path circle::PI 333..343: I32
+   │     └─ Integer 4 346..347: I32
+   ├─ Let g: Error
+   │  └─ initializer: Path ghost::thing 361..373: Error
+   └─ Let h: Error
+      └─ initializer: Path undeclared::area 387..403: Error
+
+diagnostics
+  E0432 30..42 'shapes::nope': unresolved import `shapes::nope` (no `nope` in `shapes`)
+  E0432 51..56 'ghost': unresolved import `ghost` (no `ghost` in the root)
+  E0425 182..194 'circle::nope': cannot find `nope` in module `circle` (not found in `circle`)
+  E0425 200..215 'circle::missing': cannot find `missing` in module `circle` (not found in `circle`)
+  E0423 256..262 'circle': expected value, found module `circle` (not a value)
+  E0433 276..288 'unit_area::x': failed to resolve: `unit_area` is a function, not a module (`unit_area` is a function, not a module)
+  E0433 302..306 'x::y': failed to resolve: `x` is a local variable, not a module (`x` is a local variable, not a module)
+  E0425 320..324 'area': cannot find `area` in this scope (not found in this scope)
+  E0070 333..347 'circle::PI = 4': invalid left-hand side of assignment
+    333..343 'circle::PI': cannot assign to this expression
+  E0433 387..403 'undecl...::area': failed to resolve: use of unresolved module `undeclared` (use of unresolved module `undeclared`)

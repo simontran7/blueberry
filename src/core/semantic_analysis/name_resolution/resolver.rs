@@ -1,35 +1,72 @@
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::hir::nodes::LocalBindingHandle;
+use crate::core::semantic_analysis::hir::nodes::{LocalBindingHandle, Path};
 use crate::core::semantic_analysis::ids::keys::{BlockKey, ConstantKey, FunctionKey};
-use crate::core::semantic_analysis::ids::red_node_id::RedNodeId;
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeView;
 use crate::core::semantic_analysis::{
     block_scoped_definitions_of, file_scoped_definitions_of, imports_of, module_file_of,
 };
 use crate::core::source_file_key::SourceFileKey;
-use crate::core::syntactic_analysis::cst::SyntaxKind;
 
 pub(crate) struct Resolver<'a, 'db> {
     pub(crate) file: SourceFileKey,
     pub(crate) scope_view: ScopeView<'a, 'db>,
-    /// The block the body's definition is nested in, if any. Its definitions, and those of the
-    /// blocks around it, are visible from the body.
     pub(crate) enclosing_block: Option<BlockKey<'db>>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) enum Resolution<'db> {
     Local(LocalBindingHandle),
     Function(FunctionKey<'db>),
     Constant(ConstantKey<'db>),
+    Module(SourceFileKey),
+    Error,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum ResolveError<'db> {
+    Unresolved {
+        segment_index: usize,
+    },
+    MissingFromModule {
+        segment_index: usize,
+    },
+    NotAModule {
+        segment_index: usize,
+        found: Resolution<'db>,
+    },
 }
 
 impl<'a, 'db> Resolver<'a, 'db> {
-    pub(crate) fn resolve(
+    pub(crate) fn resolve_path(
         &self,
         db: &'db dyn crate::Db,
-        name: Symbol<'db>,
-    ) -> Option<Resolution<'db>> {
+        path: Path<'db>,
+    ) -> Result<Resolution<'db>, ResolveError<'db>> {
+        let (first, rest) = path.segments(db).split_first().unwrap();
+        let mut resolution = self
+            .resolve_name(db, *first)
+            .ok_or(ResolveError::Unresolved { segment_index: 0 })?;
+        for (index, name) in rest.iter().enumerate() {
+            let file = match resolution {
+                Resolution::Module(file) => file,
+                Resolution::Error => return Ok(Resolution::Error),
+                _ => {
+                    return Err(ResolveError::NotAModule {
+                        segment_index: index,
+                        found: resolution,
+                    });
+                }
+            };
+            resolution =
+                resolve_in_module(db, file, *name).ok_or(ResolveError::MissingFromModule {
+                    segment_index: index + 1,
+                })?;
+        }
+        Ok(resolution)
+    }
+
+    fn resolve_name(&self, db: &'db dyn crate::Db, name: Symbol<'db>) -> Option<Resolution<'db>> {
         for scope_view in self.scope_view.chain() {
             // check whether `name` is a local binding
             if let Some(entry) = scope_view
@@ -51,16 +88,12 @@ impl<'a, 'db> Resolver<'a, 'db> {
 
         // check whether `name` is a definition in a block enclosing the body's definition,
         // innermost first
-        let mut ancestor = self.enclosing_block.map(|block| block.id(db).id);
-        while let Some(id) = ancestor {
-            if *id.kind(db) == SyntaxKind::Block
-                && let Some(definition) =
-                    block_scoped_definitions_of(db, BlockKey::new(db, RedNodeId::new(id)))
-                        .find(db, name)
-            {
+        let mut ancestor = self.enclosing_block;
+        while let Some(block) = ancestor {
+            if let Some(definition) = block_scoped_definitions_of(db, block).find(db, name) {
                 return Some(definition.into());
             }
-            ancestor = *id.parent(db);
+            ancestor = block.enclosing_block(db);
         }
 
         // check whether `name` is a top-level definition in the current file
@@ -68,17 +101,17 @@ impl<'a, 'db> Resolver<'a, 'db> {
             return Some(definition.into());
         }
 
-        // check whether `name` is imported, and that the imported file actually defines it
-        for path in imports_of(db, self.file).matching(db, name) {
-            if let Some(target_file) = module_file_of(db, path)
-                && let Some(definition) =
-                    file_scoped_definitions_of(db, *target_file).find(db, name)
-            {
-                return Some(definition.into());
-            }
+        // check whether `name` is an imported module
+        let imports: Vec<_> = imports_of(db, self.file).matching(db, name).collect();
+        if imports.is_empty() {
+            return None;
         }
-
-        None
+        Some(
+            imports
+                .into_iter()
+                .find_map(|path| *module_file_of(db, path))
+                .map_or(Resolution::Error, Resolution::Module),
+        )
     }
 }
 
@@ -89,4 +122,14 @@ impl<'db> From<Definition<'db>> for Resolution<'db> {
             Definition::Constant(key) => Self::Constant(key),
         }
     }
+}
+
+fn resolve_in_module<'db>(
+    db: &'db dyn crate::Db,
+    file: SourceFileKey,
+    name: Symbol<'db>,
+) -> Option<Resolution<'db>> {
+    file_scoped_definitions_of(db, file)
+        .find(db, name)
+        .map(Resolution::from)
 }

@@ -380,18 +380,14 @@ impl RedNodeTag {
         }
     }
 
-    pub(crate) fn to_red_node(&self, root: &RedNode) -> Option<RedNode> {
-        let mut current = root.clone();
-        loop {
-            if current.kind() == self.kind && current.span() == self.span {
-                return Some(current);
-            }
-            let next = current.children().find_map(|child| match child {
-                RedChild::Node(node) if node.span().contains(self.span) => Some(node),
+    pub(crate) fn to_red_node(self, root: &RedNode) -> Option<RedNode> {
+        std::iter::successors(Some(root.clone()), |node| {
+            node.children().find_map(|child| match child {
+                RedChild::Node(child) if child.span().contains(self.span) => Some(child),
                 _ => None,
-            })?;
-            current = next;
-        }
+            })
+        })
+        .find(|node| node.kind() == self.kind && node.span() == self.span)
     }
 }
 

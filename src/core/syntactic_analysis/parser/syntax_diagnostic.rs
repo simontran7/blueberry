@@ -25,11 +25,11 @@ impl SyntaxDiagnostic {
             expected,
             found,
         } = self;
-        let span = span.expect("diagnostic span not yet resolved");
+        let span = span.unwrap();
         DiagnosticDescription {
             code: "E0101",
             message: format!("expected `{expected}`, found `{found}`"),
-            span: span,
+            span,
             labels: vec![DiagnosticLabel {
                 span,
                 message: Some(format!("expected `{expected}`")),

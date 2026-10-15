@@ -1,0 +1,19 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/constants.bb
+---
+constant SMALL: U32
+└─ Integer 5 19..20: U32
+
+constant BIG: I64
+└─ Integer 5 39..40: I64
+
+constant READY: Bool
+└─ Boolean true 62..66: Bool
+
+constant ALIAS: U32
+└─ Path SMALL 87..92: U32
+
+constant NOTHING: Unit
+└─ Unit 116..118: ()

@@ -87,3 +87,8 @@ func wrong_return(c: Bool) -> I32 {
     }
     0
 }
+
+func negated_later() {
+    let y = -1;
+    let z: U64 = y;
+}

@@ -1,7 +1,6 @@
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::hir::nodes::Path;
 
-/// The import paths declared at the top of one file.
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct ImportList<'db> {
     paths: Vec<Path<'db>>,
@@ -16,7 +15,6 @@ impl<'db> ImportList<'db> {
         &self.paths
     }
 
-    /// Returns the imports whose last segment is `name`, in declaration order.
     pub(crate) fn matching(
         &self,
         db: &'db dyn crate::Db,

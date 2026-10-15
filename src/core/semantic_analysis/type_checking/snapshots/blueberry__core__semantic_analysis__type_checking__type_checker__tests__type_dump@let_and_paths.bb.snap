@@ -1,0 +1,24 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/let_and_paths.bb
+---
+constant LIMIT: I64
+└─ Integer 10 19..21: I64
+
+function f(x: I32) -> I32
+└─ Block 46..171: I32
+   ├─ Let y: I32
+   │  └─ initializer: Path x 60..61: I32
+   ├─ Let z: U64
+   │  ├─ type: U64
+   │  └─ initializer: Integer 7 80..81: U64
+   ├─ Let w: I32
+   │  └─ initializer: Integer 3 95..96: I32
+   ├─ Let limit: I64
+   │  └─ initializer: Path LIMIT 114..119: I64
+   ├─ Let shadow: I32
+   │  └─ initializer: Integer 1 138..139: I32
+   ├─ Let shadow: Bool
+   │  └─ initializer: Boolean true 158..162: Bool
+   └─ tail: Path y 168..169: I32

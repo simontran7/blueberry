@@ -1,24 +1,25 @@
 use std::collections::HashMap;
 
-use crate::core::common::handle_collections::handle_map::SideHandleMap;
 use crate::core::common::handle_collections::Handle;
-
-use crate::core::common::string_interner::Symbol;
-use crate::core::common::types::TypeId;
-use crate::front_end::semantic_analysis::hir::{DefinitionBindingId, LocalBindingId};
-use crate::front_end::syntactic_analysis::cst::operators::{BinOp, UnOp};
-use crate::core::common::handle_collections::handle_list::{GrowableHandleList, GrowableHandleListAllocator};
-use crate::middle_end::mir::{
-    BlockId, Cfg, FunctionReferenceId, Instruction, InstructionId, Signature, SignatureId, ValueId,
-    ValueOrigin,
+use crate::core::common::handle_collections::handle_list::{
+    HandleArrayList, HandleArrayListAllocator,
 };
+use crate::core::common::handle_collections::handle_map::SideHandleMap;
+use crate::core::mir_construction::mir::{
+    BlockId, Cfg, Instruction, InstructionId, ValueId, ValueOrigin,
+};
+use crate::core::semantic_analysis::hir::nodes::{
+    BinaryOperator, LocalBindingHandle, UnaryOperator,
+};
+use crate::core::semantic_analysis::ids::keys::{ConstantKey, FunctionKey};
+use crate::core::semantic_analysis::type_checking::types::Ty;
 
-pub(crate) struct CfgBuilder {
-    cfg: Cfg,
+pub(crate) struct CfgBuilder<'db> {
+    cfg: Cfg<'db>,
     position: Position,
-    predecessor_edge_suballocator: GrowableHandleListAllocator<InstructionId>,
-    current_defs: HashMap<(LocalBindingId, BlockId), ValueId>,
-    incomplete_placeholders: HashMap<BlockId, Vec<(LocalBindingId, ValueId)>>,
+    predecessor_edge_suballocator: HandleArrayListAllocator<InstructionId>,
+    current_defs: HashMap<(LocalBindingHandle, BlockId), ValueId>,
+    incomplete_placeholders: HashMap<BlockId, Vec<(LocalBindingHandle, ValueId)>>,
     block_states: SideHandleMap<BlockId, BlockState>,
 }
 
@@ -33,7 +34,7 @@ enum Position {
 // Clone: required by `SideHandleMap::add` for resize padding
 #[derive(Clone, Default)]
 struct BlockState {
-    predecessors: GrowableHandleList<InstructionId>,
+    predecessors: HandleArrayList<InstructionId>,
     sealed: bool,
     status: BlockStatus,
 }
@@ -46,12 +47,12 @@ enum BlockStatus {
     Filled,
 }
 
-impl CfgBuilder {
+impl<'db> CfgBuilder<'db> {
     pub(crate) fn new() -> Self {
         Self {
             cfg: Cfg::new(),
             position: Position::Nowhere,
-            predecessor_edge_suballocator: GrowableHandleListAllocator::new(),
+            predecessor_edge_suballocator: HandleArrayListAllocator::new(),
             current_defs: HashMap::new(),
             incomplete_placeholders: HashMap::new(),
             block_states: SideHandleMap::new(),
@@ -77,7 +78,7 @@ impl CfgBuilder {
             .is_some_and(|block_id| self.block_states[block_id].status == BlockStatus::Filled)
     }
 
-    pub(crate) fn finish(&mut self) -> Cfg {
+    pub(crate) fn finish(&mut self) -> Cfg<'db> {
         let mut cfg = std::mem::replace(&mut self.cfg, Cfg::new());
         cfg.flush_aliases();
 
@@ -90,22 +91,8 @@ impl CfgBuilder {
         cfg
     }
 
-    pub(crate) fn append_block_parameter(&mut self, block_id: BlockId, type_id: TypeId) -> ValueId {
-        self.cfg.get_block_mut(block_id).append_parameter(type_id)
-    }
-
-    pub(crate) fn add_signature(&mut self, signature: Signature) -> SignatureId {
-        self.cfg.add_signature(signature)
-    }
-
-    pub(crate) fn add_function_reference(
-        &mut self,
-        definition_binding_id: DefinitionBindingId,
-        name: Symbol,
-        signature_id: SignatureId,
-    ) -> FunctionReferenceId {
-        self.cfg
-            .add_function_reference(definition_binding_id, name, signature_id)
+    pub(crate) fn append_block_parameter(&mut self, block_id: BlockId, ty: Ty<'db>) -> ValueId {
+        self.cfg.get_block_mut(block_id).append_parameter(ty)
     }
 
     pub(crate) fn create_block(&mut self) -> BlockId {
@@ -151,7 +138,7 @@ impl CfgBuilder {
 
     pub(crate) fn write_variable(
         &mut self,
-        variable_id: LocalBindingId,
+        variable_id: LocalBindingHandle,
         block_id: BlockId,
         value_id: ValueId,
     ) {
@@ -160,8 +147,8 @@ impl CfgBuilder {
 
     pub(crate) fn read_variable(
         &mut self,
-        variable: LocalBindingId,
-        ty: TypeId,
+        variable: LocalBindingHandle,
+        ty: Ty<'db>,
         block: BlockId,
     ) -> ValueId {
         if let Some(&value_id) = self.current_defs.get(&(variable, block)) {
@@ -172,13 +159,13 @@ impl CfgBuilder {
 
     pub(crate) fn emit_binary(
         &mut self,
-        operator: BinOp,
+        operator: BinaryOperator,
         lhs_id: ValueId,
         rhs_id: ValueId,
-        type_id: TypeId,
+        ty: Ty<'db>,
     ) -> ValueId {
         let instruction = self.cfg.allocate_binary(operator, [lhs_id, rhs_id]);
-        let instruction_id = self.add_instruction(instruction, &[type_id]);
+        let instruction_id = self.add_instruction(instruction, &[ty]);
         self.cfg
             .get_instruction(instruction_id)
             .first_result()
@@ -187,19 +174,19 @@ impl CfgBuilder {
 
     pub(crate) fn emit_unary(
         &mut self,
-        operator: UnOp,
+        operator: UnaryOperator,
         operand_id: ValueId,
-        type_id: TypeId,
+        ty: Ty<'db>,
     ) -> ValueId {
         let instruction = self.cfg.allocate_unary(operator, operand_id);
-        let instruction_id = self.add_instruction(instruction, &[type_id]);
+        let instruction_id = self.add_instruction(instruction, &[ty]);
         self.cfg
             .get_instruction(instruction_id)
             .first_result()
             .unwrap()
     }
 
-    pub(crate) fn emit_integer_literal(&mut self, ty: TypeId, value: u128) -> ValueId {
+    pub(crate) fn emit_integer_literal(&mut self, ty: Ty<'db>, value: u128) -> ValueId {
         let instruction = self.cfg.allocate_integer_literal(value);
         let instruction_id = self.add_instruction(instruction, &[ty]);
         self.cfg
@@ -208,9 +195,31 @@ impl CfgBuilder {
             .unwrap()
     }
 
-    pub(crate) fn emit_boolean_literal(&mut self, value: bool, type_id: TypeId) -> ValueId {
+    pub(crate) fn emit_boolean_literal(&mut self, value: bool, ty: Ty<'db>) -> ValueId {
         let instruction = self.cfg.allocate_boolean_literal(value);
-        let instruction_id = self.add_instruction(instruction, &[type_id]);
+        let instruction_id = self.add_instruction(instruction, &[ty]);
+        self.cfg
+            .get_instruction(instruction_id)
+            .first_result()
+            .unwrap()
+    }
+
+    pub(crate) fn emit_constant(&mut self, constant: ConstantKey<'db>, ty: Ty<'db>) -> ValueId {
+        let instruction = self.cfg.allocate_constant(constant);
+        let instruction_id = self.add_instruction(instruction, &[ty]);
+        self.cfg
+            .get_instruction(instruction_id)
+            .first_result()
+            .unwrap()
+    }
+
+    pub(crate) fn emit_function_address(
+        &mut self,
+        function: FunctionKey<'db>,
+        ty: Ty<'db>,
+    ) -> ValueId {
+        let instruction = self.cfg.allocate_function_address(function);
+        let instruction_id = self.add_instruction(instruction, &[ty]);
         self.cfg
             .get_instruction(instruction_id)
             .first_result()
@@ -219,12 +228,21 @@ impl CfgBuilder {
 
     pub(crate) fn emit_call(
         &mut self,
-        callee_reference_id: FunctionReferenceId,
+        function: FunctionKey<'db>,
         argument_ids: &[ValueId],
-        result_type_ids: &[TypeId],
+        result_types: &[Ty<'db>],
     ) -> InstructionId {
-        let instruction = self.cfg.allocate_call(callee_reference_id, argument_ids);
-        self.add_instruction(instruction, result_type_ids)
+        let instruction = self.cfg.allocate_call(function, argument_ids);
+        self.add_instruction(instruction, result_types)
+    }
+
+    pub(crate) fn emit_call_indirect(
+        &mut self,
+        callee_and_argument_ids: &[ValueId],
+        result_types: &[Ty<'db>],
+    ) -> InstructionId {
+        let instruction = self.cfg.allocate_call_indirect(callee_and_argument_ids);
+        self.add_instruction(instruction, result_types)
     }
 
     pub(crate) fn emit_jump(
@@ -281,8 +299,8 @@ impl CfgBuilder {
 
     fn read_variable_recursive(
         &mut self,
-        variable_id: LocalBindingId,
-        ty: TypeId,
+        variable_id: LocalBindingHandle,
+        ty: Ty<'db>,
         block_id: BlockId,
     ) -> ValueId {
         let value_id = if !self.block_states[block_id].sealed {
@@ -322,8 +340,8 @@ impl CfgBuilder {
 
     fn collect_block_arguments(
         &mut self,
-        variable: LocalBindingId,
-        ty: TypeId,
+        variable: LocalBindingHandle,
+        ty: Ty<'db>,
         block_id: BlockId,
     ) -> Vec<(InstructionId, ValueId)> {
         let mut block_args = Vec::new();
@@ -348,7 +366,7 @@ impl CfgBuilder {
     fn finalize_block_parameter(
         &mut self,
         block_parameter: ValueId,
-        ty: TypeId,
+        ty: Ty<'db>,
         block_id: BlockId,
         block_args: &[(InstructionId, ValueId)],
     ) -> ValueId {
@@ -398,13 +416,13 @@ impl CfgBuilder {
 
     fn add_instruction(
         &mut self,
-        instruction: Instruction,
-        result_type_ids: &[TypeId],
+        instruction: Instruction<'db>,
+        result_types: &[Ty<'db>],
     ) -> InstructionId {
         match self.position {
             Position::At(instruction_id) => {
                 self.cfg
-                    .add_instruction_before(instruction, result_type_ids, instruction_id)
+                    .add_instruction_before(instruction, result_types, instruction_id)
             }
             Position::After(block_id) => {
                 assert!(
@@ -413,7 +431,7 @@ impl CfgBuilder {
                 );
                 let instruction_id =
                     self.cfg
-                        .append_instruction(block_id, instruction, result_type_ids);
+                        .append_instruction(block_id, instruction, result_types);
                 self.block_states[block_id].status =
                     if self.cfg.get_instruction(instruction_id).is_terminator() {
                         BlockStatus::Filled
@@ -426,175 +444,5 @@ impl CfgBuilder {
                 panic!("invalid builder position for add_instruction")
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn simple_block() {
-        let mut graph = CfgBuilder::new();
-        let i32_ty = TypeId(0);
-        let x_var = LocalBindingId::new(0);
-
-        let block = graph.create_block();
-        graph.add_block(block);
-
-        let x1 = graph.emit_integer_literal(i32_ty, 1);
-        graph.write_variable(x_var, block, x1);
-
-        assert_eq!(graph.read_variable(x_var, i32_ty, block), x1);
-    }
-
-    #[test]
-    fn sequence_of_blocks() {
-        let mut graph = CfgBuilder::new();
-        let i32_ty = TypeId(0);
-        let x_var = LocalBindingId::new(0);
-
-        let block0 = graph.create_block();
-        graph.add_block(block0);
-        let x1 = graph.emit_integer_literal(i32_ty, 1);
-        graph.write_variable(x_var, block0, x1);
-
-        let block1 = graph.create_block();
-        graph.emit_jump(block1, &[]);
-        graph.add_block(block1);
-        graph.seal_block(block1);
-
-        let block2 = graph.create_block();
-        graph.emit_jump(block2, &[]);
-        graph.add_block(block2);
-        graph.seal_block(block2);
-
-        // single-predecessor chains should just forward x1, no block parameters anywhere
-        assert_eq!(graph.read_variable(x_var, i32_ty, block2), x1);
-        assert!(graph.cfg.get_block(block1).parameters().is_empty());
-        assert!(graph.cfg.get_block(block2).parameters().is_empty());
-    }
-
-    #[test]
-    fn merge_of_equal_values_is_trivial() {
-        let mut graph = CfgBuilder::new();
-        let i32_ty = TypeId(0);
-        let bool_ty = TypeId(1);
-        let x_var = LocalBindingId::new(0);
-
-        let entry = graph.create_block();
-        graph.add_block(entry);
-        let x1 = graph.emit_integer_literal(i32_ty, 1);
-        graph.write_variable(x_var, entry, x1);
-        let cond = graph.emit_boolean_literal(true, bool_ty);
-
-        let then_block = graph.create_block();
-        let else_block = graph.create_block();
-        graph.emit_conditional_branch(cond, then_block, &[], else_block, &[]);
-
-        graph.add_block(then_block);
-        graph.seal_block(then_block);
-        let merge = graph.create_block();
-        graph.emit_jump(merge, &[]);
-
-        graph.add_block(else_block);
-        graph.seal_block(else_block);
-        graph.emit_jump(merge, &[]);
-
-        graph.add_block(merge);
-        graph.seal_block(merge);
-
-        // both branches forward the same x1 unchanged, so no real block parameter is needed
-        let x_in_merge = graph.read_variable(x_var, i32_ty, merge);
-        assert_eq!(graph.cfg.resolve_aliases(x_in_merge), x1);
-        assert!(graph.cfg.get_block(merge).parameters().is_empty());
-    }
-
-    #[test]
-    fn merge_of_different_values_creates_a_block_parameter() {
-        let mut graph = CfgBuilder::new();
-        let i32_ty = TypeId(0);
-        let bool_ty = TypeId(1);
-        let x_var = LocalBindingId::new(0);
-
-        let entry = graph.create_block();
-        graph.add_block(entry);
-        let cond = graph.emit_boolean_literal(true, bool_ty);
-
-        let then_block = graph.create_block();
-        let else_block = graph.create_block();
-        graph.emit_conditional_branch(cond, then_block, &[], else_block, &[]);
-
-        graph.add_block(then_block);
-        graph.seal_block(then_block);
-        let x1 = graph.emit_integer_literal(i32_ty, 1);
-        graph.write_variable(x_var, then_block, x1);
-        let merge = graph.create_block();
-        let then_jump = graph.emit_jump(merge, &[]);
-
-        graph.add_block(else_block);
-        graph.seal_block(else_block);
-        let x2 = graph.emit_integer_literal(i32_ty, 2);
-        graph.write_variable(x_var, else_block, x2);
-        let else_jump = graph.emit_jump(merge, &[]);
-
-        graph.add_block(merge);
-        graph.seal_block(merge);
-
-        let x_in_merge = graph.read_variable(x_var, i32_ty, merge);
-        assert_eq!(graph.cfg.get_block(merge).parameters(), &[x_in_merge]);
-        assert_eq!(graph.cfg.block_argument(x_in_merge, then_jump), x1);
-        assert_eq!(graph.cfg.block_argument(x_in_merge, else_jump), x2);
-    }
-
-    #[test]
-    fn program_with_loop() {
-        let mut graph = CfgBuilder::new();
-        let i32_ty = TypeId(0);
-        let bool_ty = TypeId(1);
-        let x_var = LocalBindingId::new(0);
-
-        // entry: x = 1; jump header
-        let entry = graph.create_block();
-        graph.add_block(entry);
-        let x1 = graph.emit_integer_literal(i32_ty, 1);
-        graph.write_variable(x_var, entry, x1);
-
-        let header = graph.create_block();
-        let entry_jump = graph.emit_jump(header, &[]);
-
-        // header: unsealed, its back-edge from the loop body doesn't exist yet
-        graph.add_block(header);
-
-        // reading x here, before sealing, forces the placeholder block-parameter path
-        let x_in_header = graph.read_variable(x_var, i32_ty, header);
-
-        let cond = graph.emit_boolean_literal(true, bool_ty);
-        let body = graph.create_block();
-        let exit = graph.create_block();
-        graph.emit_conditional_branch(cond, body, &[], exit, &[]);
-
-        // body: x = 2; jump header (the back-edge)
-        graph.add_block(body);
-        graph.seal_block(body);
-        let x2 = graph.emit_integer_literal(i32_ty, 2);
-        graph.write_variable(x_var, body, x2);
-        let back_edge = graph.emit_jump(header, &[]);
-
-        // header's predecessor set is finally complete: seal it
-        graph.seal_block(header);
-
-        // exit: read x after the loop
-        graph.add_block(exit);
-        graph.seal_block(exit);
-        let x_in_exit = graph.read_variable(x_var, i32_ty, exit);
-
-        // x1 != x2, so header's placeholder should have resolved to a real, kept parameter
-        assert_eq!(graph.cfg.get_block(header).parameters(), &[x_in_header]);
-        assert_eq!(graph.cfg.block_argument(x_in_header, entry_jump), x1);
-        assert_eq!(graph.cfg.block_argument(x_in_header, back_edge), x2);
-        // exit has a single predecessor (the branch out of header), so it should just
-        // forward header's parameter directly, no new value created
-        assert_eq!(x_in_exit, x_in_header);
     }
 }

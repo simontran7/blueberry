@@ -1,0 +1,69 @@
+---
+source: src/core/mir_construction/mir_dumper.rs
+expression: "MirBodyDumper::dump_file(&db, file).unwrap()"
+input_file: src/core/mir_construction/snapshot_inputs/loops.bb
+---
+function count(I32) -> I32 {
+Block0(v0: I32):
+    v4 -> v0
+    v1 = IntegerLiteral 0
+    v2 = IntegerLiteral 0
+    Jump Block1(v1, v2)
+
+Block1(v3: I32, v10: I32):
+    v5 = Binary Lt v3, v0
+    ConditionalBranch v5, Block3, Block4
+
+Block3:
+    v6 = IntegerLiteral 1
+    v7 = Binary Add v3, v6
+    v8 = IntegerLiteral 3
+    v9 = Binary Eq v7, v8
+    ConditionalBranch v9, Block6, Block7
+
+Block6:
+    Jump Block1(v7, v10)
+
+Block7:
+    v11 = Binary Add v10, v7
+    Jump Block5
+
+Block4:
+    Jump Block2
+
+Block5:
+    Jump Block1(v7, v11)
+
+Block2:
+    Return v10
+}
+
+function break_value() -> I32 {
+Block0:
+    v0 = IntegerLiteral 0
+    Jump Block1(v0)
+
+Block1(v2: I32):
+    v3 = IntegerLiteral 1
+    v4 = Binary Add v2, v3
+    v5 = IntegerLiteral 10
+    v6 = Binary Gt v4, v5
+    ConditionalBranch v6, Block3, Block4
+
+Block3:
+    Jump Block2(v4)
+
+Block4:
+    Jump Block1(v4)
+
+Block2(v1: I32):
+    Return v1
+}
+
+function forever() -> I32 {
+Block0:
+    Jump Block1
+
+Block1:
+    Jump Block1
+}

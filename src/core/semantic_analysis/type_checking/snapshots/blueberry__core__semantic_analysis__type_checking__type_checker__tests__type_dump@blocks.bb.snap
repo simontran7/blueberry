@@ -1,0 +1,31 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/blocks.bb
+---
+function tail() -> I32
+└─ Block 19..51: I32
+   ├─ Let a: I32
+   │  └─ initializer: Block 33..38: I32
+   │     └─ tail: Integer 1 35..36: I32
+   └─ tail: Block 44..49: I32
+      └─ tail: Path a 46..47: I32
+
+function no_tail()
+└─ Block 68..98: ()
+   ├─ Let a: ()
+   │  └─ initializer: Block 82..88: ()
+   │     └─ Expression ;
+   │        └─ Integer 1 84..85: I32
+   └─ tail: Block 94..96: ()
+
+function statement_without_semicolon() -> Bool
+└─ Block 143..187: Bool
+   ├─ Expression
+   │  └─ If 149..175: ()
+   │     ├─ condition: Boolean true 152..156: Bool
+   │     ├─ then: Block 157..163: ()
+   │     │  └─ tail: Unit 159..161: ()
+   │     └─ else: Block 169..175: ()
+   │        └─ tail: Unit 171..173: ()
+   └─ tail: Boolean false 180..185: Bool

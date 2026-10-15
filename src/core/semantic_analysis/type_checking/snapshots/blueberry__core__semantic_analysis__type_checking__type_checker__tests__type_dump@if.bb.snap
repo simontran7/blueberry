@@ -1,0 +1,46 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/if.bb
+---
+function f(c: Bool) -> U32
+└─ Block 23..229: U32
+   ├─ Let a: U32
+   │  └─ initializer: If 37..58: U32
+   │     ├─ condition: Path c 40..41: Bool
+   │     ├─ then: Block 42..47: U32
+   │     │  └─ tail: Integer 1 44..45: U32
+   │     └─ else: Block 53..58: U32
+   │        └─ tail: Integer 2 55..56: U32
+   ├─ Let b: I64
+   │  ├─ type: I64
+   │  └─ initializer: If 77..98: I64
+   │     ├─ condition: Path c 80..81: Bool
+   │     ├─ then: Block 82..87: I64
+   │     │  └─ tail: Integer 1 84..85: I64
+   │     └─ else: Block 93..98: I64
+   │        └─ tail: Integer 2 95..96: I64
+   ├─ Expression
+   │  └─ If 104..140: ()
+   │     ├─ condition: Path c 107..108: Bool
+   │     └─ then: Block 109..140: ()
+   │        └─ Let unused: I32
+   │           └─ initializer: Integer 0 132..133: I32
+   ├─ Let chained: I32
+   │  └─ initializer: If 159..200: I32
+   │     ├─ condition: Path c 162..163: Bool
+   │     ├─ then: Block 164..169: I32
+   │     │  └─ tail: Integer 1 166..167: I32
+   │     └─ else: If 175..200: I32
+   │        ├─ condition: Unary not 178..183: Bool
+   │        │  └─ Path c 182..183: Bool
+   │        ├─ then: Block 184..189: I32
+   │        │  └─ tail: Integer 2 186..187: I32
+   │        └─ else: Block 195..200: I32
+   │           └─ tail: Integer 3 197..198: I32
+   └─ tail: If 206..227: U32
+      ├─ condition: Path c 209..210: Bool
+      ├─ then: Block 211..216: U32
+      │  └─ tail: Path a 213..214: U32
+      └─ else: Block 222..227: U32
+         └─ tail: Integer 0 224..225: U32

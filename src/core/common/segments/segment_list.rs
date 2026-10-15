@@ -15,8 +15,8 @@ impl<T> SegmentList<T> {
 
 impl<T: Copy> SegmentList<T> {
     pub(crate) fn add_many(&mut self, items: &[T]) -> Segment<T> {
-        let start = u32::try_from(self.items.len()).expect("list too large");
-        let len = u32::try_from(items.len()).expect("range too large");
+        let start = u32::try_from(self.items.len()).unwrap();
+        let len = u32::try_from(items.len()).unwrap();
         self.items.extend_from_slice(items);
         Segment::new(start, len)
     }

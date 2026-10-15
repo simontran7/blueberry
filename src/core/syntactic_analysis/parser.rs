@@ -90,8 +90,8 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::Func));
         let marker = self.open();
 
-        self.expect(TokenKind::Func);
-        self.expect(TokenKind::Identifier);
+        self.require(TokenKind::Func);
+        self.require(TokenKind::Identifier);
         if self.cursor.at(TokenKind::OpenParen) {
             self.parse_parameter_list();
         } else {
@@ -113,13 +113,13 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::Import));
         let marker = self.open();
 
-        self.expect(TokenKind::Import);
+        self.require(TokenKind::Import);
         if self.cursor.at(TokenKind::Identifier) {
             self.parse_path();
         } else {
             self.record_diagnostic(&TokenKind::Identifier.to_string());
         }
-        self.expect(TokenKind::Semicolon);
+        self.require(TokenKind::Semicolon);
 
         self.close(marker, SyntaxKind::ImportDeclaration);
     }
@@ -134,7 +134,7 @@ impl Parser {
 
         while self.cursor.at(TokenKind::ColonColon) {
             let marker = self.open_before(path);
-            self.expect(TokenKind::ColonColon);
+            self.require(TokenKind::ColonColon);
             if self.cursor.at(TokenKind::Identifier) {
                 self.parse_path_segment();
             } else {
@@ -148,7 +148,7 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::Identifier));
         let marker = self.open();
 
-        self.expect(TokenKind::Identifier);
+        self.require(TokenKind::Identifier);
 
         self.close(marker, SyntaxKind::PathSegment);
     }
@@ -157,13 +157,13 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::Const));
         let marker = self.open();
 
-        self.expect(TokenKind::Const);
-        self.expect(TokenKind::Identifier);
-        self.expect(TokenKind::Colon);
+        self.require(TokenKind::Const);
+        self.require(TokenKind::Identifier);
+        self.require(TokenKind::Colon);
         self.parse_type_expression();
-        self.expect(TokenKind::Equal);
+        self.require(TokenKind::Equal);
         let _ = self.parse_expression(Self::MIN_BINDING_POWER);
-        self.expect(TokenKind::Semicolon);
+        self.require(TokenKind::Semicolon);
 
         self.close(marker, SyntaxKind::ConstantDefinition);
     }
@@ -185,7 +185,7 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::OpenParen));
         let marker = self.open();
 
-        self.expect(TokenKind::OpenParen);
+        self.require(TokenKind::OpenParen);
         while !self.cursor.at(TokenKind::CloseParen) && !self.cursor.at_eof() {
             if self.cursor.at(TokenKind::Identifier) {
                 self.parse_parameter();
@@ -195,7 +195,7 @@ impl Parser {
                 self.advance_with_error("parameter");
             }
         }
-        self.expect(TokenKind::CloseParen);
+        self.require(TokenKind::CloseParen);
 
         self.close(marker, SyntaxKind::ParameterList);
     }
@@ -204,11 +204,11 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::Identifier));
         let marker = self.open();
 
-        self.expect(TokenKind::Identifier);
-        self.expect(TokenKind::Colon);
+        self.require(TokenKind::Identifier);
+        self.require(TokenKind::Colon);
         self.parse_type_expression();
         if !self.cursor.at(TokenKind::CloseParen) {
-            self.expect(TokenKind::Comma);
+            self.require(TokenKind::Comma);
         }
 
         self.close(marker, SyntaxKind::Parameter);
@@ -218,7 +218,7 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::OpenBrace));
         let marker = self.open();
 
-        self.expect(TokenKind::OpenBrace);
+        self.require(TokenKind::OpenBrace);
         while !self.cursor.at(TokenKind::CloseBrace) && !self.cursor.at_eof() {
             match self.cursor.peek() {
                 TokenKind::Let => self.parse_let(),
@@ -232,7 +232,7 @@ impl Parser {
                 }
             }
         }
-        self.expect(TokenKind::CloseBrace);
+        self.require(TokenKind::CloseBrace);
 
         self.close(marker, SyntaxKind::Block)
     }
@@ -241,15 +241,15 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::Let));
         let marker = self.open();
 
-        self.expect(TokenKind::Let);
+        self.require(TokenKind::Let);
         self.eat(TokenKind::Mut);
-        self.expect(TokenKind::Identifier);
+        self.require(TokenKind::Identifier);
         if self.eat(TokenKind::Colon) {
             self.parse_type_expression();
         }
-        self.expect(TokenKind::Equal);
+        self.require(TokenKind::Equal);
         let _ = self.parse_expression(Self::MIN_BINDING_POWER);
-        self.expect(TokenKind::Semicolon);
+        self.require(TokenKind::Semicolon);
 
         self.close(marker, SyntaxKind::LetStatement);
     }
@@ -258,7 +258,7 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::Return));
         let marker = self.open();
 
-        self.expect(TokenKind::Return);
+        self.require(TokenKind::Return);
         let _ = self.parse_expression(Self::MIN_BINDING_POWER);
 
         self.close(marker, SyntaxKind::ReturnExpression)
@@ -268,7 +268,7 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::Break));
         let marker = self.open();
 
-        self.expect(TokenKind::Break);
+        self.require(TokenKind::Break);
         if self.cursor.at_any(Self::EXPRESSION_STARTERS) {
             let _ = self.parse_expression(Self::MIN_BINDING_POWER);
         }
@@ -280,7 +280,7 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::Continue));
         let marker = self.open();
 
-        self.expect(TokenKind::Continue);
+        self.require(TokenKind::Continue);
 
         self.close(marker, SyntaxKind::ContinueExpression)
     }
@@ -301,7 +301,7 @@ impl Parser {
             TokenKind::CloseBrace => {} // no trailing `;` necessary for block-like expressions
             _ => {
                 if !is_block_like {
-                    self.expect(TokenKind::Semicolon);
+                    self.require(TokenKind::Semicolon);
                 }
             }
         }
@@ -376,8 +376,8 @@ impl Parser {
         assert!(self.cursor.peek_ahead(1) == TokenKind::CloseParen);
         let marker = self.open();
 
-        self.expect(TokenKind::OpenParen);
-        self.expect(TokenKind::CloseParen);
+        self.require(TokenKind::OpenParen);
+        self.require(TokenKind::CloseParen);
 
         self.close(marker, SyntaxKind::UnitLiteral)
     }
@@ -386,9 +386,9 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::OpenParen));
         let marker = self.open();
 
-        self.expect(TokenKind::OpenParen);
+        self.require(TokenKind::OpenParen);
         let _ = self.parse_expression(Self::MIN_BINDING_POWER);
-        self.expect(TokenKind::CloseParen);
+        self.require(TokenKind::CloseParen);
 
         self.close(marker, SyntaxKind::ParenthesizedExpression)
     }
@@ -397,7 +397,7 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::Loop));
         let marker = self.open();
 
-        self.expect(TokenKind::Loop);
+        self.require(TokenKind::Loop);
         if self.cursor.at(TokenKind::OpenBrace) {
             self.parse_block();
         }
@@ -409,7 +409,7 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::While));
         let marker = self.open();
 
-        self.expect(TokenKind::While);
+        self.require(TokenKind::While);
         let _ = self.parse_expression(Self::MIN_BINDING_POWER);
         if self.cursor.at(TokenKind::OpenBrace) {
             self.parse_block();
@@ -422,7 +422,7 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::If));
         let marker = self.open();
 
-        self.expect(TokenKind::If);
+        self.require(TokenKind::If);
         let _ = self.parse_expression(Self::MIN_BINDING_POWER);
         if self.cursor.at(TokenKind::OpenBrace) {
             self.parse_block();
@@ -472,7 +472,7 @@ impl Parser {
         assert!(self.cursor.at(TokenKind::OpenParen));
         let marker = self.open();
 
-        self.expect(TokenKind::OpenParen);
+        self.require(TokenKind::OpenParen);
         while !self.cursor.at(TokenKind::CloseParen) && !self.cursor.at_eof() {
             if self.cursor.at_any(Self::EXPRESSION_STARTERS) {
                 self.parse_argument();
@@ -480,7 +480,7 @@ impl Parser {
                 break;
             }
         }
-        self.expect(TokenKind::CloseParen);
+        self.require(TokenKind::CloseParen);
 
         self.close(marker, SyntaxKind::ArgumentList);
     }
@@ -490,7 +490,7 @@ impl Parser {
 
         let _ = self.parse_expression(Self::MIN_BINDING_POWER);
         if !self.cursor.at(TokenKind::CloseParen) {
-            self.expect(TokenKind::Comma);
+            self.require(TokenKind::Comma);
         }
 
         self.close(marker, SyntaxKind::Argument);
@@ -499,7 +499,7 @@ impl Parser {
     fn parse_type_expression(&mut self) {
         let marker = self.open();
 
-        self.expect(TokenKind::Identifier);
+        self.require(TokenKind::Identifier);
 
         self.close(marker, SyntaxKind::TypeExpression);
     }
@@ -576,7 +576,7 @@ impl Parser {
         }
     }
 
-    fn expect(&mut self, kind: TokenKind) {
+    fn require(&mut self, kind: TokenKind) {
         if self.eat(kind) {
             return;
         }

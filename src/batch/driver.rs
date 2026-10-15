@@ -1,6 +1,5 @@
 use std::collections::HashSet;
-use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use crate::batch::arg_parser::EmitKind;
@@ -9,8 +8,12 @@ use crate::core::common::diagnostic::{Diagnostic, DiagnosticAccumulator};
 use crate::core::db::BlueberryDatabase;
 use crate::core::lexical_analysis::token_stream_dumper::TokenDumper;
 use crate::core::lexical_analysis::tokens_of;
-use crate::core::semantic_analysis::semantic_diagnostics_of;
-use crate::core::source_file_key::SourceFileKey;
+use crate::core::mir_construction::mir_dumper::MirBodyDumper;
+use crate::core::module_map::{ModuleMap, ModulePath};
+use crate::core::semantic_analysis::hir::dumper::HirBodyDumper;
+use crate::core::semantic_analysis::{
+    all_definitions_of, definition_diagnostics_of, import_diagnostics_of,
+};
 use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
 use crate::core::syntactic_analysis::cst_of;
 
@@ -36,16 +39,25 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     let db = BlueberryDatabase::default();
 
     // ---- Stage 0: Scanning ----
-    let file = match fs::read_to_string(&path) {
-        Ok(contents) => SourceFileKey::new(&db, path, contents),
+    let root = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let modules = match ModuleMap::load(&db, root) {
+        Ok(modules) => modules,
         Err(error) => {
             eprintln!(
-                "Error reading file {}: {}",
-                path.to_string_lossy().to_string(),
+                "Error reading directory {}: {}",
+                root.to_string_lossy(),
                 error
             );
             std::process::exit(1);
         }
+    };
+    let module_path = ModulePath::from_file_path(Path::new(path.file_name().unwrap()));
+    let Some(&file) = modules.files(&db).get(&module_path) else {
+        eprintln!("Error reading file {}", path.to_string_lossy());
+        std::process::exit(1);
     };
 
     // ---- Stage 1: Lexical Analysis ----
@@ -77,7 +89,16 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     }
 
     // ---- Stage 3: Semantic Analysis ----
-    let semantic_diagnostics = semantic_diagnostics_of(&db, file);
+    let mut semantic_diagnostics = import_diagnostics_of(&db, file);
+    semantic_diagnostics.extend(
+        all_definitions_of(&db, file)
+            .into_iter()
+            .flat_map(|definition| definition_diagnostics_of(&db, definition)),
+    );
+    semantic_diagnostics.sort_by_key(|diagnostic| diagnostic.describe().span.start());
+    if emit.contains(&EmitKind::Hir) {
+        print!("{}", HirBodyDumper::dump_file_with_types(&db, file));
+    }
     if !semantic_diagnostics.is_empty() {
         for semantic_diagnostic in semantic_diagnostics {
             render_diagnostic(
@@ -87,6 +108,11 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
             );
         }
         return;
+    }
+
+    // ---- Stage 4: MIR Construction ----
+    if emit.contains(&EmitKind::Mir) {
+        print!("{}", MirBodyDumper::dump_file(&db, file).unwrap());
     }
 
     // print compile time

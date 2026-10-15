@@ -1,54 +1,54 @@
 use std::slice;
 
 use crate::core::common::handle_collections::handle_impl;
+use crate::core::common::handle_collections::handle_list::{
+    HandleArrayList, HandleArrayListAllocator,
+};
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
-use crate::core::common::string_interner::Symbol;
-use crate::core::common::types::TypeId;
-use crate::front_end::semantic_analysis::hir::DefinitionBindingId;
-use crate::front_end::syntactic_analysis::cst::operators::{BinOp, UnOp};
-use crate::core::common::handle_collections::handle_list::{GrowableHandleList, GrowableHandleListAllocator};
+use crate::core::semantic_analysis::hir::nodes::{BinaryOperator, UnaryOperator};
+use crate::core::semantic_analysis::ids::keys::{ConstantKey, FunctionKey};
+use crate::core::semantic_analysis::type_checking::types::Ty;
 
-pub(crate) struct Mir {
-    functions: Vec<Function>,
+#[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) struct MirBody<'db> {
+    pub(crate) signature: Signature<'db>,
+    pub(crate) cfg: Cfg<'db>,
 }
 
-pub(crate) struct Function {
-    pub(crate) definition_binding_id: DefinitionBindingId,
-    pub(crate) name: Symbol,
-    pub(crate) signature: Signature,
-    pub(crate) body: Cfg,
-}
-
-pub(crate) struct Cfg {
-    dfg: DataFlowGraph,
+#[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) struct Cfg<'db> {
+    dfg: DataFlowGraph<'db>,
     layout: Layout,
 }
 
-pub(crate) struct Value {
-    type_id: TypeId,
+#[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) struct Value<'db> {
+    ty: Ty<'db>,
     alias_id: Option<ValueId>,
-    origin: ValueOrigin,
+    origin: ValueOrigin<'db>,
 }
 
-#[derive(Clone, Copy)]
-pub(crate) enum ValueOrigin {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum ValueOrigin<'db> {
     InstructionResult(InstructionId, u16),
     Parameter(BlockId, u16),
-    Undefined(TypeId),
+    Undefined(Ty<'db>),
 }
 
+#[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct Block {
-    parameter_ids: GrowableHandleList<ValueId>,
+    parameter_ids: HandleArrayList<ValueId>,
 }
 
-pub(crate) enum InstructionKind<T> {
+#[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum InstructionKind<'db, T> {
     // Arithmetic
     Binary {
-        operator: BinOp,
+        operator: BinaryOperator,
         operand_ids: [ValueId; 2],
     },
     Unary {
-        operator: UnOp,
+        operator: UnaryOperator,
         operand_id: ValueId,
     },
 
@@ -60,10 +60,21 @@ pub(crate) enum InstructionKind<T> {
         value: bool,
     },
 
+    // Definitions
+    Constant {
+        constant: ConstantKey<'db>,
+    },
+    FunctionAddress {
+        function: FunctionKey<'db>,
+    },
+
     // Calls
     Call {
-        callee_id: FunctionReferenceId,
+        function: FunctionKey<'db>,
         argument_ids: T,
+    },
+    CallIndirect {
+        callee_and_argument_ids: T,
     },
 
     // Terminators
@@ -84,17 +95,12 @@ pub(crate) enum InstructionKind<T> {
     Unreachable,
 }
 
-pub(crate) type Instruction = InstructionKind<GrowableHandleList<ValueId>>;
+pub(crate) type Instruction<'db> = InstructionKind<'db, HandleArrayList<ValueId>>;
 
-pub(crate) struct FunctionReference {
-    pub(crate) definition_binding_id: DefinitionBindingId,
-    pub(crate) name: Symbol,
-    pub(crate) signature_id: SignatureId,
-}
-
-pub(crate) struct Signature {
-    pub(crate) parameter_type_ids: Vec<TypeId>,
-    pub(crate) return_type_id: TypeId,
+#[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) struct Signature<'db> {
+    pub(crate) parameter_types: Vec<Ty<'db>>,
+    pub(crate) return_type: Ty<'db>,
 }
 
 // Opaque, 4-byte handles into the tables above.
@@ -102,37 +108,33 @@ handle_impl!(pub(crate) BlockId);
 
 handle_impl!(pub(crate) InstructionId);
 
-handle_impl!(pub(crate) FunctionReferenceId);
-
-handle_impl!(pub(crate) SignatureId);
-
 handle_impl!(pub(crate) ValueId);
 
-pub(crate) struct BlockView<'a> {
+pub(crate) struct BlockView<'a, 'db> {
     block_id: BlockId,
-    cfg: &'a Cfg,
+    cfg: &'a Cfg<'db>,
 }
 
-pub(crate) struct BlockViewMut<'a> {
+pub(crate) struct BlockViewMut<'a, 'db> {
     block_id: BlockId,
-    cfg: &'a mut Cfg,
+    cfg: &'a mut Cfg<'db>,
 }
 
-pub(crate) struct InstructionView<'a> {
+pub(crate) struct InstructionView<'a, 'db> {
     instruction_id: InstructionId,
-    cfg: &'a Cfg,
+    cfg: &'a Cfg<'db>,
 }
 
-pub(crate) type InstructionRef<'a> = InstructionKind<&'a [ValueId]>;
+pub(crate) type InstructionRef<'a, 'db> = InstructionKind<'db, &'a [ValueId]>;
 
-pub(crate) struct InstructionViewMut<'a> {
+pub(crate) struct InstructionViewMut<'a, 'db> {
     instruction_id: InstructionId,
-    cfg: &'a mut Cfg,
+    cfg: &'a mut Cfg<'db>,
 }
 
-pub(crate) struct ValueView<'a> {
+pub(crate) struct ValueView<'a, 'db> {
     value_id: ValueId,
-    cfg: &'a Cfg,
+    cfg: &'a Cfg<'db>,
 }
 
 pub(crate) enum UsedValuesIter<'a> {
@@ -154,16 +156,16 @@ pub(crate) struct InstructionIter<'a> {
     next_id: Option<InstructionId>,
 }
 
-struct DataFlowGraph {
-    values: HandleMap<ValueId, Value>,
-    instructions: HandleMap<InstructionId, Instruction>,
-    instruction_results: SideHandleMap<InstructionId, GrowableHandleList<ValueId>>,
+#[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
+struct DataFlowGraph<'db> {
+    values: HandleMap<ValueId, Value<'db>>,
+    instructions: HandleMap<InstructionId, Instruction<'db>>,
+    instruction_results: SideHandleMap<InstructionId, HandleArrayList<ValueId>>,
     blocks: HandleMap<BlockId, Block>,
-    function_references: HandleMap<FunctionReferenceId, FunctionReference>,
-    signatures: HandleMap<SignatureId, Signature>,
-    suballocator: GrowableHandleListAllocator<ValueId>,
+    suballocator: HandleArrayListAllocator<ValueId>,
 }
 
+#[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
 struct Layout {
     entry_id: Option<BlockId>,
     exit_id: Option<BlockId>,
@@ -172,7 +174,7 @@ struct Layout {
 }
 
 // Clone: required by `SideHandleMap::add` for resize padding
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, salsa::SalsaValue)]
 struct BlockNode {
     previous_id: Option<BlockId>,
     first_id: Option<InstructionId>,
@@ -181,30 +183,14 @@ struct BlockNode {
 }
 
 // Clone: required by `SideHandleMap::add` for resize padding
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, salsa::SalsaValue)]
 struct InstructionNode {
     previous_id: Option<InstructionId>,
     block_id: Option<BlockId>,
     next_id: Option<InstructionId>,
 }
 
-impl Mir {
-    pub(crate) fn new() -> Self {
-        Self {
-            functions: Vec::new(),
-        }
-    }
-
-    pub(crate) fn functions(&self) -> impl Iterator<Item = &Function> {
-        self.functions.iter()
-    }
-
-    pub(crate) fn add_function(&mut self, function: Function) {
-        self.functions.push(function);
-    }
-}
-
-impl Cfg {
+impl<'db> Cfg<'db> {
     pub(crate) fn new() -> Self {
         Self {
             dfg: DataFlowGraph::new(),
@@ -212,14 +198,14 @@ impl Cfg {
         }
     }
 
-    pub(crate) fn entry(&self) -> Option<BlockView<'_>> {
+    pub(crate) fn entry(&self) -> Option<BlockView<'_, 'db>> {
         self.layout.entry_id.map(|block_id| BlockView {
             block_id,
             cfg: self,
         })
     }
 
-    pub(crate) fn exit(&self) -> Option<BlockView<'_>> {
+    pub(crate) fn exit(&self) -> Option<BlockView<'_, 'db>> {
         self.layout.exit_id.map(|block_id| BlockView {
             block_id,
             cfg: self,
@@ -237,7 +223,7 @@ impl Cfg {
         self.dfg.values.keys()
     }
 
-    pub(crate) fn get_block(&self, block_id: BlockId) -> BlockView<'_> {
+    pub(crate) fn get_block(&self, block_id: BlockId) -> BlockView<'_, 'db> {
         BlockView {
             block_id,
             cfg: self,
@@ -253,7 +239,10 @@ impl Cfg {
                 .is_some_and(|node| node.previous_id.is_some())
     }
 
-    pub(crate) fn get_instruction(&self, instruction_id: InstructionId) -> InstructionView<'_> {
+    pub(crate) fn get_instruction(
+        &self,
+        instruction_id: InstructionId,
+    ) -> InstructionView<'_, 'db> {
         InstructionView {
             instruction_id,
             cfg: self,
@@ -262,35 +251,47 @@ impl Cfg {
 
     pub(crate) fn allocate_binary(
         &self,
-        operator: BinOp,
+        operator: BinaryOperator,
         operand_ids: [ValueId; 2],
-    ) -> Instruction {
+    ) -> Instruction<'db> {
         Instruction::Binary {
             operator,
             operand_ids,
         }
     }
 
-    pub(crate) fn allocate_unary(&self, operator: UnOp, operand_id: ValueId) -> Instruction {
+    pub(crate) fn allocate_unary(
+        &self,
+        operator: UnaryOperator,
+        operand_id: ValueId,
+    ) -> Instruction<'db> {
         Instruction::Unary {
             operator,
             operand_id,
         }
     }
 
-    pub(crate) fn allocate_integer_literal(&self, value: u128) -> Instruction {
+    pub(crate) fn allocate_integer_literal(&self, value: u128) -> Instruction<'db> {
         Instruction::IntegerLiteral { value }
     }
 
-    pub(crate) fn allocate_boolean_literal(&self, value: bool) -> Instruction {
+    pub(crate) fn allocate_boolean_literal(&self, value: bool) -> Instruction<'db> {
         Instruction::BooleanLiteral { value }
     }
 
-    pub(crate) fn allocate_unreachable(&self) -> Instruction {
+    pub(crate) fn allocate_constant(&self, constant: ConstantKey<'db>) -> Instruction<'db> {
+        Instruction::Constant { constant }
+    }
+
+    pub(crate) fn allocate_function_address(&self, function: FunctionKey<'db>) -> Instruction<'db> {
+        Instruction::FunctionAddress { function }
+    }
+
+    pub(crate) fn allocate_unreachable(&self) -> Instruction<'db> {
         Instruction::Unreachable
     }
 
-    pub(crate) fn get_value(&self, value_id: ValueId) -> ValueView<'_> {
+    pub(crate) fn get_value(&self, value_id: ValueId) -> ValueView<'_, 'db> {
         ValueView {
             value_id,
             cfg: self,
@@ -323,24 +324,13 @@ impl Cfg {
         panic!("value alias loop detected");
     }
 
-    pub(crate) fn get_signature(&self, signature_id: SignatureId) -> &Signature {
-        &self.dfg.signatures[signature_id]
-    }
-
-    pub(crate) fn get_function_reference(
-        &self,
-        function_reference_id: FunctionReferenceId,
-    ) -> &FunctionReference {
-        &self.dfg.function_references[function_reference_id]
-    }
-
     pub(crate) fn allocate_block(&mut self) -> BlockId {
         self.dfg.blocks.add(Block {
-            parameter_ids: GrowableHandleList::<ValueId>::new(),
+            parameter_ids: HandleArrayList::<ValueId>::new(),
         })
     }
 
-    pub(crate) fn get_block_mut(&mut self, block_id: BlockId) -> BlockViewMut<'_> {
+    pub(crate) fn get_block_mut(&mut self, block_id: BlockId) -> BlockViewMut<'_, 'db> {
         BlockViewMut {
             block_id,
             cfg: self,
@@ -451,7 +441,7 @@ impl Cfg {
     pub(crate) fn get_instruction_mut(
         &mut self,
         instruction_id: InstructionId,
-    ) -> InstructionViewMut<'_> {
+    ) -> InstructionViewMut<'_, 'db> {
         InstructionViewMut {
             instruction_id,
             cfg: self,
@@ -460,15 +450,13 @@ impl Cfg {
 
     pub(crate) fn add_instruction_before(
         &mut self,
-        instruction: Instruction,
-        result_type_ids: &[TypeId],
+        instruction: Instruction<'db>,
+        result_types: &[Ty<'db>],
         before_id: InstructionId,
     ) -> InstructionId {
-        let instruction_id = self.add_instruction(instruction, result_type_ids);
+        let instruction_id = self.add_instruction(instruction, result_types);
 
-        let block_id = self.layout.instructions[before_id]
-            .block_id
-            .expect("instruction insertion point is not in the cfg");
+        let block_id = self.layout.instructions[before_id].block_id.unwrap();
 
         let old_prev = self.layout.instructions[before_id].previous_id;
 
@@ -496,15 +484,15 @@ impl Cfg {
     pub(crate) fn append_instruction(
         &mut self,
         block_id: BlockId,
-        instruction: Instruction,
-        result_type_ids: &[TypeId],
+        instruction: Instruction<'db>,
+        result_types: &[Ty<'db>],
     ) -> InstructionId {
-        let instruction_id = self.add_instruction(instruction, result_type_ids);
+        let instruction_id = self.add_instruction(instruction, result_types);
         self.link_instruction_to_block(block_id, instruction_id);
         instruction_id
     }
 
-    pub(crate) fn set_terminator(&mut self, block_id: BlockId, terminator: Instruction) {
+    pub(crate) fn set_terminator(&mut self, block_id: BlockId, terminator: Instruction<'db>) {
         let instruction_id = self.add_instruction(terminator, &[]);
         self.link_instruction_to_block(block_id, instruction_id);
     }
@@ -512,9 +500,7 @@ impl Cfg {
     // NOTE: Its DFG data (and any values it defines) remains valid but is no longer
     // reachable via layout traversal.
     pub(crate) fn remove_instruction(&mut self, instruction_id: InstructionId) {
-        let block_id = self.layout.instructions[instruction_id]
-            .block_id
-            .expect("instruction is not in the cfg");
+        let block_id = self.layout.instructions[instruction_id].block_id.unwrap();
 
         let old_prev = self.layout.instructions[instruction_id].previous_id;
         let old_next = self.layout.instructions[instruction_id].next_id;
@@ -539,9 +525,7 @@ impl Cfg {
             "cannot split into a block that is already in the cfg"
         );
 
-        let old_block_id = self.layout.instructions[split_point_id]
-            .block_id
-            .expect("split point instruction is not in the cfg");
+        let old_block_id = self.layout.instructions[split_point_id].block_id.unwrap();
 
         self.layout.blocks.add(
             new_block_id,
@@ -580,30 +564,45 @@ impl Cfg {
         &mut self,
         destination_id: BlockId,
         block_argument_ids: &[ValueId],
-    ) -> Instruction {
+    ) -> Instruction<'db> {
         Instruction::Jump {
             destination_id,
-            block_argument_ids: GrowableHandleList::<ValueId>::from(
+            block_argument_ids: HandleArrayList::<ValueId>::from(
                 &mut self.dfg.suballocator,
                 block_argument_ids,
             ),
         }
     }
 
-    pub(crate) fn allocate_return(&mut self, output_ids: &[ValueId]) -> Instruction {
+    pub(crate) fn allocate_return(&mut self, output_ids: &[ValueId]) -> Instruction<'db> {
         Instruction::Return {
-            output_ids: GrowableHandleList::<ValueId>::from(&mut self.dfg.suballocator, output_ids),
+            output_ids: HandleArrayList::<ValueId>::from(&mut self.dfg.suballocator, output_ids),
         }
     }
 
     pub(crate) fn allocate_call(
         &mut self,
-        callee_id: FunctionReferenceId,
+        function: FunctionKey<'db>,
         argument_ids: &[ValueId],
-    ) -> Instruction {
+    ) -> Instruction<'db> {
         Instruction::Call {
-            callee_id,
-            argument_ids: GrowableHandleList::<ValueId>::from(&mut self.dfg.suballocator, argument_ids),
+            function,
+            argument_ids: HandleArrayList::<ValueId>::from(
+                &mut self.dfg.suballocator,
+                argument_ids,
+            ),
+        }
+    }
+
+    pub(crate) fn allocate_call_indirect(
+        &mut self,
+        callee_and_argument_ids: &[ValueId],
+    ) -> Instruction<'db> {
+        Instruction::CallIndirect {
+            callee_and_argument_ids: HandleArrayList::<ValueId>::from(
+                &mut self.dfg.suballocator,
+                callee_and_argument_ids,
+            ),
         }
     }
 
@@ -614,27 +613,27 @@ impl Cfg {
         true_block_argument_ids: &[ValueId],
         false_block_id: BlockId,
         false_block_argument_ids: &[ValueId],
-    ) -> Instruction {
+    ) -> Instruction<'db> {
         Instruction::ConditionalBranch {
             operand_id,
             true_block_id,
-            true_block_argument_ids: GrowableHandleList::<ValueId>::from(
+            true_block_argument_ids: HandleArrayList::<ValueId>::from(
                 &mut self.dfg.suballocator,
                 true_block_argument_ids,
             ),
             false_block_id,
-            false_block_argument_ids: GrowableHandleList::<ValueId>::from(
+            false_block_argument_ids: HandleArrayList::<ValueId>::from(
                 &mut self.dfg.suballocator,
                 false_block_argument_ids,
             ),
         }
     }
 
-    pub(crate) fn add_undefined(&mut self, type_id: TypeId) -> ValueId {
+    pub(crate) fn add_undefined(&mut self, ty: Ty<'db>) -> ValueId {
         self.dfg.values.add(Value {
-            type_id,
+            ty,
             alias_id: None,
-            origin: ValueOrigin::Undefined(type_id),
+            origin: ValueOrigin::Undefined(ty),
         })
     }
 
@@ -652,7 +651,7 @@ impl Cfg {
         );
 
         assert!(
-            self.dfg.values[destination_id].type_id == self.dfg.values[original].type_id,
+            self.dfg.values[destination_id].ty == self.dfg.values[original].ty,
             "aliasing values of different types"
         );
 
@@ -691,23 +690,6 @@ impl Cfg {
         }
     }
 
-    pub(crate) fn add_signature(&mut self, signature: Signature) -> SignatureId {
-        self.dfg.signatures.add(signature)
-    }
-
-    pub(crate) fn add_function_reference(
-        &mut self,
-        definition_binding_id: DefinitionBindingId,
-        name: Symbol,
-        signature_id: SignatureId,
-    ) -> FunctionReferenceId {
-        self.dfg.function_references.add(FunctionReference {
-            definition_binding_id,
-            name,
-            signature_id,
-        })
-    }
-
     // NOTE: Aliases are never attached.
     fn value_is_attached(&self, value_id: ValueId) -> bool {
         if self.dfg.values[value_id].alias_id.is_some() {
@@ -731,16 +713,16 @@ impl Cfg {
 
     fn add_instruction(
         &mut self,
-        instruction: Instruction,
-        result_type_ids: &[TypeId],
+        instruction: Instruction<'db>,
+        result_types: &[Ty<'db>],
     ) -> InstructionId {
         let instruction_id = self.dfg.instructions.add(instruction);
-        let result_ssa_ids: Vec<ValueId> = result_type_ids
+        let result_ssa_ids: Vec<ValueId> = result_types
             .iter()
             .enumerate()
-            .map(|(i, &type_id)| {
+            .map(|(i, &ty)| {
                 self.dfg.values.add(Value {
-                    type_id,
+                    ty,
                     alias_id: None,
                     origin: ValueOrigin::InstructionResult(instruction_id, i as u16),
                 })
@@ -748,7 +730,7 @@ impl Cfg {
             .collect();
         self.dfg.instruction_results.add(
             instruction_id,
-            GrowableHandleList::<ValueId>::from(&mut self.dfg.suballocator, &result_ssa_ids),
+            HandleArrayList::<ValueId>::from(&mut self.dfg.suballocator, &result_ssa_ids),
         );
         instruction_id
     }
@@ -769,10 +751,10 @@ impl Cfg {
     }
 }
 
-impl InstructionKind<GrowableHandleList<ValueId>> {
+impl<'db> Instruction<'db> {
     fn rewrite_operands(
         &mut self,
-        suballocator: &mut GrowableHandleListAllocator<ValueId>,
+        suballocator: &mut HandleArrayListAllocator<ValueId>,
         mut f: impl FnMut(ValueId) -> ValueId,
     ) {
         match self {
@@ -783,6 +765,13 @@ impl InstructionKind<GrowableHandleList<ValueId>> {
             Instruction::Unary { operand_id, .. } => *operand_id = f(*operand_id),
             Instruction::Call { argument_ids, .. } => {
                 for v in argument_ids.to_mut_slice(suballocator) {
+                    *v = f(*v);
+                }
+            }
+            Instruction::CallIndirect {
+                callee_and_argument_ids,
+            } => {
+                for v in callee_and_argument_ids.to_mut_slice(suballocator) {
                     *v = f(*v);
                 }
             }
@@ -814,12 +803,14 @@ impl InstructionKind<GrowableHandleList<ValueId>> {
             }
             Instruction::IntegerLiteral { .. }
             | Instruction::BooleanLiteral { .. }
+            | Instruction::Constant { .. }
+            | Instruction::FunctionAddress { .. }
             | Instruction::Unreachable => {}
         }
     }
 }
 
-impl<'a> BlockView<'a> {
+impl<'a, 'db> BlockView<'a, 'db> {
     pub(crate) fn id(&self) -> BlockId {
         self.block_id
     }
@@ -854,8 +845,8 @@ impl<'a> BlockView<'a> {
     }
 }
 
-impl<'a> BlockViewMut<'a> {
-    pub(crate) fn append_parameter(&mut self, ty: TypeId) -> ValueId {
+impl<'a, 'db> BlockViewMut<'a, 'db> {
+    pub(crate) fn append_parameter(&mut self, ty: Ty<'db>) -> ValueId {
         let parameter = self.cfg.dfg.values.next_handle();
         self.cfg.dfg.blocks[self.block_id]
             .parameter_ids
@@ -868,7 +859,7 @@ impl<'a> BlockViewMut<'a> {
             "the block has too many parameters"
         );
         self.cfg.dfg.values.add(Value {
-            type_id: ty,
+            ty,
             alias_id: None,
             origin: ValueOrigin::Parameter(self.block_id, (count - 1) as u16),
         })
@@ -904,14 +895,14 @@ impl<'a> BlockViewMut<'a> {
         }
     }
 
-    pub(crate) fn detach_parameters(&mut self) -> GrowableHandleList<ValueId> {
+    pub(crate) fn detach_parameters(&mut self) -> HandleArrayList<ValueId> {
         let params = self.cfg.dfg.blocks[self.block_id].parameter_ids;
-        self.cfg.dfg.blocks[self.block_id].parameter_ids = GrowableHandleList::<ValueId>::new();
+        self.cfg.dfg.blocks[self.block_id].parameter_ids = HandleArrayList::<ValueId>::new();
         params
     }
 }
 
-impl<'a> InstructionView<'a> {
+impl<'a, 'db> InstructionView<'a, 'db> {
     pub(crate) fn id(&self) -> InstructionId {
         self.instruction_id
     }
@@ -940,6 +931,9 @@ impl<'a> InstructionView<'a> {
             Instruction::Binary { operand_ids, .. } => operand_ids,
             Instruction::Unary { operand_id, .. } => slice::from_ref(operand_id),
             Instruction::Call { argument_ids, .. } => argument_ids.to_slice(suballocator),
+            Instruction::CallIndirect {
+                callee_and_argument_ids,
+            } => callee_and_argument_ids.to_slice(suballocator),
             Instruction::Jump {
                 block_argument_ids, ..
             } => block_argument_ids.to_slice(suballocator),
@@ -947,6 +941,8 @@ impl<'a> InstructionView<'a> {
             Instruction::Return { output_ids } => output_ids.to_slice(suballocator),
             Instruction::IntegerLiteral { .. }
             | Instruction::BooleanLiteral { .. }
+            | Instruction::Constant { .. }
+            | Instruction::FunctionAddress { .. }
             | Instruction::Unreachable => &[],
         }
     }
@@ -982,10 +978,13 @@ impl<'a> InstructionView<'a> {
             Instruction::Binary { .. }
             | Instruction::Unary { .. }
             | Instruction::Call { .. }
+            | Instruction::CallIndirect { .. }
             | Instruction::Jump { .. }
             | Instruction::Return { .. }
             | Instruction::IntegerLiteral { .. }
             | Instruction::BooleanLiteral { .. }
+            | Instruction::Constant { .. }
+            | Instruction::FunctionAddress { .. }
             | Instruction::Unreachable => UsedValuesIter::Slice(self.inputs().iter()),
         }
     }
@@ -1001,9 +1000,7 @@ impl<'a> InstructionView<'a> {
                     *jump_destination_id, destination_id,
                     "instruction does not jump to destination"
                 );
-                block_argument_ids
-                    .get(suballocator, index)
-                    .expect("branch argument index out of bounds")
+                block_argument_ids.get(suballocator, index).unwrap()
             }
             Instruction::ConditionalBranch {
                 true_block_id,
@@ -1013,13 +1010,9 @@ impl<'a> InstructionView<'a> {
                 ..
             } => {
                 if *true_block_id == destination_id {
-                    true_block_argument_ids
-                        .get(suballocator, index)
-                        .expect("branch argument index out of bounds")
+                    true_block_argument_ids.get(suballocator, index).unwrap()
                 } else if *false_block_id == destination_id {
-                    false_block_argument_ids
-                        .get(suballocator, index)
-                        .expect("branch argument index out of bounds")
+                    false_block_argument_ids.get(suballocator, index).unwrap()
                 } else {
                     panic!("instruction does not branch to destination")
                 }
@@ -1028,7 +1021,7 @@ impl<'a> InstructionView<'a> {
         }
     }
 
-    pub(crate) fn as_instruction_ref(&self) -> InstructionRef<'a> {
+    pub(crate) fn as_instruction_ref(&self) -> InstructionRef<'a, 'db> {
         let suballocator = &self.cfg.dfg.suballocator;
         match &self.cfg.dfg.instructions[self.instruction_id] {
             Instruction::Binary {
@@ -1051,12 +1044,23 @@ impl<'a> InstructionView<'a> {
             Instruction::BooleanLiteral { value } => {
                 InstructionRef::BooleanLiteral { value: *value }
             }
+            Instruction::Constant { constant } => InstructionRef::Constant {
+                constant: *constant,
+            },
+            Instruction::FunctionAddress { function } => InstructionRef::FunctionAddress {
+                function: *function,
+            },
             Instruction::Call {
-                callee_id,
+                function,
                 argument_ids,
             } => InstructionRef::Call {
-                callee_id: *callee_id,
+                function: *function,
                 argument_ids: argument_ids.to_slice(suballocator),
+            },
+            Instruction::CallIndirect {
+                callee_and_argument_ids,
+            } => InstructionRef::CallIndirect {
+                callee_and_argument_ids: callee_and_argument_ids.to_slice(suballocator),
             },
             Instruction::Jump {
                 destination_id,
@@ -1086,7 +1090,7 @@ impl<'a> InstructionView<'a> {
     }
 }
 
-impl<'a> InstructionViewMut<'a> {
+impl<'a, 'db> InstructionViewMut<'a, 'db> {
     pub(crate) fn rewrite_operands(&mut self, f: impl FnMut(ValueId) -> ValueId) {
         self.cfg.dfg.instructions[self.instruction_id]
             .rewrite_operands(&mut self.cfg.dfg.suballocator, f);
@@ -1128,12 +1132,12 @@ impl<'a> InstructionViewMut<'a> {
     }
 }
 
-impl<'a> ValueView<'a> {
-    pub(crate) fn ty(&self) -> TypeId {
-        self.cfg.dfg.values[self.value_id].type_id
+impl<'a, 'db> ValueView<'a, 'db> {
+    pub(crate) fn ty(&self) -> Ty<'db> {
+        self.cfg.dfg.values[self.value_id].ty
     }
 
-    pub(crate) fn origin(&self) -> ValueOrigin {
+    pub(crate) fn origin(&self) -> ValueOrigin<'db> {
         self.cfg.dfg.values[self.cfg.resolve_aliases(self.value_id)].origin
     }
 
@@ -1195,16 +1199,14 @@ impl Iterator for InstructionIter<'_> {
     }
 }
 
-impl DataFlowGraph {
+impl<'db> DataFlowGraph<'db> {
     fn new() -> Self {
         Self {
             values: HandleMap::new(),
             instructions: HandleMap::new(),
             instruction_results: SideHandleMap::new(),
             blocks: HandleMap::new(),
-            function_references: HandleMap::new(),
-            signatures: HandleMap::new(),
-            suballocator: GrowableHandleListAllocator::<ValueId>::new(),
+            suballocator: HandleArrayListAllocator::<ValueId>::new(),
         }
     }
 }

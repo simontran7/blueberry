@@ -10,7 +10,7 @@ macro_rules! handle_impl {
 
         impl $crate::core::common::handle_collections::Handle for $name {
             fn new(i: usize) -> Self {
-                Self(core::num::NonZeroU32::new(u32::try_from(i).expect("index too large") + 1).expect("index too large"))
+                Self(core::num::NonZeroU32::new(u32::try_from(i).unwrap() + 1).unwrap())
             }
 
             fn index(&self) -> usize {

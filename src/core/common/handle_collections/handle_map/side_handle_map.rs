@@ -60,7 +60,8 @@ impl<K: Handle, V> SideHandleMap<K, V> {
         self.data
             .iter()
             .enumerate()
-            .filter_map(|(i, v)| v.is_some().then(|| K::new(i)))
+            .filter(|&(i, v)| v.is_some())
+            .map(|(i, v)| K::new(i))
     }
 
     pub(crate) fn values(&self) -> impl Iterator<Item = &V> + '_ {
@@ -114,14 +115,14 @@ impl<K: Handle, V> SideHandleMap<K, V> {
 impl<K: Handle, V> Index<K> for SideHandleMap<K, V> {
     type Output = V;
     fn index(&self, k: K) -> &V {
-        self.data[k.index()].as_ref().expect("no entry for key")
+        self.data[k.index()].as_ref().unwrap()
     }
 }
 
 // for `map[k] = v`
 impl<K: Handle, V> IndexMut<K> for SideHandleMap<K, V> {
     fn index_mut(&mut self, k: K) -> &mut V {
-        self.data[k.index()].as_mut().expect("no entry for key")
+        self.data[k.index()].as_mut().unwrap()
     }
 }
 

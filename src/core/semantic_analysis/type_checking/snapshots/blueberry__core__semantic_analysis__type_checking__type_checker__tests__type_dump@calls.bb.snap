@@ -1,0 +1,31 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/calls.bb
+---
+function add(a: I64, b: I64) -> I64
+└─ Block 32..45: I64
+   └─ tail: Binary + 38..43: I64
+      ├─ Path a 38..39: I64
+      └─ Path b 42..43: I64
+
+function nothing()
+└─ Block 62..64: ()
+
+function main()
+└─ Block 78..190: ()
+   ├─ Let sum: I64
+   │  └─ initializer: Call 94..103: I64
+   │     ├─ callee: Path add 94..97: (I64, I64) -> I64
+   │     ├─ argument: Integer 1 98..99: I64
+   │     └─ argument: Integer 2 101..102: I64
+   ├─ Let unit: ()
+   │  └─ initializer: Call 120..129: ()
+   │     └─ callee: Path nothing 120..127: () -> ()
+   ├─ Let function: (I64, I64) -> I64
+   │  └─ initializer: Path add 150..153: (I64, I64) -> I64
+   └─ Let again: I64
+      └─ initializer: Call 171..187: I64
+         ├─ callee: Path function 171..179: (I64, I64) -> I64
+         ├─ argument: Path sum 180..183: I64
+         └─ argument: Integer 3 185..186: I64

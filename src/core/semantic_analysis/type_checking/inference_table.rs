@@ -126,17 +126,27 @@ impl<'db> InferenceTable<'db> {
         }
     }
 
-    pub(crate) fn make_general_inference_variable(&mut self) -> GeneralVariableHandle {
-        self.general_inference_variables
-            .make_set(GeneralInferenceVariableSolution {
-                ty: None,
-                coerced_from_bottom: false,
-            })
+    pub(crate) fn new_general_variable(&mut self) -> Ty<'db> {
+        let variable_handle =
+            self.general_inference_variables
+                .make_set(GeneralInferenceVariableSolution {
+                    ty: None,
+                    coerced_from_bottom: false,
+                });
+        Ty::new(
+            self.db,
+            TyKind::InferenceVariable(InferenceVariable::General(variable_handle)),
+        )
     }
 
-    pub(crate) fn make_integer_inference_variable(&mut self) -> IntegerVariableHandle {
-        self.integer_inference_variables
-            .make_set(IntegerInferenceVariableSolution { ty: None })
+    pub(crate) fn new_integer_variable(&mut self) -> Ty<'db> {
+        let variable_handle = self
+            .integer_inference_variables
+            .make_set(IntegerInferenceVariableSolution { ty: None });
+        Ty::new(
+            self.db,
+            TyKind::InferenceVariable(InferenceVariable::Integer(variable_handle)),
+        )
     }
 
     pub(crate) fn unify(
@@ -233,14 +243,18 @@ impl<'db> InferenceTable<'db> {
         }
     }
 
-    /// Marks the set of `ty`, if it's an unsolved general variable, as coerced from `Bottom`.
-    pub(crate) fn set_coerced_from_bottom(&mut self, ty: Ty<'db>) {
-        if let TyKind::InferenceVariable(InferenceVariable::General(variable_handle)) =
-            self.shallow_resolve(ty).kind(self.db)
-        {
-            self.general_inference_variables
-                .update_value(*variable_handle, |value| value.coerced_from_bottom = true);
+    /// Coerces `from` to `to`.
+    pub(crate) fn coerce(&mut self, from: Ty<'db>, to: Ty<'db>) -> Result<(), TypeMismatch<'db>> {
+        if matches!(self.shallow_resolve(from).kind(self.db), TyKind::Bottom) {
+            if let TyKind::InferenceVariable(InferenceVariable::General(variable_handle)) =
+                self.shallow_resolve(to).kind(self.db)
+            {
+                self.general_inference_variables
+                    .update_value(*variable_handle, |value| value.coerced_from_bottom = true);
+            }
+            return Ok(());
         }
+        self.unify(to, from)
     }
 
     /// Solves every integer variable that's still unsolved to `I32`

@@ -84,7 +84,6 @@ flowchart TD
     end
 
     subgraph collect [Collecting]
-        red_node_directory_of
         file_scoped_definitions_of
         block_scoped_definitions_of
         imports_of
@@ -98,6 +97,7 @@ flowchart TD
         function_body_of
         function_scopes_of
         function_types_of
+        function_mir_of
     end
 
     subgraph constant [Per constant]
@@ -107,26 +107,26 @@ flowchart TD
         constant_body_of
         constant_scopes_of
         constant_types_of
+        constant_mir_of
     end
 
     SourceFileKey --> tokens_of --> cst_of
-    cst_of --> red_node_directory_of
 
-    cst_of & red_node_directory_of --> file_scoped_definitions_of
-    cst_of & red_node_directory_of --> block_scoped_definitions_of
+    cst_of --> file_scoped_definitions_of
+    cst_of --> block_scoped_definitions_of
     cst_of --> imports_of
 
     ModuleMap --> module_file_of
     imports_of -- "supplies the path argument" --> module_file_of
 
-    cst_of & red_node_directory_of --> function_signature_of
+    cst_of --> function_signature_of
     function_signature_of --> function_signature_type_of
-    cst_of & red_node_directory_of --> function_body_with_source_map_of
+    cst_of --> function_body_with_source_map_of
     function_body_with_source_map_of --> function_body_of --> function_scopes_of
 
-    cst_of & red_node_directory_of --> constant_signature_of
+    cst_of --> constant_signature_of
     constant_signature_of --> constant_signature_type_of
-    cst_of & red_node_directory_of --> constant_body_with_source_map_of
+    cst_of --> constant_body_with_source_map_of
     constant_body_with_source_map_of --> constant_body_of --> constant_scopes_of
 
     function_body_of & function_scopes_of & function_signature_type_of -.-> function_types_of
@@ -134,9 +134,12 @@ flowchart TD
 
     file_scoped_definitions_of & block_scoped_definitions_of & module_file_of -.-> function_types_of
     file_scoped_definitions_of & block_scoped_definitions_of & module_file_of -.-> constant_types_of
+
+    function_body_of & function_scopes_of & function_signature_type_of & function_types_of --> function_mir_of
+    constant_body_of & constant_scopes_of & constant_signature_type_of & constant_types_of --> constant_mir_of
 ```
 
 Each stage is explained in its own document:
 - See [Syntactic Analysis](docs/syntactic-analysis.md) for how source text becomes a concrete syntax tree.
 - See [Semantic Analysis](docs/semantic-analysis.md) for how the concrete syntax tree is lowered to an high-level intermediate representation form, how names are resolved, and how types are inferred and checked.
-- See [HIR Lowering](docs/hir-lowering.md) for how the HIR is lowered to a mid-level intermediate representation.
+- See [MIR Construction](docs/mir-construction.md) for how the HIR is lowered to a mid-level intermediate representation.
