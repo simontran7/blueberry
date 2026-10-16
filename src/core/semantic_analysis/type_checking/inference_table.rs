@@ -77,21 +77,7 @@ impl<'db> InferenceTable<'db> {
     /// unsolved ones as they are.
     pub(crate) fn deep_resolve(&mut self, ty: Ty<'db>) -> Ty<'db> {
         let ty = self.shallow_resolve(ty);
-        match ty.kind(self.db) {
-            TyKind::Function {
-                parameters,
-                r#return,
-            } => {
-                let (parameters, r#return) = (parameters.clone(), *r#return);
-                let parameters = parameters
-                    .into_iter()
-                    .map(|parameter| self.deep_resolve(parameter))
-                    .collect();
-                let r#return = self.deep_resolve(r#return);
-                Ty::function(self.db, parameters, r#return)
-            }
-            _ => ty,
-        }
+        ty.map_children(self.db, |child| self.deep_resolve(child))
     }
 
     /// Resolves `ty` like [`Self::deep_resolve`], but replaces an unsolved general variable with
@@ -110,24 +96,14 @@ impl<'db> InferenceTable<'db> {
             TyKind::InferenceVariable(InferenceVariable::Integer(_)) => {
                 unreachable!("integer variables are all solved by the fallback first")
             }
-            TyKind::Function {
-                parameters,
-                r#return,
-            } => {
-                let (parameters, r#return) = (parameters.clone(), *r#return);
-                let parameters = parameters
-                    .into_iter()
-                    .map(|parameter| self.deep_resolve_with_poisoning(parameter, on_unsolved))
-                    .collect();
-                let r#return = self.deep_resolve_with_poisoning(r#return, on_unsolved);
-                Ty::function(self.db, parameters, r#return)
-            }
-            _ => ty,
+            _ => ty.map_children(self.db, |child| {
+                self.deep_resolve_with_poisoning(child, on_unsolved)
+            }),
         }
     }
 
-    pub(crate) fn new_general_variable(&mut self) -> Ty<'db> {
-        let variable_handle =
+    pub(crate) fn new_general_inference_variable(&mut self) -> Ty<'db> {
+        let inference_variable_handle =
             self.general_inference_variables
                 .make_set(GeneralInferenceVariableSolution {
                     ty: None,
@@ -135,17 +111,17 @@ impl<'db> InferenceTable<'db> {
                 });
         Ty::new(
             self.db,
-            TyKind::InferenceVariable(InferenceVariable::General(variable_handle)),
+            TyKind::InferenceVariable(InferenceVariable::General(inference_variable_handle)),
         )
     }
 
-    pub(crate) fn new_integer_variable(&mut self) -> Ty<'db> {
-        let variable_handle = self
+    pub(crate) fn make_integer_inference_variable(&mut self) -> Ty<'db> {
+        let inference_variable_handle = self
             .integer_inference_variables
             .make_set(IntegerInferenceVariableSolution { ty: None });
         Ty::new(
             self.db,
-            TyKind::InferenceVariable(InferenceVariable::Integer(variable_handle)),
+            TyKind::InferenceVariable(InferenceVariable::Integer(inference_variable_handle)),
         )
     }
 
@@ -239,6 +215,20 @@ impl<'db> InferenceTable<'db> {
                 Ok(())
             }
 
+            (TyKind::Tuple(expected_elements), TyKind::Tuple(found_elements))
+                if expected_elements.len() == found_elements.len() =>
+            {
+                for (expected_part, found_part) in expected_elements
+                    .iter()
+                    .copied()
+                    .zip(found_elements.iter().copied())
+                {
+                    self.unify(expected_part, found_part)
+                        .map_err(|_| TypeMismatch { expected, found })?;
+                }
+                Ok(())
+            }
+
             _ => Err(TypeMismatch { expected, found }),
         }
     }
@@ -283,17 +273,9 @@ impl<'db> InferenceTable<'db> {
             TyKind::InferenceVariable(InferenceVariable::General(other_handle)) => self
                 .general_inference_variables
                 .is_connected(variable_handle, *other_handle),
-            TyKind::Function {
-                parameters,
-                r#return,
-            } => {
-                parameters
-                    .clone()
-                    .into_iter()
-                    .any(|parameter| self.occurs(variable_handle, parameter))
-                    || self.occurs(variable_handle, *r#return)
-            }
-            _ => false,
+            _ => ty
+                .children(self.db)
+                .any(|child| self.occurs(variable_handle, child)),
         }
     }
 }

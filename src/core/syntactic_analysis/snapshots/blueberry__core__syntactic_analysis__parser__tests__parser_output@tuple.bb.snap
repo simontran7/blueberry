@@ -1,0 +1,996 @@
+---
+source: src/core/syntactic_analysis/parser.rs
+expression: dump
+input_file: src/core/syntactic_analysis/snapshot_inputs/tuple.bb
+---
+File
+├─FunctionDefinition
+│ ├─Func
+│ │   Lexeme: "func"
+│ │   Span: [0, 4)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [4, 5)
+│ ├─Identifier
+│ │   Lexeme: "f"
+│ │   Span: [5, 6)
+│ ├─ParameterList
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [6, 7)
+│ │ ├─Parameter
+│ │ │ ├─Identifier
+│ │ │ │   Lexeme: "pair"
+│ │ │ │   Span: [7, 11)
+│ │ │ ├─Colon
+│ │ │ │   Lexeme: ":"
+│ │ │ │   Span: [11, 12)
+│ │ │ ├─Whitespace
+│ │ │ │   Lexeme: " "
+│ │ │ │   Span: [12, 13)
+│ │ │ ├─TupleType
+│ │ │ │ ├─OpenParen
+│ │ │ │ │   Lexeme: "("
+│ │ │ │ │   Span: [13, 14)
+│ │ │ │ ├─PathType
+│ │ │ │ │ └─Path
+│ │ │ │ │   └─PathSegment
+│ │ │ │ │     └─Identifier
+│ │ │ │ │         Lexeme: "I32"
+│ │ │ │ │         Span: [14, 17)
+│ │ │ │ │     Span: [14, 17)
+│ │ │ │ │   Span: [14, 17)
+│ │ │ │ │ Span: [14, 17)
+│ │ │ │ ├─Comma
+│ │ │ │ │   Lexeme: ","
+│ │ │ │ │   Span: [17, 18)
+│ │ │ │ ├─Whitespace
+│ │ │ │ │   Lexeme: " "
+│ │ │ │ │   Span: [18, 19)
+│ │ │ │ ├─PathType
+│ │ │ │ │ └─Path
+│ │ │ │ │   └─PathSegment
+│ │ │ │ │     └─Identifier
+│ │ │ │ │         Lexeme: "Bool"
+│ │ │ │ │         Span: [19, 23)
+│ │ │ │ │     Span: [19, 23)
+│ │ │ │ │   Span: [19, 23)
+│ │ │ │ │ Span: [19, 23)
+│ │ │ │ └─CloseParen
+│ │ │ │     Lexeme: ")"
+│ │ │ │     Span: [23, 24)
+│ │ │ │ Span: [13, 24)
+│ │ │ └─Comma
+│ │ │     Lexeme: ","
+│ │ │     Span: [24, 25)
+│ │ │ Span: [7, 25)
+│ │ ├─Whitespace
+│ │ │   Lexeme: " "
+│ │ │   Span: [25, 26)
+│ │ ├─Parameter
+│ │ │ ├─Identifier
+│ │ │ │   Lexeme: "single"
+│ │ │ │   Span: [26, 32)
+│ │ │ ├─Colon
+│ │ │ │   Lexeme: ":"
+│ │ │ │   Span: [32, 33)
+│ │ │ ├─Whitespace
+│ │ │ │   Lexeme: " "
+│ │ │ │   Span: [33, 34)
+│ │ │ ├─TupleType
+│ │ │ │ ├─OpenParen
+│ │ │ │ │   Lexeme: "("
+│ │ │ │ │   Span: [34, 35)
+│ │ │ │ ├─PathType
+│ │ │ │ │ └─Path
+│ │ │ │ │   └─PathSegment
+│ │ │ │ │     └─Identifier
+│ │ │ │ │         Lexeme: "I32"
+│ │ │ │ │         Span: [35, 38)
+│ │ │ │ │     Span: [35, 38)
+│ │ │ │ │   Span: [35, 38)
+│ │ │ │ │ Span: [35, 38)
+│ │ │ │ ├─Comma
+│ │ │ │ │   Lexeme: ","
+│ │ │ │ │   Span: [38, 39)
+│ │ │ │ └─CloseParen
+│ │ │ │     Lexeme: ")"
+│ │ │ │     Span: [39, 40)
+│ │ │ │ Span: [34, 40)
+│ │ │ └─Comma
+│ │ │     Lexeme: ","
+│ │ │     Span: [40, 41)
+│ │ │ Span: [26, 41)
+│ │ ├─Whitespace
+│ │ │   Lexeme: " "
+│ │ │   Span: [41, 42)
+│ │ ├─Parameter
+│ │ │ ├─Identifier
+│ │ │ │   Lexeme: "nested"
+│ │ │ │   Span: [42, 48)
+│ │ │ ├─Colon
+│ │ │ │   Lexeme: ":"
+│ │ │ │   Span: [48, 49)
+│ │ │ ├─Whitespace
+│ │ │ │   Lexeme: " "
+│ │ │ │   Span: [49, 50)
+│ │ │ ├─TupleType
+│ │ │ │ ├─OpenParen
+│ │ │ │ │   Lexeme: "("
+│ │ │ │ │   Span: [50, 51)
+│ │ │ │ ├─TupleType
+│ │ │ │ │ ├─OpenParen
+│ │ │ │ │ │   Lexeme: "("
+│ │ │ │ │ │   Span: [51, 52)
+│ │ │ │ │ ├─PathType
+│ │ │ │ │ │ └─Path
+│ │ │ │ │ │   └─PathSegment
+│ │ │ │ │ │     └─Identifier
+│ │ │ │ │ │         Lexeme: "I32"
+│ │ │ │ │ │         Span: [52, 55)
+│ │ │ │ │ │     Span: [52, 55)
+│ │ │ │ │ │   Span: [52, 55)
+│ │ │ │ │ │ Span: [52, 55)
+│ │ │ │ │ ├─Comma
+│ │ │ │ │ │   Lexeme: ","
+│ │ │ │ │ │   Span: [55, 56)
+│ │ │ │ │ ├─Whitespace
+│ │ │ │ │ │   Lexeme: " "
+│ │ │ │ │ │   Span: [56, 57)
+│ │ │ │ │ ├─PathType
+│ │ │ │ │ │ └─Path
+│ │ │ │ │ │   └─PathSegment
+│ │ │ │ │ │     └─Identifier
+│ │ │ │ │ │         Lexeme: "I32"
+│ │ │ │ │ │         Span: [57, 60)
+│ │ │ │ │ │     Span: [57, 60)
+│ │ │ │ │ │   Span: [57, 60)
+│ │ │ │ │ │ Span: [57, 60)
+│ │ │ │ │ └─CloseParen
+│ │ │ │ │     Lexeme: ")"
+│ │ │ │ │     Span: [60, 61)
+│ │ │ │ │ Span: [51, 61)
+│ │ │ │ ├─Comma
+│ │ │ │ │   Lexeme: ","
+│ │ │ │ │   Span: [61, 62)
+│ │ │ │ ├─Whitespace
+│ │ │ │ │   Lexeme: " "
+│ │ │ │ │   Span: [62, 63)
+│ │ │ │ ├─TupleType
+│ │ │ │ │ ├─OpenParen
+│ │ │ │ │ │   Lexeme: "("
+│ │ │ │ │ │   Span: [63, 64)
+│ │ │ │ │ └─CloseParen
+│ │ │ │ │     Lexeme: ")"
+│ │ │ │ │     Span: [64, 65)
+│ │ │ │ │ Span: [63, 65)
+│ │ │ │ └─CloseParen
+│ │ │ │     Lexeme: ")"
+│ │ │ │     Span: [65, 66)
+│ │ │ │ Span: [50, 66)
+│ │ │ └─Comma
+│ │ │     Lexeme: ","
+│ │ │     Span: [66, 67)
+│ │ │ Span: [42, 67)
+│ │ ├─Whitespace
+│ │ │   Lexeme: " "
+│ │ │   Span: [67, 68)
+│ │ ├─Parameter
+│ │ │ ├─Identifier
+│ │ │ │   Lexeme: "grouped"
+│ │ │ │   Span: [68, 75)
+│ │ │ ├─Colon
+│ │ │ │   Lexeme: ":"
+│ │ │ │   Span: [75, 76)
+│ │ │ ├─Whitespace
+│ │ │ │   Lexeme: " "
+│ │ │ │   Span: [76, 77)
+│ │ │ └─ParenthesizedType
+│ │ │   ├─OpenParen
+│ │ │   │   Lexeme: "("
+│ │ │   │   Span: [77, 78)
+│ │ │   ├─PathType
+│ │ │   │ └─Path
+│ │ │   │   └─PathSegment
+│ │ │   │     └─Identifier
+│ │ │   │         Lexeme: "I32"
+│ │ │   │         Span: [78, 81)
+│ │ │   │     Span: [78, 81)
+│ │ │   │   Span: [78, 81)
+│ │ │   │ Span: [78, 81)
+│ │ │   └─CloseParen
+│ │ │       Lexeme: ")"
+│ │ │       Span: [81, 82)
+│ │ │   Span: [77, 82)
+│ │ │ Span: [68, 82)
+│ │ └─CloseParen
+│ │     Lexeme: ")"
+│ │     Span: [82, 83)
+│ │ Span: [6, 83)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [83, 84)
+│ ├─ThinArrow
+│ │   Lexeme: "->"
+│ │   Span: [84, 86)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [86, 87)
+│ ├─TupleType
+│ │ ├─OpenParen
+│ │ │   Lexeme: "("
+│ │ │   Span: [87, 88)
+│ │ ├─PathType
+│ │ │ └─Path
+│ │ │   └─PathSegment
+│ │ │     └─Identifier
+│ │ │         Lexeme: "I32"
+│ │ │         Span: [88, 91)
+│ │ │     Span: [88, 91)
+│ │ │   Span: [88, 91)
+│ │ │ Span: [88, 91)
+│ │ ├─Comma
+│ │ │   Lexeme: ","
+│ │ │   Span: [91, 92)
+│ │ ├─Whitespace
+│ │ │   Lexeme: " "
+│ │ │   Span: [92, 93)
+│ │ ├─PathType
+│ │ │ └─Path
+│ │ │   └─PathSegment
+│ │ │     └─Identifier
+│ │ │         Lexeme: "Bool"
+│ │ │         Span: [93, 97)
+│ │ │     Span: [93, 97)
+│ │ │   Span: [93, 97)
+│ │ │ Span: [93, 97)
+│ │ └─CloseParen
+│ │     Lexeme: ")"
+│ │     Span: [97, 98)
+│ │ Span: [87, 98)
+│ ├─Whitespace
+│ │   Lexeme: " "
+│ │   Span: [98, 99)
+│ └─Block
+│   ├─OpenBrace
+│   │   Lexeme: "{"
+│   │   Span: [99, 100)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [100, 105)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [105, 108)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [108, 109)
+│   │ ├─Identifier
+│   │ │   Lexeme: "empty"
+│   │ │   Span: [109, 114)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [114, 115)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [115, 116)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [116, 117)
+│   │ ├─TupleExpression
+│   │ │ ├─OpenParen
+│   │ │ │   Lexeme: "("
+│   │ │ │   Span: [117, 118)
+│   │ │ └─CloseParen
+│   │ │     Lexeme: ")"
+│   │ │     Span: [118, 119)
+│   │ │ Span: [117, 119)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [119, 120)
+│   │ Span: [105, 120)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [120, 125)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [125, 128)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [128, 129)
+│   │ ├─Identifier
+│   │ │   Lexeme: "grouped"
+│   │ │   Span: [129, 136)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [136, 137)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [137, 138)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [138, 139)
+│   │ ├─ParenthesizedExpression
+│   │ │ ├─OpenParen
+│   │ │ │   Lexeme: "("
+│   │ │ │   Span: [139, 140)
+│   │ │ ├─IntegerLiteral
+│   │ │ │ └─Integer
+│   │ │ │     Lexeme: "1"
+│   │ │ │     Span: [140, 141)
+│   │ │ │ Span: [140, 141)
+│   │ │ └─CloseParen
+│   │ │     Lexeme: ")"
+│   │ │     Span: [141, 142)
+│   │ │ Span: [139, 142)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [142, 143)
+│   │ Span: [125, 143)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [143, 148)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [148, 151)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [151, 152)
+│   │ ├─Identifier
+│   │ │   Lexeme: "one"
+│   │ │   Span: [152, 155)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [155, 156)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [156, 157)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [157, 158)
+│   │ ├─TupleExpression
+│   │ │ ├─OpenParen
+│   │ │ │   Lexeme: "("
+│   │ │ │   Span: [158, 159)
+│   │ │ ├─IntegerLiteral
+│   │ │ │ └─Integer
+│   │ │ │     Lexeme: "1"
+│   │ │ │     Span: [159, 160)
+│   │ │ │ Span: [159, 160)
+│   │ │ ├─Comma
+│   │ │ │   Lexeme: ","
+│   │ │ │   Span: [160, 161)
+│   │ │ └─CloseParen
+│   │ │     Lexeme: ")"
+│   │ │     Span: [161, 162)
+│   │ │ Span: [158, 162)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [162, 163)
+│   │ Span: [148, 163)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [163, 168)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [168, 171)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [171, 172)
+│   │ ├─Identifier
+│   │ │   Lexeme: "two"
+│   │ │   Span: [172, 175)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [175, 176)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [176, 177)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [177, 178)
+│   │ ├─TupleExpression
+│   │ │ ├─OpenParen
+│   │ │ │   Lexeme: "("
+│   │ │ │   Span: [178, 179)
+│   │ │ ├─IntegerLiteral
+│   │ │ │ └─Integer
+│   │ │ │     Lexeme: "1"
+│   │ │ │     Span: [179, 180)
+│   │ │ │ Span: [179, 180)
+│   │ │ ├─Comma
+│   │ │ │   Lexeme: ","
+│   │ │ │   Span: [180, 181)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [181, 182)
+│   │ │ ├─BooleanLiteral
+│   │ │ │ └─True
+│   │ │ │     Lexeme: "true"
+│   │ │ │     Span: [182, 186)
+│   │ │ │ Span: [182, 186)
+│   │ │ └─CloseParen
+│   │ │     Lexeme: ")"
+│   │ │     Span: [186, 187)
+│   │ │ Span: [178, 187)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [187, 188)
+│   │ Span: [168, 188)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [188, 193)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [193, 196)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [196, 197)
+│   │ ├─Identifier
+│   │ │   Lexeme: "trailing"
+│   │ │   Span: [197, 205)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [205, 206)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [206, 207)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [207, 208)
+│   │ ├─TupleExpression
+│   │ │ ├─OpenParen
+│   │ │ │   Lexeme: "("
+│   │ │ │   Span: [208, 209)
+│   │ │ ├─IntegerLiteral
+│   │ │ │ └─Integer
+│   │ │ │     Lexeme: "1"
+│   │ │ │     Span: [209, 210)
+│   │ │ │ Span: [209, 210)
+│   │ │ ├─Comma
+│   │ │ │   Lexeme: ","
+│   │ │ │   Span: [210, 211)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [211, 212)
+│   │ │ ├─BooleanLiteral
+│   │ │ │ └─True
+│   │ │ │     Lexeme: "true"
+│   │ │ │     Span: [212, 216)
+│   │ │ │ Span: [212, 216)
+│   │ │ ├─Comma
+│   │ │ │   Lexeme: ","
+│   │ │ │   Span: [216, 217)
+│   │ │ └─CloseParen
+│   │ │     Lexeme: ")"
+│   │ │     Span: [217, 218)
+│   │ │ Span: [208, 218)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [218, 219)
+│   │ Span: [193, 219)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [219, 224)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [224, 227)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [227, 228)
+│   │ ├─Identifier
+│   │ │   Lexeme: "first"
+│   │ │   Span: [228, 233)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [233, 234)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [234, 235)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [235, 236)
+│   │ ├─FieldExpression
+│   │ │ ├─PathExpression
+│   │ │ │ └─Path
+│   │ │ │   └─PathSegment
+│   │ │ │     └─Identifier
+│   │ │ │         Lexeme: "pair"
+│   │ │ │         Span: [236, 240)
+│   │ │ │     Span: [236, 240)
+│   │ │ │   Span: [236, 240)
+│   │ │ │ Span: [236, 240)
+│   │ │ ├─Dot
+│   │ │ │   Lexeme: "."
+│   │ │ │   Span: [240, 241)
+│   │ │ └─Integer
+│   │ │     Lexeme: "0"
+│   │ │     Span: [241, 242)
+│   │ │ Span: [236, 242)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [242, 243)
+│   │ Span: [224, 243)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [243, 248)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [248, 251)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [251, 252)
+│   │ ├─Identifier
+│   │ │   Lexeme: "deep"
+│   │ │   Span: [252, 256)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [256, 257)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [257, 258)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [258, 259)
+│   │ ├─FieldExpression
+│   │ │ ├─FieldExpression
+│   │ │ │ ├─PathExpression
+│   │ │ │ │ └─Path
+│   │ │ │ │   └─PathSegment
+│   │ │ │ │     └─Identifier
+│   │ │ │ │         Lexeme: "nested"
+│   │ │ │ │         Span: [259, 265)
+│   │ │ │ │     Span: [259, 265)
+│   │ │ │ │   Span: [259, 265)
+│   │ │ │ │ Span: [259, 265)
+│   │ │ │ ├─Dot
+│   │ │ │ │   Lexeme: "."
+│   │ │ │ │   Span: [265, 266)
+│   │ │ │ └─Integer
+│   │ │ │     Lexeme: "0"
+│   │ │ │     Span: [266, 267)
+│   │ │ │ Span: [259, 267)
+│   │ │ ├─Dot
+│   │ │ │   Lexeme: "."
+│   │ │ │   Span: [267, 268)
+│   │ │ └─Integer
+│   │ │     Lexeme: "1"
+│   │ │     Span: [268, 269)
+│   │ │ Span: [259, 269)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [269, 270)
+│   │ Span: [248, 270)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [270, 275)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [275, 278)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [278, 279)
+│   │ ├─Identifier
+│   │ │   Lexeme: "negated"
+│   │ │   Span: [279, 286)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [286, 287)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [287, 288)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [288, 289)
+│   │ ├─UnaryOperation
+│   │ │ ├─Minus
+│   │ │ │   Lexeme: "-"
+│   │ │ │   Span: [289, 290)
+│   │ │ └─FieldExpression
+│   │ │   ├─PathExpression
+│   │ │   │ └─Path
+│   │ │   │   └─PathSegment
+│   │ │   │     └─Identifier
+│   │ │   │         Lexeme: "pair"
+│   │ │   │         Span: [290, 294)
+│   │ │   │     Span: [290, 294)
+│   │ │   │   Span: [290, 294)
+│   │ │   │ Span: [290, 294)
+│   │ │   ├─Dot
+│   │ │   │   Lexeme: "."
+│   │ │   │   Span: [294, 295)
+│   │ │   └─Integer
+│   │ │       Lexeme: "0"
+│   │ │       Span: [295, 296)
+│   │ │   Span: [290, 296)
+│   │ │ Span: [289, 296)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [296, 297)
+│   │ Span: [275, 297)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [297, 302)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [302, 305)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [305, 306)
+│   │ ├─Identifier
+│   │ │   Lexeme: "called"
+│   │ │   Span: [306, 312)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [312, 313)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [313, 314)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [314, 315)
+│   │ ├─FieldExpression
+│   │ │ ├─Call
+│   │ │ │ ├─PathExpression
+│   │ │ │ │ └─Path
+│   │ │ │ │   └─PathSegment
+│   │ │ │ │     └─Identifier
+│   │ │ │ │         Lexeme: "f"
+│   │ │ │ │         Span: [315, 316)
+│   │ │ │ │     Span: [315, 316)
+│   │ │ │ │   Span: [315, 316)
+│   │ │ │ │ Span: [315, 316)
+│   │ │ │ └─ArgumentList
+│   │ │ │   ├─OpenParen
+│   │ │ │   │   Lexeme: "("
+│   │ │ │   │   Span: [316, 317)
+│   │ │ │   ├─Argument
+│   │ │ │   │ ├─PathExpression
+│   │ │ │   │ │ └─Path
+│   │ │ │   │ │   └─PathSegment
+│   │ │ │   │ │     └─Identifier
+│   │ │ │   │ │         Lexeme: "pair"
+│   │ │ │   │ │         Span: [317, 321)
+│   │ │ │   │ │     Span: [317, 321)
+│   │ │ │   │ │   Span: [317, 321)
+│   │ │ │   │ │ Span: [317, 321)
+│   │ │ │   │ └─Comma
+│   │ │ │   │     Lexeme: ","
+│   │ │ │   │     Span: [321, 322)
+│   │ │ │   │ Span: [317, 322)
+│   │ │ │   ├─Whitespace
+│   │ │ │   │   Lexeme: " "
+│   │ │ │   │   Span: [322, 323)
+│   │ │ │   ├─Argument
+│   │ │ │   │ ├─PathExpression
+│   │ │ │   │ │ └─Path
+│   │ │ │   │ │   └─PathSegment
+│   │ │ │   │ │     └─Identifier
+│   │ │ │   │ │         Lexeme: "single"
+│   │ │ │   │ │         Span: [323, 329)
+│   │ │ │   │ │     Span: [323, 329)
+│   │ │ │   │ │   Span: [323, 329)
+│   │ │ │   │ │ Span: [323, 329)
+│   │ │ │   │ └─Comma
+│   │ │ │   │     Lexeme: ","
+│   │ │ │   │     Span: [329, 330)
+│   │ │ │   │ Span: [323, 330)
+│   │ │ │   ├─Whitespace
+│   │ │ │   │   Lexeme: " "
+│   │ │ │   │   Span: [330, 331)
+│   │ │ │   ├─Argument
+│   │ │ │   │ ├─PathExpression
+│   │ │ │   │ │ └─Path
+│   │ │ │   │ │   └─PathSegment
+│   │ │ │   │ │     └─Identifier
+│   │ │ │   │ │         Lexeme: "nested"
+│   │ │ │   │ │         Span: [331, 337)
+│   │ │ │   │ │     Span: [331, 337)
+│   │ │ │   │ │   Span: [331, 337)
+│   │ │ │   │ │ Span: [331, 337)
+│   │ │ │   │ └─Comma
+│   │ │ │   │     Lexeme: ","
+│   │ │ │   │     Span: [337, 338)
+│   │ │ │   │ Span: [331, 338)
+│   │ │ │   ├─Whitespace
+│   │ │ │   │   Lexeme: " "
+│   │ │ │   │   Span: [338, 339)
+│   │ │ │   ├─Argument
+│   │ │ │   │ └─PathExpression
+│   │ │ │   │   └─Path
+│   │ │ │   │     └─PathSegment
+│   │ │ │   │       └─Identifier
+│   │ │ │   │           Lexeme: "grouped"
+│   │ │ │   │           Span: [339, 346)
+│   │ │ │   │       Span: [339, 346)
+│   │ │ │   │     Span: [339, 346)
+│   │ │ │   │   Span: [339, 346)
+│   │ │ │   │ Span: [339, 346)
+│   │ │ │   └─CloseParen
+│   │ │ │       Lexeme: ")"
+│   │ │ │       Span: [346, 347)
+│   │ │ │   Span: [316, 347)
+│   │ │ │ Span: [315, 347)
+│   │ │ ├─Dot
+│   │ │ │   Lexeme: "."
+│   │ │ │   Span: [347, 348)
+│   │ │ └─Integer
+│   │ │     Lexeme: "1"
+│   │ │     Span: [348, 349)
+│   │ │ Span: [315, 349)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [349, 350)
+│   │ Span: [302, 350)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [350, 355)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [355, 358)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [358, 359)
+│   │ ├─Mut
+│   │ │   Lexeme: "mut"
+│   │ │   Span: [359, 362)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [362, 363)
+│   │ ├─Identifier
+│   │ │   Lexeme: "point"
+│   │ │   Span: [363, 368)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [368, 369)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [369, 370)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [370, 371)
+│   │ ├─TupleExpression
+│   │ │ ├─OpenParen
+│   │ │ │   Lexeme: "("
+│   │ │ │   Span: [371, 372)
+│   │ │ ├─IntegerLiteral
+│   │ │ │ └─Integer
+│   │ │ │     Lexeme: "1"
+│   │ │ │     Span: [372, 373)
+│   │ │ │ Span: [372, 373)
+│   │ │ ├─Comma
+│   │ │ │   Lexeme: ","
+│   │ │ │   Span: [373, 374)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [374, 375)
+│   │ │ ├─IntegerLiteral
+│   │ │ │ └─Integer
+│   │ │ │     Lexeme: "2"
+│   │ │ │     Span: [375, 376)
+│   │ │ │ Span: [375, 376)
+│   │ │ └─CloseParen
+│   │ │     Lexeme: ")"
+│   │ │     Span: [376, 377)
+│   │ │ Span: [371, 377)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [377, 378)
+│   │ Span: [355, 378)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [378, 383)
+│   ├─ExpressionStatement
+│   │ ├─Assignment
+│   │ │ ├─FieldExpression
+│   │ │ │ ├─PathExpression
+│   │ │ │ │ └─Path
+│   │ │ │ │   └─PathSegment
+│   │ │ │ │     └─Identifier
+│   │ │ │ │         Lexeme: "point"
+│   │ │ │ │         Span: [383, 388)
+│   │ │ │ │     Span: [383, 388)
+│   │ │ │ │   Span: [383, 388)
+│   │ │ │ │ Span: [383, 388)
+│   │ │ │ ├─Dot
+│   │ │ │ │   Lexeme: "."
+│   │ │ │ │   Span: [388, 389)
+│   │ │ │ └─Integer
+│   │ │ │     Lexeme: "0"
+│   │ │ │     Span: [389, 390)
+│   │ │ │ Span: [383, 390)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [390, 391)
+│   │ │ ├─Equal
+│   │ │ │   Lexeme: "="
+│   │ │ │   Span: [391, 392)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [392, 393)
+│   │ │ └─IntegerLiteral
+│   │ │   └─Integer
+│   │ │       Lexeme: "3"
+│   │ │       Span: [393, 394)
+│   │ │   Span: [393, 394)
+│   │ │ Span: [383, 394)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [394, 395)
+│   │ Span: [383, 395)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [395, 400)
+│   ├─ExpressionStatement
+│   │ ├─Assignment
+│   │ │ ├─FieldExpression
+│   │ │ │ ├─FieldExpression
+│   │ │ │ │ ├─PathExpression
+│   │ │ │ │ │ └─Path
+│   │ │ │ │ │   └─PathSegment
+│   │ │ │ │ │     └─Identifier
+│   │ │ │ │ │         Lexeme: "nested"
+│   │ │ │ │ │         Span: [400, 406)
+│   │ │ │ │ │     Span: [400, 406)
+│   │ │ │ │ │   Span: [400, 406)
+│   │ │ │ │ │ Span: [400, 406)
+│   │ │ │ │ ├─Dot
+│   │ │ │ │ │   Lexeme: "."
+│   │ │ │ │ │   Span: [406, 407)
+│   │ │ │ │ └─Integer
+│   │ │ │ │     Lexeme: "0"
+│   │ │ │ │     Span: [407, 408)
+│   │ │ │ │ Span: [400, 408)
+│   │ │ │ ├─Dot
+│   │ │ │ │   Lexeme: "."
+│   │ │ │ │   Span: [408, 409)
+│   │ │ │ └─Integer
+│   │ │ │     Lexeme: "1"
+│   │ │ │     Span: [409, 410)
+│   │ │ │ Span: [400, 410)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [410, 411)
+│   │ │ ├─Equal
+│   │ │ │   Lexeme: "="
+│   │ │ │   Span: [411, 412)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [412, 413)
+│   │ │ └─IntegerLiteral
+│   │ │   └─Integer
+│   │ │       Lexeme: "4"
+│   │ │       Span: [413, 414)
+│   │ │   Span: [413, 414)
+│   │ │ Span: [400, 414)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [414, 415)
+│   │ Span: [400, 415)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [415, 420)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [420, 423)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [423, 424)
+│   │ ├─Identifier
+│   │ │   Lexeme: "missing"
+│   │ │   Span: [424, 431)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [431, 432)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [432, 433)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [433, 434)
+│   │ ├─FieldExpression
+│   │ │ ├─PathExpression
+│   │ │ │ └─Path
+│   │ │ │   └─PathSegment
+│   │ │ │     └─Identifier
+│   │ │ │         Lexeme: "pair"
+│   │ │ │         Span: [434, 438)
+│   │ │ │     Span: [434, 438)
+│   │ │ │   Span: [434, 438)
+│   │ │ │ Span: [434, 438)
+│   │ │ └─Dot
+│   │ │     Lexeme: "."
+│   │ │     Span: [438, 439)
+│   │ │ Span: [434, 439)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [439, 440)
+│   │ Span: [420, 440)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [440, 445)
+│   ├─LetStatement
+│   │ ├─Let
+│   │ │   Lexeme: "let"
+│   │ │   Span: [445, 448)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [448, 449)
+│   │ ├─Identifier
+│   │ │   Lexeme: "unclosed"
+│   │ │   Span: [449, 457)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [457, 458)
+│   │ ├─Equal
+│   │ │   Lexeme: "="
+│   │ │   Span: [458, 459)
+│   │ ├─Whitespace
+│   │ │   Lexeme: " "
+│   │ │   Span: [459, 460)
+│   │ ├─TupleExpression
+│   │ │ ├─OpenParen
+│   │ │ │   Lexeme: "("
+│   │ │ │   Span: [460, 461)
+│   │ │ ├─IntegerLiteral
+│   │ │ │ └─Integer
+│   │ │ │     Lexeme: "1"
+│   │ │ │     Span: [461, 462)
+│   │ │ │ Span: [461, 462)
+│   │ │ ├─Comma
+│   │ │ │   Lexeme: ","
+│   │ │ │   Span: [462, 463)
+│   │ │ ├─Whitespace
+│   │ │ │   Lexeme: " "
+│   │ │ │   Span: [463, 464)
+│   │ │ └─IntegerLiteral
+│   │ │   └─Integer
+│   │ │       Lexeme: "2"
+│   │ │       Span: [464, 465)
+│   │ │   Span: [464, 465)
+│   │ │ Span: [460, 465)
+│   │ └─Semicolon
+│   │     Lexeme: ";"
+│   │     Span: [465, 466)
+│   │ Span: [445, 466)
+│   ├─Whitespace
+│   │   Lexeme: "\n    "
+│   │   Span: [466, 471)
+│   ├─ExpressionStatement
+│   │ └─PathExpression
+│   │   └─Path
+│   │     └─PathSegment
+│   │       └─Identifier
+│   │           Lexeme: "two"
+│   │           Span: [471, 474)
+│   │       Span: [471, 474)
+│   │     Span: [471, 474)
+│   │   Span: [471, 474)
+│   │ Span: [471, 474)
+│   ├─Whitespace
+│   │   Lexeme: "\n"
+│   │   Span: [474, 475)
+│   └─CloseBrace
+│       Lexeme: "}"
+│       Span: [475, 476)
+│   Span: [99, 476)
+│ Span: [0, 476)
+└─Whitespace
+    Lexeme: "\n"
+    Span: [476, 477)
+Span: [0, 477)
+
+--- diagnostics ---
+UnexpectedToken { span: Some(Span { start: TextSize(439), end: TextSize(440) }), expected: "field name", found: ";" }
+UnexpectedToken { span: Some(Span { start: TextSize(465), end: TextSize(466) }), expected: ",", found: ";" }
+UnexpectedToken { span: Some(Span { start: TextSize(465), end: TextSize(466) }), expected: ")", found: ";" }

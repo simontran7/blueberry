@@ -37,6 +37,7 @@ pub(crate) enum TokenKind {
     OpenBrace,
     CloseBrace,
     ThinArrow,
+    Dot,
 
     // keywords
     LogicalAnd,
@@ -138,7 +139,7 @@ impl TokenKind {
 
     pub(crate) const fn postfix_binding_power(self) -> Option<(u8, ())> {
         match self {
-            Self::OpenParen => Some((15, ())),
+            Self::OpenParen | Self::Dot => Some((15, ())),
             _ => None,
         }
     }
@@ -193,6 +194,7 @@ impl fmt::Display for TokenKind {
             Self::OpenBrace => "{",
             Self::CloseBrace => "}",
             Self::ThinArrow => "->",
+            Self::Dot => ".",
 
             Self::LogicalAnd => "and",
             Self::LogicalOr => "or",

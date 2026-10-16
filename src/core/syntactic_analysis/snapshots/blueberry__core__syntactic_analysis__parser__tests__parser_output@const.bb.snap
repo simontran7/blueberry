@@ -20,10 +20,14 @@ File
 │ ├─Whitespace
 │ │   Lexeme: " "
 │ │   Span: [16, 17)
-│ ├─TypeExpression
-│ │ └─Identifier
-│ │     Lexeme: "I32"
+│ ├─PathType
+│ │ └─Path
+│ │   └─PathSegment
+│ │     └─Identifier
+│ │         Lexeme: "I32"
+│ │         Span: [17, 20)
 │ │     Span: [17, 20)
+│ │   Span: [17, 20)
 │ │ Span: [17, 20)
 │ ├─Whitespace
 │ │   Lexeme: " "
@@ -62,10 +66,14 @@ File
 │ ├─Whitespace
 │ │   Lexeme: " "
 │ │   Span: [41, 42)
-│ ├─TypeExpression
-│ │ └─Identifier
-│ │     Lexeme: "Bool"
+│ ├─PathType
+│ │ └─Path
+│ │   └─PathSegment
+│ │     └─Identifier
+│ │         Lexeme: "Bool"
+│ │         Span: [42, 46)
 │ │     Span: [42, 46)
+│ │   Span: [42, 46)
 │ │ Span: [42, 46)
 │ ├─Whitespace
 │ │   Lexeme: " "
@@ -132,10 +140,14 @@ File
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
 │   │ │   Span: [77, 78)
-│   │ ├─TypeExpression
-│   │ │ └─Identifier
-│   │ │     Lexeme: "I32"
+│   │ ├─PathType
+│   │ │ └─Path
+│   │ │   └─PathSegment
+│   │ │     └─Identifier
+│   │ │         Lexeme: "I32"
+│   │ │         Span: [78, 81)
 │   │ │     Span: [78, 81)
+│   │ │   Span: [78, 81)
 │   │ │ Span: [78, 81)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "

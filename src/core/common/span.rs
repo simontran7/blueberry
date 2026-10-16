@@ -25,6 +25,14 @@ impl Span {
     pub(crate) fn contains(&self, other: Span) -> bool {
         self.start <= other.start && other.end <= self.end
     }
+
+    pub(crate) fn relative_to(self, anchor: TextSize) -> Self {
+        Self::new(self.start - anchor, self.end - anchor)
+    }
+
+    pub(crate) fn anchored_at(self, anchor: TextSize) -> Self {
+        Self::new(self.start + anchor, self.end + anchor)
+    }
 }
 
 impl From<Span> for Range<usize> {

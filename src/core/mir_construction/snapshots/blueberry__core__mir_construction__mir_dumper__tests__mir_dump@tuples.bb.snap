@@ -1,0 +1,57 @@
+---
+source: src/core/mir_construction/mir_dumper.rs
+expression: "MirBodyDumper::dump_file(&db, file).unwrap()"
+input_file: src/core/mir_construction/snapshot_inputs/tuples.bb
+---
+function swap((I32, Bool)) -> (Bool, I32) {
+Block0(v0: (I32, Bool)):
+    v1 = ExtractField v0.1
+    v2 = ExtractField v0.0
+    v3 = Tuple(v1, v2)
+    Return v3
+}
+
+function nested() -> I64 {
+Block0:
+    v0 = IntegerLiteral 1
+    v1 = IntegerLiteral 2
+    v2 = IntegerLiteral 3
+    v3 = Tuple(v1, v2)
+    v4 = Tuple(v0, v3)
+    v5 = IntegerLiteral 4
+    v6 = ExtractField v4.1
+    v7 = InsertField v6.0, v5
+    v8 = InsertField v4.1, v7
+    v9 = ExtractField v8.0
+    v10 = ExtractField v8.1
+    v11 = ExtractField v10.0
+    v12 = Binary Add v9, v11
+    Return v12
+}
+
+function with_units(((), I32, ())) -> I32 {
+Block0(v0: ((), I32, ())):
+    v1 = ExtractField v0.1
+    Return v1
+}
+
+function in_branches(Bool) -> (I32, Bool) {
+Block0(v0: Bool):
+    v1 = IntegerLiteral 0
+    v2 = BooleanLiteral false
+    v3 = Tuple(v1, v2)
+    ConditionalBranch v0, Block1, Block2
+
+Block1:
+    v4 = IntegerLiteral 1
+    v5 = InsertField v3.0, v4
+    Jump Block3(v5)
+
+Block2:
+    v6 = BooleanLiteral true
+    v7 = InsertField v3.1, v6
+    Jump Block3(v7)
+
+Block3(v8: (I32, Bool)):
+    Return v8
+}

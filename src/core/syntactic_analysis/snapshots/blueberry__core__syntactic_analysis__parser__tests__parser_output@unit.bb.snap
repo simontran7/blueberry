@@ -51,7 +51,7 @@ File
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
 │   │ │   Span: [22, 23)
-│   │ ├─UnitLiteral
+│   │ ├─TupleExpression
 │   │ │ ├─OpenParen
 │   │ │ │   Lexeme: "("
 │   │ │ │   Span: [23, 24)

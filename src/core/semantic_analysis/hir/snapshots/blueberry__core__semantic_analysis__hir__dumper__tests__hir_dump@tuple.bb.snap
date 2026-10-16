@@ -1,0 +1,64 @@
+---
+source: src/core/semantic_analysis/hir/dumper.rs
+expression: "HirBodyDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/tuple.bb
+---
+function f(pair: (I32, Bool), single: (I32,), nested: ((I32, I32), ()), grouped: I32) -> (I32, Bool)
+└─ Block
+   ├─ Let empty
+   │  └─ initializer: Tuple
+   ├─ Let grouped
+   │  └─ initializer: Integer 1
+   ├─ Let one
+   │  └─ initializer: Tuple
+   │     └─ Integer 1
+   ├─ Let two
+   │  └─ initializer: Tuple
+   │     ├─ Integer 1
+   │     └─ Boolean true
+   ├─ Let trailing
+   │  └─ initializer: Tuple
+   │     ├─ Integer 1
+   │     └─ Boolean true
+   ├─ Let first
+   │  └─ initializer: Field 0
+   │     └─ Path pair
+   ├─ Let deep
+   │  └─ initializer: Field 1
+   │     └─ Field 0
+   │        └─ Path nested
+   ├─ Let negated
+   │  └─ initializer: Unary -
+   │     └─ Field 0
+   │        └─ Path pair
+   ├─ Let called
+   │  └─ initializer: Field 1
+   │     └─ Call
+   │        ├─ callee: Path f
+   │        ├─ argument: Path pair
+   │        ├─ argument: Path single
+   │        ├─ argument: Path nested
+   │        └─ argument: Path grouped
+   ├─ Let mut point
+   │  └─ initializer: Tuple
+   │     ├─ Integer 1
+   │     └─ Integer 2
+   ├─ Expression ;
+   │  └─ Assignment
+   │     ├─ Field 0
+   │     │  └─ Path point
+   │     └─ Integer 3
+   ├─ Expression ;
+   │  └─ Assignment
+   │     ├─ Field 1
+   │     │  └─ Field 0
+   │     │     └─ Path nested
+   │     └─ Integer 4
+   ├─ Let missing
+   │  └─ initializer: Field ?
+   │     └─ Path pair
+   ├─ Let unclosed
+   │  └─ initializer: Tuple
+   │     ├─ Integer 1
+   │     └─ Integer 2
+   └─ tail: Path two

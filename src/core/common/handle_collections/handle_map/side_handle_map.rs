@@ -60,8 +60,7 @@ impl<K: Handle, V> SideHandleMap<K, V> {
         self.data
             .iter()
             .enumerate()
-            .filter(|&(i, v)| v.is_some())
-            .map(|(i, v)| K::new(i))
+            .filter_map(|(i, v)| v.as_ref().map(|_| K::new(i)))
     }
 
     pub(crate) fn values(&self) -> impl Iterator<Item = &V> + '_ {

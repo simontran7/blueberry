@@ -1,6 +1,6 @@
+use crate::core::common::span::TextSize;
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::ids::keys::{ConstantKey, DefinitionSource, FunctionKey};
-use crate::core::semantic_analysis::{constant_signature_of, function_signature_of};
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::RedNodeTag;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
@@ -10,7 +10,7 @@ pub(crate) struct DefinitionList<'db> {
     definitions: Vec<Definition<'db>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::SalsaValue)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Supertype, salsa::SalsaValue)]
 pub(crate) enum Definition<'db> {
     Function(FunctionKey<'db>),
     Constant(ConstantKey<'db>),
@@ -35,10 +35,7 @@ impl<'db> DefinitionList<'db> {
         self.definitions
             .iter()
             .copied()
-            .find(|definition| match definition {
-                Definition::Function(key) => function_signature_of(db, *key).name == name,
-                Definition::Constant(key) => constant_signature_of(db, *key).name == name,
-            })
+            .find(|definition| definition.name(db) == name)
     }
 
     pub(crate) fn add_definition(
@@ -63,6 +60,21 @@ impl<'db> DefinitionList<'db> {
 }
 
 impl<'db> Definition<'db> {
+    pub(crate) fn name(self, db: &'db dyn crate::Db) -> Symbol<'db> {
+        match self {
+            Self::Function(key) => key.name(db),
+            Self::Constant(key) => key.name(db),
+        }
+    }
+
+    pub(crate) fn anchor(self, db: &'db dyn crate::Db) -> TextSize {
+        let node = match self {
+            Self::Function(key) => key.node(db),
+            Self::Constant(key) => key.node(db),
+        };
+        node.span.start()
+    }
+
     pub(crate) fn source(self, db: &'db dyn crate::Db) -> DefinitionSource<'db> {
         match self {
             Self::Function(key) => key.source(db),

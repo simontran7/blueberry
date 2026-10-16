@@ -6,22 +6,22 @@ use crate::core::lexical_analysis::token_stream::{TokenKind, TokenStream};
 /// The parser never sees trivia. The `CstBuilder` walks the full `TokenStream` and puts the trivia
 /// back into the tree, using `token_index` to map a significant token back to its full-stream index.
 pub(crate) struct Source {
-    kinds: Vec<TokenKind>,
+    kinds: Box<[TokenKind]>,
     /// `token_indices[i]` is the full-stream index of significant token `i`.
-    token_indices: Vec<usize>,
+    token_indices: Box<[usize]>,
 }
 
 impl Source {
     pub(crate) fn new(tokens: &TokenStream) -> Self {
-        let (kinds, token_indices) = tokens
+        let (kinds, token_indices): (Vec<_>, Vec<_>) = tokens
             .kinds()
             .enumerate()
             .filter(|(_, kind)| !kind.is_trivia())
             .map(|(index, kind)| (kind, index))
             .unzip();
         Self {
-            kinds,
-            token_indices,
+            kinds: kinds.into_boxed_slice(),
+            token_indices: token_indices.into_boxed_slice(),
         }
     }
 

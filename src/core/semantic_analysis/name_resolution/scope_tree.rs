@@ -1,6 +1,6 @@
 use crate::core::common::handle_collections::handle_impl;
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
-use crate::core::common::segments::{Segment, SegmentList};
+use crate::core::common::runs::{Run, RunList};
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::hir::nodes::{
     DefinitionBody, Expression, ExpressionHandle, LocalBindingHandle, Statement,
@@ -14,7 +14,7 @@ pub(crate) struct ScopeTree<'db> {
     file: SourceFileKey,
     enclosing_block: Option<BlockKey<'db>>,
     scopes: HandleMap<ScopeHandle, Scope<'db>>,
-    scope_entries: SegmentList<ScopeEntry<'db>>,
+    scope_entries: RunList<ScopeEntry<'db>>,
     containing_scopes: SideHandleMap<ExpressionHandle, ScopeHandle>,
 }
 
@@ -41,7 +41,7 @@ pub(crate) struct ScopeViewMut<'a, 'db> {
 struct Scope<'db> {
     parent_handle: Option<ScopeHandle>,
     block_key: Option<BlockKey<'db>>,
-    entries: Segment<ScopeEntry<'db>>,
+    entries: Run<ScopeEntry<'db>>,
 }
 
 impl<'db> ScopeTree<'db> {
@@ -54,18 +54,18 @@ impl<'db> ScopeTree<'db> {
             file,
             enclosing_block,
             scopes: HandleMap::new(),
-            scope_entries: SegmentList::new(),
+            scope_entries: RunList::new(),
             containing_scopes: SideHandleMap::new(),
         };
 
         let root_handle = scope_tree.scopes.add(Scope {
             parent_handle: None,
             block_key: None,
-            entries: Segment::empty(),
+            entries: Run::empty(),
         });
         scope_tree
             .get_scope_mut(root_handle)
-            .add_entries(body, &body.binding_children[body.parameter_segment]);
+            .add_entries(body, &body.parameter_handles);
 
         scope_tree.visit_expression(body, body.root_handle, root_handle);
 
@@ -109,9 +109,8 @@ impl<'db> ScopeTree<'db> {
     ) {
         self.containing_scopes.add(expression_handle, parent_handle);
 
-        match &body.expressions[expression_handle] {
-            Expression::Unit
-            | Expression::Integer(_)
+        match &body.store.expressions[expression_handle] {
+            Expression::Integer(_)
             | Expression::Boolean(_)
             | Expression::Path(_)
             | Expression::Error
@@ -129,17 +128,17 @@ impl<'db> ScopeTree<'db> {
             }
             Expression::Block {
                 block_key,
-                statement_segment,
+                statement_run,
                 tail_handle,
             } => {
                 let mut parent_handle = self.scopes.add(Scope {
                     parent_handle: Some(parent_handle),
                     block_key: *block_key,
-                    entries: Segment::empty(),
+                    entries: Run::empty(),
                 });
 
-                for statement_handle in &body.statement_children[*statement_segment] {
-                    match &body.statements[*statement_handle] {
+                for statement_handle in &body.store.statement_children[*statement_run] {
+                    match &body.store.statements[*statement_handle] {
                         Statement::Let {
                             name_handle,
                             initializer_handle,
@@ -149,7 +148,7 @@ impl<'db> ScopeTree<'db> {
                             parent_handle = self.scopes.add(Scope {
                                 parent_handle: Some(parent_handle),
                                 block_key: None,
-                                entries: Segment::empty(),
+                                entries: Run::empty(),
                             });
                             self.get_scope_mut(parent_handle)
                                 .add_entries(body, &[*name_handle]);
@@ -167,16 +166,24 @@ impl<'db> ScopeTree<'db> {
                     self.visit_expression(body, *tail_handle, parent_handle);
                 }
             }
+            Expression::Tuple { element_run } => {
+                for element_handle in &body.store.expression_children[*element_run] {
+                    self.visit_expression(body, *element_handle, parent_handle);
+                }
+            }
+            Expression::Field {
+                receiver_handle, ..
+            } => self.visit_expression(body, *receiver_handle, parent_handle),
             Expression::Loop {
                 body_handle: loop_body_handle,
                 ..
             } => self.visit_expression(body, *loop_body_handle, parent_handle),
             Expression::Call {
                 callee_handle,
-                argument_segment,
+                argument_run,
             } => {
                 self.visit_expression(body, *callee_handle, parent_handle);
-                for argument_handle in &body.expression_children[*argument_segment] {
+                for argument_handle in &body.store.expression_children[*argument_run] {
                     self.visit_expression(body, *argument_handle, parent_handle);
                 }
             }
@@ -213,8 +220,8 @@ impl<'a, 'db> ScopeView<'a, 'db> {
     }
 
     pub(crate) fn entries(&self) -> &'a [ScopeEntry<'db>] {
-        let segment = self.store.scopes[self.scope_handle].entries;
-        &self.store.scope_entries[segment]
+        let entry_run = self.store.scopes[self.scope_handle].entries;
+        &self.store.scope_entries[entry_run]
     }
 
     pub(crate) fn parent(&self) -> Option<Self> {
@@ -248,7 +255,7 @@ impl<'db> ScopeViewMut<'_, 'db> {
         let entries: Vec<ScopeEntry<'db>> = binding_handles
             .iter()
             .map(|binding_handle| ScopeEntry {
-                name: body.local_bindings[*binding_handle].name,
+                name: body.store.local_bindings[*binding_handle].name,
                 binding_handle: *binding_handle,
             })
             .collect();

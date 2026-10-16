@@ -204,6 +204,44 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
+    pub(crate) fn emit_tuple(&mut self, element_ids: &[ValueId], ty: Ty<'db>) -> ValueId {
+        let instruction = self.cfg.allocate_tuple(element_ids);
+        let instruction_id = self.add_instruction(instruction, &[ty]);
+        self.cfg
+            .get_instruction(instruction_id)
+            .first_result()
+            .unwrap()
+    }
+
+    pub(crate) fn emit_extract_field(
+        &mut self,
+        operand_id: ValueId,
+        index: u32,
+        ty: Ty<'db>,
+    ) -> ValueId {
+        let instruction = self.cfg.allocate_extract_field(operand_id, index);
+        let instruction_id = self.add_instruction(instruction, &[ty]);
+        self.cfg
+            .get_instruction(instruction_id)
+            .first_result()
+            .unwrap()
+    }
+
+    pub(crate) fn emit_insert_field(
+        &mut self,
+        tuple_id: ValueId,
+        value_id: ValueId,
+        index: u32,
+        ty: Ty<'db>,
+    ) -> ValueId {
+        let instruction = self.cfg.allocate_insert_field(tuple_id, value_id, index);
+        let instruction_id = self.add_instruction(instruction, &[ty]);
+        self.cfg
+            .get_instruction(instruction_id)
+            .first_result()
+            .unwrap()
+    }
+
     pub(crate) fn emit_constant(&mut self, constant: ConstantKey<'db>, ty: Ty<'db>) -> ValueId {
         let instruction = self.cfg.allocate_constant(constant);
         let instruction_id = self.add_instruction(instruction, &[ty]);

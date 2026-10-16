@@ -60,6 +60,19 @@ pub(crate) enum InstructionKind<'db, T> {
         value: bool,
     },
 
+    // Aggregates
+    Tuple {
+        element_ids: T,
+    },
+    ExtractField {
+        operand_id: ValueId,
+        index: u32,
+    },
+    InsertField {
+        operand_ids: [ValueId; 2],
+        index: u32,
+    },
+
     // Definitions
     Constant {
         constant: ConstantKey<'db>,
@@ -99,7 +112,7 @@ pub(crate) type Instruction<'db> = InstructionKind<'db, HandleArrayList<ValueId>
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct Signature<'db> {
-    pub(crate) parameter_types: Vec<Ty<'db>>,
+    pub(crate) parameter_types: Box<[Ty<'db>]>,
     pub(crate) return_type: Ty<'db>,
 }
 
@@ -277,6 +290,26 @@ impl<'db> Cfg<'db> {
 
     pub(crate) fn allocate_boolean_literal(&self, value: bool) -> Instruction<'db> {
         Instruction::BooleanLiteral { value }
+    }
+
+    pub(crate) fn allocate_extract_field(
+        &self,
+        operand_id: ValueId,
+        index: u32,
+    ) -> Instruction<'db> {
+        Instruction::ExtractField { operand_id, index }
+    }
+
+    pub(crate) fn allocate_insert_field(
+        &self,
+        tuple_id: ValueId,
+        value_id: ValueId,
+        index: u32,
+    ) -> Instruction<'db> {
+        Instruction::InsertField {
+            operand_ids: [tuple_id, value_id],
+            index,
+        }
     }
 
     pub(crate) fn allocate_constant(&self, constant: ConstantKey<'db>) -> Instruction<'db> {
@@ -580,6 +613,12 @@ impl<'db> Cfg<'db> {
         }
     }
 
+    pub(crate) fn allocate_tuple(&mut self, element_ids: &[ValueId]) -> Instruction<'db> {
+        Instruction::Tuple {
+            element_ids: HandleArrayList::<ValueId>::from(&mut self.dfg.suballocator, element_ids),
+        }
+    }
+
     pub(crate) fn allocate_call(
         &mut self,
         function: FunctionKey<'db>,
@@ -763,6 +802,16 @@ impl<'db> Instruction<'db> {
                 operand_ids[1] = f(operand_ids[1]);
             }
             Instruction::Unary { operand_id, .. } => *operand_id = f(*operand_id),
+            Instruction::Tuple { element_ids } => {
+                for v in element_ids.to_mut_slice(suballocator) {
+                    *v = f(*v);
+                }
+            }
+            Instruction::ExtractField { operand_id, .. } => *operand_id = f(*operand_id),
+            Instruction::InsertField { operand_ids, .. } => {
+                operand_ids[0] = f(operand_ids[0]);
+                operand_ids[1] = f(operand_ids[1]);
+            }
             Instruction::Call { argument_ids, .. } => {
                 for v in argument_ids.to_mut_slice(suballocator) {
                     *v = f(*v);
@@ -930,6 +979,9 @@ impl<'a, 'db> InstructionView<'a, 'db> {
         match &self.cfg.dfg.instructions[self.instruction_id] {
             Instruction::Binary { operand_ids, .. } => operand_ids,
             Instruction::Unary { operand_id, .. } => slice::from_ref(operand_id),
+            Instruction::Tuple { element_ids } => element_ids.to_slice(suballocator),
+            Instruction::ExtractField { operand_id, .. } => slice::from_ref(operand_id),
+            Instruction::InsertField { operand_ids, .. } => operand_ids,
             Instruction::Call { argument_ids, .. } => argument_ids.to_slice(suballocator),
             Instruction::CallIndirect {
                 callee_and_argument_ids,
@@ -977,6 +1029,9 @@ impl<'a, 'db> InstructionView<'a, 'db> {
             },
             Instruction::Binary { .. }
             | Instruction::Unary { .. }
+            | Instruction::Tuple { .. }
+            | Instruction::ExtractField { .. }
+            | Instruction::InsertField { .. }
             | Instruction::Call { .. }
             | Instruction::CallIndirect { .. }
             | Instruction::Jump { .. }
@@ -1041,6 +1096,17 @@ impl<'a, 'db> InstructionView<'a, 'db> {
             Instruction::IntegerLiteral { value } => {
                 InstructionRef::IntegerLiteral { value: *value }
             }
+            Instruction::Tuple { element_ids } => InstructionRef::Tuple {
+                element_ids: element_ids.to_slice(suballocator),
+            },
+            Instruction::ExtractField { operand_id, index } => InstructionRef::ExtractField {
+                operand_id: *operand_id,
+                index: *index,
+            },
+            Instruction::InsertField { operand_ids, index } => InstructionRef::InsertField {
+                operand_ids: [operand_ids[0], operand_ids[1]],
+                index: *index,
+            },
             Instruction::BooleanLiteral { value } => {
                 InstructionRef::BooleanLiteral { value: *value }
             }

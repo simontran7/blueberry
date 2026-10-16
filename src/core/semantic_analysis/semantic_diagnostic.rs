@@ -1,8 +1,8 @@
 use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
-use crate::core::common::span::Span;
+use crate::core::common::span::{Span, TextSize};
 use crate::core::semantic_analysis::hir::nodes::{
-    BinaryOperator, DefinitionBody, DefinitionBodySourceMap, Expression, ExpressionHandle,
-    TypeAnnotation, TypeAnnotationHandle, UnaryOperator,
+    BinaryOperator, DefinitionBody, Expression, ExpressionHandle, HirNodeSourceMap, TypeExpression,
+    TypeExpressionHandle, UnaryOperator,
 };
 use crate::core::semantic_analysis::ids::keys::FunctionKey;
 use crate::core::semantic_analysis::name_resolution::resolver::{Resolution, ResolveError};
@@ -39,7 +39,7 @@ pub(crate) enum SemanticDiagnostic {
         expected: usize,
         found: usize,
         callee_span: Span,
-        argument_labels: Vec<(Span, String)>,
+        argument_labels: Box<[(Span, String)]>,
         definition_span: Option<Span>,
     },
     UnresolvedName {
@@ -51,7 +51,7 @@ pub(crate) enum SemanticDiagnostic {
         span: Span,
     },
     UnresolvedImport {
-        path: Vec<String>,
+        path: Box<[String]>,
         span: Span,
     },
     MissingFromModule {
@@ -71,6 +71,15 @@ pub(crate) enum SemanticDiagnostic {
     },
     UnknownType {
         name: String,
+        span: Span,
+    },
+    UnknownField {
+        field: String,
+        ty: String,
+        span: Span,
+    },
+    PrimitiveHasNoFields {
+        ty: String,
         span: Span,
     },
     ExpectedFunction {
@@ -140,7 +149,12 @@ pub(crate) enum UnresolvedSemanticDiagnostic<'db> {
         expression_handle: ExpressionHandle,
     },
     UnknownType {
-        annotation_handle: TypeAnnotationHandle,
+        type_expression_handle: TypeExpressionHandle,
+    },
+    UnknownField {
+        expression_handle: ExpressionHandle,
+        ty: String,
+        is_primitive: bool,
     },
     ExpectedFunction {
         call_handle: ExpressionHandle,
@@ -149,7 +163,7 @@ pub(crate) enum UnresolvedSemanticDiagnostic<'db> {
     MismatchedArgumentCount {
         call_handle: ExpressionHandle,
         function: Option<FunctionKey<'db>>,
-        parameters: Vec<String>,
+        parameters: Box<[String]>,
     },
     UnaryOperatorCannotBeApplied {
         expression_handle: ExpressionHandle,
@@ -199,6 +213,7 @@ pub(crate) enum TypeMismatchCause {
 
 pub(crate) struct OwnerSpans {
     pub(crate) file: SourceFileKey,
+    pub(crate) anchor: TextSize,
     pub(crate) name: Option<Span>,
     pub(crate) return_type: Option<Span>,
 }
@@ -250,11 +265,11 @@ impl SemanticDiagnostic {
                 ],
             ),
             Self::IfWithoutElse { expected, span } => DiagnosticDescription {
-                notes: vec!["`if` expressions without `else` evaluate to `()`".to_string()],
-                helps: vec![
+                notes: Box::new(["`if` expressions without `else` evaluate to `()`".to_string()]),
+                helps: Box::new([
                     "consider adding an `else` block that evaluates to the expected type"
                         .to_string(),
-                ],
+                ]),
                 ..description(
                     "E0317",
                     "`if` may be missing an `else` clause",
@@ -351,6 +366,18 @@ impl SemanticDiagnostic {
                 *span,
                 vec![primary(*span, "not found in this scope")],
             ),
+            Self::UnknownField { field, ty, span } => description(
+                "E0609",
+                &format!("no field `{field}` on type `{ty}`"),
+                *span,
+                vec![primary(*span, "unknown field")],
+            ),
+            Self::PrimitiveHasNoFields { ty, span } => description(
+                "E0610",
+                &format!("`{ty}` is a primitive type and therefore doesn't have fields"),
+                *span,
+                vec![unlabeled(*span)],
+            ),
             Self::ExpectedFunction {
                 found,
                 callee_name,
@@ -378,9 +405,9 @@ impl SemanticDiagnostic {
                 span,
             } => DiagnosticDescription {
                 notes: if *is_unsigned {
-                    vec!["unsigned values cannot be negated".to_string()]
+                    Box::new(["unsigned values cannot be negated".to_string()])
                 } else {
-                    Vec::new()
+                    Box::new([])
                 },
                 ..description(
                     "E0600",
@@ -446,9 +473,9 @@ impl SemanticDiagnostic {
                 vec![primary(*span, "cannot `continue` outside of a loop")],
             ),
             Self::BreakWithValueFromWhile { span } => DiagnosticDescription {
-                helps: vec![
+                helps: Box::new([
                     "use `break` on its own without a value inside this `while` loop".to_string(),
-                ],
+                ]),
                 ..description(
                     "E0571",
                     "`break` with value from a `while` loop",
@@ -469,9 +496,9 @@ impl SemanticDiagnostic {
                 suggested_ty,
                 span,
             } => DiagnosticDescription {
-                notes: vec![format!(
+                notes: Box::new([format!(
                     "the literal `{literal}` does not fit into the type `{ty}` whose range is `{range}`"
-                )],
+                )]),
                 helps: suggested_ty
                     .iter()
                     .map(|suggested_ty| format!("consider using the type `{suggested_ty}` instead"))
@@ -492,23 +519,19 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
         &self,
         db: &'db dyn crate::Db,
         body: &DefinitionBody<'db>,
-        source_map: &DefinitionBodySourceMap,
+        source_map: &HirNodeSourceMap,
         types: &TypeCheckSink<'db>,
         owner: &OwnerSpans,
     ) -> SemanticDiagnostic {
-        let span_of =
-            |expression_handle: ExpressionHandle| source_map.expressions[expression_handle].span;
-        let path_text =
-            |expression_handle: ExpressionHandle| match &body.expressions[expression_handle] {
-                Expression::Path(path) => Some(
-                    path.segments(db)
-                        .iter()
-                        .map(|segment| segment.text(db))
-                        .collect::<Vec<_>>()
-                        .join("::"),
-                ),
-                _ => None,
-            };
+        let span_of = |expression_handle: ExpressionHandle| {
+            source_map.expression_span(expression_handle, owner.anchor)
+        };
+        let path_text = |expression_handle: ExpressionHandle| match &body.store.expressions
+            [expression_handle]
+        {
+            Expression::Path(path) => Some(path.display(db).to_string()),
+            _ => None,
+        };
         match self {
             Self::TypeMismatch {
                 expression_handle,
@@ -554,7 +577,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 expression_handle,
                 error,
             } => {
-                let Expression::Path(path) = &body.expressions[*expression_handle] else {
+                let Expression::Path(path) = &body.store.expressions[*expression_handle] else {
                     unreachable!("reported on paths")
                 };
                 let segments = path.segments(db);
@@ -604,17 +627,49 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                     span: span_of(*expression_handle),
                 }
             }
-            Self::UnknownType { annotation_handle } => {
-                let TypeAnnotation::Path(name) = &body.type_annotations[*annotation_handle] else {
-                    unreachable!("only named annotations can be unknown")
+            Self::UnknownType {
+                type_expression_handle,
+            } => {
+                let TypeExpression::Path(path) =
+                    &body.store.type_expressions[*type_expression_handle]
+                else {
+                    unreachable!("only path type expressions can be unknown")
                 };
                 SemanticDiagnostic::UnknownType {
-                    name: name.text(db).to_string(),
-                    span: source_map.type_annotations[*annotation_handle].span,
+                    name: path.display(db).to_string(),
+                    span: source_map.type_expression_span(*type_expression_handle, owner.anchor),
+                }
+            }
+            Self::UnknownField {
+                expression_handle,
+                ty,
+                is_primitive,
+            } => {
+                let Expression::Field {
+                    name: Some(name), ..
+                } = &body.store.expressions[*expression_handle]
+                else {
+                    unreachable!("reported on named fields")
+                };
+                let field = name.text(db).to_string();
+                let end = span_of(*expression_handle).end();
+                let span = Span::new(end - TextSize::new(field.len()), end);
+                if *is_primitive {
+                    SemanticDiagnostic::PrimitiveHasNoFields {
+                        ty: ty.clone(),
+                        span,
+                    }
+                } else {
+                    SemanticDiagnostic::UnknownField {
+                        field,
+                        ty: ty.clone(),
+                        span,
+                    }
                 }
             }
             Self::ExpectedFunction { call_handle, found } => {
-                let Expression::Call { callee_handle, .. } = &body.expressions[*call_handle] else {
+                let Expression::Call { callee_handle, .. } = &body.store.expressions[*call_handle]
+                else {
                     unreachable!("reported on calls")
                 };
                 SemanticDiagnostic::ExpectedFunction {
@@ -631,12 +686,12 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
             } => {
                 let Expression::Call {
                     callee_handle,
-                    argument_segment,
-                } = &body.expressions[*call_handle]
+                    argument_run,
+                } = &body.store.expressions[*call_handle]
                 else {
                     unreachable!("reported on calls")
                 };
-                let argument_handles = &body.expression_children[*argument_segment];
+                let argument_handles = &body.store.expression_children[*argument_run];
                 let argument_labels = if argument_handles.len() > parameters.len() {
                     (parameters.len()..argument_handles.len())
                         .map(|index| {
@@ -696,7 +751,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                     lhs_handle,
                     rhs_handle,
                     ..
-                } = &body.expressions[*expression_handle]
+                } = &body.store.expressions[*expression_handle]
                 else {
                     unreachable!("reported on binary operations")
                 };
@@ -758,7 +813,7 @@ fn value_expression(
     body: &DefinitionBody<'_>,
     expression_handle: ExpressionHandle,
 ) -> ExpressionHandle {
-    match &body.expressions[expression_handle] {
+    match &body.store.expressions[expression_handle] {
         Expression::Block {
             tail_handle: Some(tail_handle),
             ..
@@ -768,7 +823,7 @@ fn value_expression(
 }
 
 fn value_kind(body: &DefinitionBody<'_>, expression_handle: ExpressionHandle) -> &'static str {
-    let is_callee = body.expressions.values().any(|other| {
+    let is_callee = body.store.expressions.values().any(|other| {
         matches!(other, Expression::Call { callee_handle, .. } if *callee_handle == expression_handle)
     });
     if is_callee { "function" } else { "value" }
@@ -803,9 +858,9 @@ fn description(
         code,
         message: message.to_string(),
         span,
-        labels,
-        notes: Vec::new(),
-        helps: Vec::new(),
+        labels: labels.into_boxed_slice(),
+        notes: Box::new([]),
+        helps: Box::new([]),
     }
 }
 

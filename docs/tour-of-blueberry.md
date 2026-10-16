@@ -53,9 +53,27 @@ result = result + 1;
 | `U32`  | 32-bit unsigned integer  |
 | `U64`  | 64-bit unsigned integer  |
 | `Bool` | `true` / `false`         |
-| `()`   | unit — the "no value" type |
+| `()`   | unit — the "no value" type, i.e., the empty tuple |
 
 An integer literal like `1` isn't pinned to a width until it's used somewhere that constrains it; left unconstrained, it defaults to `I32`.
+
+## Tuples
+
+A tuple groups a fixed number of values, possibly of different types. Its elements are accessed by index, and a `mut` tuple's elements can be assigned one at a time. A tuple of one element needs a trailing comma, since `(x)` is just `x` in parentheses.
+
+```
+func swap(pair: (I32, Bool)) -> (Bool, I32) {
+    (pair.1, pair.0)
+}
+
+func main() {
+    let mut point: (I64, I64) = (1, 2);
+    point.0 = 3;
+    let one = (5,);
+    let nested = ((1, 2), true);
+    let deep = nested.0.1;
+}
+```
 
 ## Functions
 

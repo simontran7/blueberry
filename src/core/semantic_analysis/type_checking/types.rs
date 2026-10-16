@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::core::common::handle_collections::handle_impl;
 
 #[salsa::interned(debug)]
@@ -8,13 +10,13 @@ pub(crate) struct Ty<'db> {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
 pub(crate) enum TyKind<'db> {
-    Unit,
     Bottom,
     Bool,
     Signed(SignedIntTy),
     Unsigned(UnsignedIntTy),
+    Tuple(Box<[Ty<'db>]>),
     Function {
-        parameters: Vec<Ty<'db>>,
+        parameters: Box<[Ty<'db>]>,
         r#return: Ty<'db>,
     },
     InferenceVariable(InferenceVariable),
@@ -39,12 +41,17 @@ pub(crate) enum InferenceVariable {
     Integer(IntegerVariableHandle),
 }
 
+pub(crate) struct TyDisplay<'db> {
+    ty: Ty<'db>,
+    db: &'db dyn crate::Db,
+}
+
 handle_impl!(pub(crate) GeneralVariableHandle);
 handle_impl!(pub(crate) IntegerVariableHandle);
 
 impl<'db> Ty<'db> {
     pub(crate) fn unit(db: &'db dyn crate::Db) -> Self {
-        Self::new(db, TyKind::Unit)
+        Self::tuple(db, Box::new([]))
     }
 
     pub(crate) fn bottom(db: &'db dyn crate::Db) -> Self {
@@ -67,9 +74,13 @@ impl<'db> Ty<'db> {
         Self::new(db, TyKind::Unsigned(ty))
     }
 
+    pub(crate) fn tuple(db: &'db dyn crate::Db, elements: Box<[Ty<'db>]>) -> Self {
+        Self::new(db, TyKind::Tuple(elements))
+    }
+
     pub(crate) fn function(
         db: &'db dyn crate::Db,
-        parameters: Vec<Ty<'db>>,
+        parameters: Box<[Ty<'db>]>,
         r#return: Ty<'db>,
     ) -> Self {
         Self::new(
@@ -83,7 +94,6 @@ impl<'db> Ty<'db> {
 
     pub(crate) fn to_primitive(db: &'db dyn crate::Db, name: &str) -> Option<Self> {
         Some(match name {
-            "Unit" => Self::unit(db),
             "Bottom" => Self::bottom(db),
             "Bool" => Self::bool(db),
             "I32" => Self::signed(db, SignedIntTy::I32),
@@ -94,42 +104,97 @@ impl<'db> Ty<'db> {
         })
     }
 
+    pub(crate) fn children(self, db: &'db dyn crate::Db) -> impl Iterator<Item = Ty<'db>> + 'db {
+        let (children, last): (&'db [Ty<'db>], Option<Ty<'db>>) = match self.kind(db) {
+            TyKind::Tuple(elements) => (elements, None),
+            TyKind::Function {
+                parameters,
+                r#return,
+            } => (parameters, Some(*r#return)),
+            TyKind::Bottom
+            | TyKind::Bool
+            | TyKind::Signed(_)
+            | TyKind::Unsigned(_)
+            | TyKind::InferenceVariable(_)
+            | TyKind::Error => (&[], None),
+        };
+        children.iter().copied().chain(last)
+    }
+
     pub(crate) fn is_poisoned(self, db: &'db dyn crate::Db) -> bool {
+        matches!(self.kind(db), TyKind::Error)
+            || self.children(db).any(|child| child.is_poisoned(db))
+    }
+
+    pub(crate) fn map_children(
+        self,
+        db: &'db dyn crate::Db,
+        mut f: impl FnMut(Ty<'db>) -> Ty<'db>,
+    ) -> Ty<'db> {
         match self.kind(db) {
-            TyKind::Error => true,
+            TyKind::Tuple(elements) => {
+                Ty::tuple(db, elements.iter().map(|&element| f(element)).collect())
+            }
             TyKind::Function {
                 parameters,
                 r#return,
             } => {
-                parameters.iter().any(|parameter| parameter.is_poisoned(db))
-                    || r#return.is_poisoned(db)
+                let parameters = parameters.iter().map(|&parameter| f(parameter)).collect();
+                Ty::function(db, parameters, f(*r#return))
             }
-            _ => false,
+            TyKind::Bottom
+            | TyKind::Bool
+            | TyKind::Signed(_)
+            | TyKind::Unsigned(_)
+            | TyKind::InferenceVariable(_)
+            | TyKind::Error => self,
         }
     }
 
-    pub(crate) fn display(self, db: &'db dyn crate::Db) -> String {
-        match self.kind(db) {
-            TyKind::Unit => "()".to_string(),
-            TyKind::Bottom => "Bottom".to_string(),
-            TyKind::Bool => "Bool".to_string(),
-            TyKind::Signed(SignedIntTy::I32) => "I32".to_string(),
-            TyKind::Signed(SignedIntTy::I64) => "I64".to_string(),
-            TyKind::Unsigned(UnsignedIntTy::U32) => "U32".to_string(),
-            TyKind::Unsigned(UnsignedIntTy::U64) => "U64".to_string(),
+    pub(crate) fn display(self, db: &'db dyn crate::Db) -> TyDisplay<'db> {
+        TyDisplay { ty: self, db }
+    }
+}
+
+impl fmt::Display for TyDisplay<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let db = self.db;
+        match self.ty.kind(db) {
+            TyKind::Bottom => f.write_str("Bottom"),
+            TyKind::Bool => f.write_str("Bool"),
+            TyKind::Signed(SignedIntTy::I32) => f.write_str("I32"),
+            TyKind::Signed(SignedIntTy::I64) => f.write_str("I64"),
+            TyKind::Unsigned(UnsignedIntTy::U32) => f.write_str("U32"),
+            TyKind::Unsigned(UnsignedIntTy::U64) => f.write_str("U64"),
+            TyKind::Tuple(elements) => match &**elements {
+                [element] => write!(f, "({},)", element.display(db)),
+                elements => {
+                    f.write_str("(")?;
+                    write_separated(f, elements, db)?;
+                    f.write_str(")")
+                }
+            },
             TyKind::Function {
                 parameters,
                 r#return,
             } => {
-                let parameters: Vec<String> = parameters
-                    .iter()
-                    .map(|parameter| parameter.display(db))
-                    .collect();
-                format!("({}) -> {}", parameters.join(", "), r#return.display(db))
+                f.write_str("(")?;
+                write_separated(f, parameters, db)?;
+                write!(f, ") -> {}", r#return.display(db))
             }
-            TyKind::InferenceVariable(InferenceVariable::General(_)) => "{unknown}".to_string(),
-            TyKind::InferenceVariable(InferenceVariable::Integer(_)) => "{integer}".to_string(),
-            TyKind::Error => "Error".to_string(),
+            TyKind::InferenceVariable(InferenceVariable::General(_)) => f.write_str("{unknown}"),
+            TyKind::InferenceVariable(InferenceVariable::Integer(_)) => f.write_str("{integer}"),
+            TyKind::Error => f.write_str("Error"),
         }
     }
+}
+
+fn write_separated(f: &mut fmt::Formatter<'_>, tys: &[Ty<'_>], db: &dyn crate::Db) -> fmt::Result {
+    for (index, ty) in tys.iter().enumerate() {
+        if index > 0 {
+            f.write_str(", ")?;
+        }
+        write!(f, "{}", ty.display(db))?;
+    }
+    Ok(())
 }

@@ -1,0 +1,140 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/tuples.bb
+---
+function swap(pair: (I32, Bool)) -> (Bool, I32)
+└─ Block 44..68: (Bool, I32)
+   └─ tail: Tuple 50..66: (Bool, I32)
+      ├─ Field 1 51..57: Bool
+      │  └─ Path pair 51..55: (I32, Bool)
+      └─ Field 0 59..65: I32
+         └─ Path pair 59..63: (I32, Bool)
+
+function construction()
+└─ Block 90..280: ()
+   ├─ Let empty: ()
+   │  ├─ type: ()
+   │  └─ initializer: Tuple 112..114: ()
+   ├─ Let one: (I32,)
+   │  └─ initializer: Tuple 130..134: (I32,)
+   │     └─ Integer 1 131..132: I32
+   ├─ Let inferred: (I32, Bool)
+   │  └─ initializer: Tuple 155..164: (I32, Bool)
+   │     ├─ Integer 1 156..157: I32
+   │     └─ Boolean true 159..163: Bool
+   ├─ Let expected: (U64, (Bool, I64))
+   │  ├─ type: (U64, (Bool, I64))
+   │  └─ initializer: Tuple 205..219: (U64, (Bool, I64))
+   │     ├─ Integer 1 206..207: U64
+   │     └─ Tuple 209..218: (Bool, I64)
+   │        ├─ Boolean true 210..214: Bool
+   │        └─ Integer 2 216..217: I64
+   ├─ Let grouped: I32
+   │  ├─ type: I32
+   │  └─ initializer: Integer 1 246..247: I32
+   └─ Let first: I64
+      └─ initializer: Field 1 265..277: I64
+         └─ Field 1 265..275: (Bool, I64)
+            └─ Path expected 265..273: (U64, (Bool, I64))
+
+function assignment()
+└─ Block 300..394: ()
+   ├─ Let mut point: (I32, (I32, I32))
+   │  └─ initializer: Tuple 322..333: (I32, (I32, I32))
+   │     ├─ Integer 1 323..324: I32
+   │     └─ Tuple 326..332: (I32, I32)
+   │        ├─ Integer 2 327..328: I32
+   │        └─ Integer 3 330..331: I32
+   ├─ Expression ;
+   │  └─ Assignment 339..350: ()
+   │     ├─ Field 0 339..346: I32
+   │     │  └─ Path point 339..344: (I32, (I32, I32))
+   │     └─ Integer 4 349..350: I32
+   ├─ Expression ;
+   │  └─ Assignment 356..369: ()
+   │     ├─ Field 0 356..365: I32
+   │     │  └─ Field 1 356..363: (I32, I32)
+   │     │     └─ Path point 356..361: (I32, (I32, I32))
+   │     └─ Integer 5 368..369: I32
+   └─ Expression ;
+      └─ Assignment 375..391: ()
+         ├─ Field 1 375..382: (I32, I32)
+         │  └─ Path point 375..380: (I32, (I32, I32))
+         └─ Tuple 385..391: (I32, I32)
+            ├─ Integer 6 386..387: I32
+            └─ Integer 7 389..390: I32
+
+function diverging() -> (I32, I32)
+└─ Block 427..453: (I32, I32)
+   └─ tail: Tuple 433..451: (I32, I32)
+      ├─ Return 434..447: Bottom
+      │  └─ Tuple 441..447: (I32, I32)
+      │     ├─ Integer 1 442..443: I32
+      │     └─ Integer 2 445..446: I32
+      └─ Integer 3 449..450: I32
+
+function errors(pair: (I32, Bool), n: I32)
+└─ Block 494..782: ()
+   ├─ Let a: (I32, Bool)
+   │  ├─ type: (I32, Bool)
+   │  └─ initializer: Tuple 521..530: (I32, Bool)
+   │     ├─ Boolean true 522..526: Bool
+   │     └─ Integer 1 528..529: I32
+   ├─ Let b: (I32, I32)
+   │  ├─ type: (I32, I32)
+   │  └─ initializer: Tuple 556..565: (I32, I32, I32)
+   │     ├─ Integer 1 557..558: I32
+   │     ├─ Integer 2 560..561: I32
+   │     └─ Integer 3 563..564: I32
+   ├─ Let c: Error
+   │  └─ initializer: Field 2 579..585: Error
+   │     └─ Path pair 579..583: (I32, Bool)
+   ├─ Let d: Error
+   │  └─ initializer: Field 01 599..606: Error
+   │     └─ Path pair 599..603: (I32, Bool)
+   ├─ Let e: Error
+   │  └─ initializer: Field name 620..629: Error
+   │     └─ Path pair 620..624: (I32, Bool)
+   ├─ Let f: Error
+   │  └─ initializer: Field 0 643..646: Error
+   │     └─ Path n 643..644: I32
+   ├─ Let g: Error
+   │  └─ initializer: Field 0 660..663: Error
+   │     └─ Integer 1 660..661: I32
+   ├─ Let h: Error
+   │  └─ initializer: Field 0 677..683: Error
+   │     └─ Path swap 677..681: ((I32, Bool)) -> (Bool, I32)
+   ├─ Let i: (I32, Error)
+   │  ├─ type: (I32, Foo)
+   │  └─ initializer: Tuple 709..715: (I32, Error)
+   │     ├─ Integer 1 710..711: I32
+   │     └─ Integer 2 713..714: Error
+   ├─ Let j: (Error, I32)
+   │  ├─ type: (shapes::Point, I32)
+   │  └─ initializer: Tuple 751..757: (Error, I32)
+   │     ├─ Integer 1 752..753: Error
+   │     └─ Integer 2 755..756: I32
+   └─ Expression ;
+      └─ Assignment 763..779: ()
+         ├─ Field 0 763..775: Bool
+         │  └─ Call 763..773: (Bool, I32)
+         │     ├─ callee: Path swap 763..767: ((I32, Bool)) -> (Bool, I32)
+         │     └─ argument: Path pair 768..772: (I32, Bool)
+         └─ Integer 1 778..779: I32
+
+diagnostics
+  E0308 522..526 'true': mismatched types (expected `I32`, found `Bool`)
+  E0308 528..529 '1': mismatched types (expected `Bool`, found integer)
+  E0308 556..565 '(1, 2, 3)': mismatched types (expected `(I32, I32)`, found `({integer}, {integer}, {integer})`)
+  E0609 584..585 '2': no field `2` on type `(I32, Bool)` (unknown field)
+  E0609 604..606 '01': no field `01` on type `(I32, Bool)` (unknown field)
+  E0609 625..629 'name': no field `name` on type `(I32, Bool)` (unknown field)
+  E0610 645..646 '0': `I32` is a primitive type and therefore doesn't have fields
+  E0610 662..663 '0': `{integer}` is a primitive type and therefore doesn't have fields
+  E0609 682..683 '0': no field `0` on type `((I32, Bool)) -> (Bool, I32)` (unknown field)
+  E0412 702..705 'Foo': cannot find type `Foo` in this scope (not found in this scope)
+  E0412 729..742 'shapes::Point': cannot find type `shapes::Point` in this scope (not found in this scope)
+  E0070 763..779 'swap(p....0 = 1': invalid left-hand side of assignment
+    763..775 'swap(pair).0': cannot assign to this expression
+  E0308 778..779 '1': mismatched types (expected `Bool`, found integer)

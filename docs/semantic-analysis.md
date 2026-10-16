@@ -32,7 +32,11 @@ _In the code:_ `ids/keys.rs`; keys are created while collecting definitions (`fi
 
 ### Signatures
 
-Every definition's header is lowered into a `FunctionSignature` (its name, parameter annotations and return annotation) or a `ConstantSignature` (its name and type annotation). The annotations are still just the _names_ the user wrote, e.g. `I32`; they only become types when the type checker needs them, with `()` as the return type if none is written, and the `Error` type for an unknown type name.
+Every definition's header is lowered into a `FunctionSignature` (its name, parameter annotations and return annotation) or a `ConstantSignature` (its name and annotation). The annotations are still just what the user wrote, e.g. `I32`; they only become types when they're needed, with `()` as the return type if none is written, and the `Error` type for an unknown type name.
+
+An annotation is a **type expression**: a term in the language of types, which denotes a type (a `Ty`) the way an expression denotes a value. Type expressions nest (e.g., `(I32, (Bool, U64))`), so every type expression gets its own handle in a `HirNodeStore` (see [Bodies](#bodies)), and a tuple type expression refers to its elements by handle. A signature has its own store, and so does each body, and both are built by the same `HirNodeStoreBuilder`, which also records in a source map where each type expression came from, so that an unknown name inside a tuple (e.g., `Foo` in `(I32, Foo)`) is reported at the name itself. An unknown name is found the same way in a signature and in a body: by lowering the annotation to a type, which reports every name it can't resolve.
+
+Turning an annotation into a type is done by `lower_type_expression`, the same function for signatures and for a `let` in a body. It belongs to type checking rather than to the HIR, since it's resolution: today, a name can only be a primitive, but once blueberry has user-defined types, `Point` will need to be looked up the same way as a value path.
 
 A signature is kept separate from its body, so that `f` can call `g` using only `g`'s signature, without `g`'s body being checked first. This matters for two reasons:
 - **stability**: editing inside `g`'s body doesn't change `g`'s signature, so `f`'s cached result stays valid and `f` isn't checked again
@@ -40,21 +44,39 @@ A signature is kept separate from its body, so that `f` can call `g` using only 
 
 This only works because blueberry requires every signature to be fully annotated, and so the header alone says what the type is.
 
-_In the code:_ `function_signature_of(f)`, `constant_signature_of(c)`, and as types, `function_signature_type_of(f)`, `constant_signature_type_of(c)`
+_In the code:_ `signature_of(d)`, a `Signature` (either a `FunctionSignature` or a `ConstantSignature`, lowered by `lower_function_signature` and `lower_constant_signature` in `ast_lowering.rs`), its source map `signature_source_map_of(d)`, and as a type, `signature_type_of(d)`; annotations are lowered by `lower_type_expression` (`type_checking/ty_lowering.rs`)
+
+Every query here and below takes a `Definition` (a function or a constant), rather than having one query per kind of definition: `Definition` is a salsa **supertype** (an enum of the two salsa keys, `FunctionKey` and `ConstantKey`), so a single query can be keyed by either, and only matches on the kind where the two genuinely differ (e.g., `types_of` checks a function body against its return type, and a constant body against its declared type).
 
 ### Bodies
 
-Every body is lowered into a **HIR** (a `DefinitionBody`) consisting of flat tables of expressions, statements and local bindings, each referred to by a handle. Every `let` and parameter becomes its own **binding** (see [Name Collecting](#name-collecting)).
+Every body is lowered into a **HIR** (a `DefinitionBody`): a `HirNodeStore` holding flat tables of expressions, statements, local bindings and type expressions, each referred to by a handle, plus the body's root expression and parameters. Signatures use the same `HirNodeStore` for their type expressions, so every HIR node, whatever it belongs to, is stored and walked the same way. Every `let` and parameter becomes its own **binding** (see [Name Collecting](#name-collecting)).
 
-Alongside each body, a **source map** (a `DefinitionBodySourceMap`) is built, recording which syntax node each HIR node came from.
+The store only holds nodes, and the children of those nodes (e.g., a tuple's elements). What an owner does with its nodes is kept on the owner: a body's `root_handle` and `parameter_handles`, a function signature's `parameter_annotation_handles` and `return_type_annotation`, and a constant signature's `annotation`.
 
-The HIR itself stores no positions in the text. This way, an edit that only moves text (e.g. adding whitespace or a comment) leaves the HIR unchanged, so the HIR, and every result computed from it (scopes, types, MIR), stays cached. Only the source map changes.
+Alongside each body, a **source map** (a `HirNodeSourceMap`) is built, recording which syntax node each HIR node came from.
+
+The HIR itself stores no positions in the text. This way, an edit that only moves text (e.g. adding whitespace or a comment) leaves the HIR unchanged, so the HIR, and every result computed from it (scopes, types, MIR), stays cached.
+
+The source map's spans are **relative**: each one is measured from the start of its definition (its **anchor**, `Definition::anchor`) rather than from the start of the file. Most edits happen outside any given definition, and an edit above a definition only moves its anchor, so its source map stays unchanged too. A span is turned back into a position in the file only when it's needed, e.g. when a diagnostic is reported, by adding the anchor's current position (`expression_span(handle, anchor)`, `type_expression_span(handle, anchor)`).
+
+For example, adding a line above `func b` shifts `b` in the file, but not `b`'s nodes relative to `b`:
+
+```
+func a() {}                     func a() {}
+                                // a new line
+func b() {                      func b() {          ← anchor moves: 13 → 26
+    let y: I32 = 1;                 let y: I32 = 1; ← `I32` stays at 22..25 from the anchor
+}                               }
+```
+
+Lowering produces the HIR and its source map together (`body_with_source_map_of`), but they're cached separately: `body_of` returns only the HIR, so when an edit changes only the source map, salsa sees that `body_of`'s result didn't change, and doesn't recompute anything that depends on it.
 
 The source map is the bridge between the two:
 - **HIR to text**, for diagnostics: a diagnostic stores the handle of the node it's about (e.g. an `ExpressionHandle`), and its span is only looked up through the source map when it's reported
 - **text to HIR**, for editor features such as hover or go-to-definition: the syntax node under the cursor is mapped back to its handle, whose type can then be looked up (not built yet)
 
-_In the code:_ `function_body_of(f)`, `constant_body_of(c)`, `function_source_map_of(f)`, `constant_source_map_of(c)`
+_In the code:_ `body_of(d)`, `body_source_map_of(d)`
 
 ## Name Collecting
 
@@ -93,7 +115,7 @@ Each data structure below is built by its own query, separately, the first time 
 - one `DefinitionList` for the file's top-level definitions (`file_scoped_definitions_of`): built first, since it's how the compiler finds out which definitions exist.
 - one `DefinitionList` per block, for the definitions declared inside that block (`block_scoped_definitions_of`): built the first time the `Resolver` searches that block's scope.
 - one `ImportList` for the file's import declarations (`imports_of`): built the first time the `Resolver` doesn't find a name locally, in a block, or at the file's top level. So if every name in a file resolves before reaching imports, its `ImportList` is never built.
-- one `ScopeTree` per function or constant definition, for its parameters and `let` bindings (`function_scopes_of`, `constant_scopes_of`): built right before that body is type checked.
+- one `ScopeTree` per function or constant definition, for its parameters and `let` bindings (`scopes_of`): built right before that body is type checked.
 
 > [!NOTE]
 > We may think of the `ScopeTree`(s), `DefinitionList`(s), and the `ImportList` as a disconnected symbol table.
@@ -113,8 +135,8 @@ main's body (HIR)
                                                                │
                          ┌─────────────────────────────────────┼──────────────────────────────┐
                          ▼                                     ▼                              ▼
-            function_signature_of(is_ready)       function_body_of(is_ready)     function_types_of(is_ready)
-            (name, parameters, return type)       its own HIR                    its own type check
+                signature_of(is_ready)                body_of(is_ready)              types_of(is_ready)
+            (name, parameters, return type)          its own HIR                    its own type check
 ```
 
 ### Import Lists
@@ -193,7 +215,8 @@ Blueberry has local type inference, and infers with constraints. Constraints are
 #### Types
 
 A type is one of:
-- a primitive: `I32`, `I64`, `U32`, `U64`, `Bool`, or `()`
+- a primitive: `I32`, `I64`, `U32`, `U64`, or `Bool`
+- a tuple type, e.g. `(I32, Bool)`; `()` (unit) is simply the empty tuple, and `(I32,)` is a tuple of one element
 - a function type, e.g. `fn(I32) -> Bool`
 - `Bottom`: the type of an expression that never produces a value (`return`, `break`, `continue`, a `loop` without `break`)
 - `Error`: the type of anything already reported as wrong (see [Resilience](#resilience))
@@ -256,9 +279,10 @@ After shallow resolving both sides, `unify` dispatches on the two shapes:
 | `I32` / `I64` / `U32` / `U64` / `Error` | `?i` (integer) | `?i := t` |
 | `Error` | anything (either side) | ok (see [Resilience](#resilience)) |
 | `fn(p1, ..) -> r1` | `fn(q1, ..) -> r2` | same number of parameters? then unify each $p_i$ with $q_i$, and `r1` with `r2` |
+| `(t1, ..)` | `(u1, ..)` | same number of elements? then unify each $t_i$ with $u_i$ |
 | anything else | | mismatch |
 
-The function row is the recursive part: rather than comparing two types with `==`, unification walks into both and unifies the pieces, so `fn(?0) -> I32` and `fn(Bool) -> I32` unify with `?0 := Bool`.
+The function and tuple rows are the recursive part: rather than comparing two types with `==`, unification walks into both and unifies the pieces, so `fn(?0) -> I32` and `fn(Bool) -> I32` unify with `?0 := Bool`.
 
 Before setting `?x := t`, `unify` performs an **occurs check**, i.e., it checks that `?x` doesn't occur anywhere inside `t`. Otherwise, the solution would have to contain itself, which would be a type error. For example:
 
@@ -382,6 +406,18 @@ A path takes the type of whatever it names (see [Resolving a Path](#resolving-a-
 
 A path ignores its expectation, since its type is already decided; the parent coerces it to the expected type afterwards.
 
+#### Tuples and Fields
+
+- `(e1, .., en)`: if the expected type is a tuple with the same number of elements `(t1, .., tn)`, each `ei` is checked with `ti`, and must be `ti`; otherwise, each `ei` is checked without an expectation. The tuple's type is made of each element's expected type, or of its own type without one. Since each element was already coerced, the parent's coercion of the whole tuple can't fail on an element, so a mismatch is reported once, on the innermost wrong element
+- `e.i`: `e` is checked first, and must be a tuple with an element at index `i` (written as a plain integer, so `e.01` isn't `e.1`); the expression has that element's type. Otherwise, the field is reported as unknown (or as a primitive having no fields, e.g. `5.0`). An unsolved general variable says nothing about which fields exist, so it's reported as "type annotations needed"
+
+```
+let p = (1, true);       // p: (?i, Bool)
+let q: (U64, Bool) = p;  // unify((U64, Bool), (?i, Bool)) → ?i := U64
+let r = p.0 + 1;         // p.0: U64
+let s = p.2;             // no field `2` on type `(U64, Bool)`
+```
+
 #### `let`
 
 `let x: T = e` and `let x = e` are checked the same way: `x`'s declared type is `T`, or a fresh general variable without an annotation. `e` is checked with the declared type, and must be the declared type. `x` gets the declared type.
@@ -419,7 +455,7 @@ A path ignores its expectation, since its type is already decided; the parent co
 
 #### Assignments
 
-`a = b`: `a` must be a local (not a function nor a constant). `b` is checked with `a`'s type, and must be `a`'s type. The assignment has type `()`.
+`a = b`: `a` must be a place, i.e., a local (not a function nor a constant), or a field of a place (e.g., `p.0.1`). `b` is checked with `a`'s type, and must be `a`'s type. The assignment has type `()`.
 
 #### `return`, `break`, `continue`
 
@@ -430,7 +466,9 @@ A path ignores its expectation, since its type is already decided; the parent co
 | Code | Checks | Type of the expression |
 |---|---|---|
 | `5` | — | the expected integer type, or `?i` |
-| `true`, `()` | — | `Bool`, `()` |
+| `true` | — | `Bool` |
+| `(e1, .., en)` | if `(t1, .., tn)` is expected, each `ei` must be `ti` | `(ty(e1), .., ty(en))`; `()` for `()` |
+| `e.i` | `e` must be a tuple with an element at index `i` | the element's type |
 | `x` (a path) | — | the type of what `x` names |
 | `let x: T = e` | `e` must be `T` | `x: T` |
 | `let x = e` | `e` must be `?0` | `x: ?0` |
@@ -475,7 +513,7 @@ const LIMIT: I64 = 5;   // 5 is checked with I64 → 5: I64
 const FLAG: Bool = 5;   // Bool isn't an integer type → 5: ?0; unify(Bool, ?0) → mismatch
 ```
 
-_In the code:_ `function_types_of(f)`, `constant_types_of(c)`
+_In the code:_ `types_of(d)`
 
 ### Finishing a Body
 

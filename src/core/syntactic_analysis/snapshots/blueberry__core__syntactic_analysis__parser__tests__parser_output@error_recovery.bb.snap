@@ -108,10 +108,14 @@ File
 │ │ │ ├─Whitespace
 │ │ │ │   Lexeme: " "
 │ │ │ │   Span: [47, 48)
-│ │ │ └─TypeExpression
-│ │ │   └─Identifier
-│ │ │       Lexeme: "i32"
+│ │ │ └─PathType
+│ │ │   └─Path
+│ │ │     └─PathSegment
+│ │ │       └─Identifier
+│ │ │           Lexeme: "i32"
+│ │ │           Span: [48, 51)
 │ │ │       Span: [48, 51)
+│ │ │     Span: [48, 51)
 │ │ │   Span: [48, 51)
 │ │ │ Span: [45, 51)
 │ │ └─CloseParen
@@ -127,10 +131,14 @@ File
 │ ├─Whitespace
 │ │   Lexeme: " "
 │ │   Span: [55, 56)
-│ ├─TypeExpression
-│ │ └─Identifier
-│ │     Lexeme: "i32"
+│ ├─PathType
+│ │ └─Path
+│ │   └─PathSegment
+│ │     └─Identifier
+│ │         Lexeme: "i32"
+│ │         Span: [56, 59)
 │ │     Span: [56, 59)
+│ │   Span: [56, 59)
 │ │ Span: [56, 59)
 │ ├─Whitespace
 │ │   Lexeme: " "

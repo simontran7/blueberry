@@ -5,11 +5,9 @@ use crate::core::common::handle_collections::Handle;
 use crate::core::mir_construction::mir::{
     BlockId, InstructionId, InstructionRef, MirBody, ValueId,
 };
-use crate::core::mir_construction::{constant_mir_of, function_mir_of};
+use crate::core::mir_construction::mir_of;
+use crate::core::semantic_analysis::all_definitions_of;
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
-use crate::core::semantic_analysis::{
-    all_definitions_of, constant_signature_of, function_signature_of,
-};
 use crate::core::source_file_key::SourceFileKey;
 
 pub(crate) struct MirBodyDumper<'a, 'db> {
@@ -61,10 +59,7 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
     ) -> Result<String, fmt::Error> {
         let mut out = String::new();
         for definition in all_definitions_of(db, file) {
-            let body = match definition {
-                Definition::Function(key) => function_mir_of(db, key),
-                Definition::Constant(key) => constant_mir_of(db, key),
-            };
+            let body = mir_of(db, definition);
             match body {
                 Some(body) => out.push_str(&MirBodyDumper::new(db, definition, body).dump()?),
                 None => writeln!(
@@ -96,10 +91,10 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
             .signature
             .parameter_types
             .iter()
-            .map(|&ty| ty.display(self.db))
+            .map(|&ty| ty.display(self.db).to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        let return_type = self.body.signature.return_type.display(self.db);
+        let return_type = self.body.signature.return_type.display(self.db).to_string();
         format!("{name}({parameters}) -> {return_type}")
     }
 
@@ -162,6 +157,20 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
             }
             InstructionRef::IntegerLiteral { value } => {
                 write!(out, "IntegerLiteral {value}")?;
+            }
+            InstructionRef::Tuple { element_ids } => {
+                write!(out, "Tuple({})", join_values(element_ids))?;
+            }
+            InstructionRef::ExtractField { operand_id, index } => {
+                write!(out, "ExtractField v{}.{index}", operand_id.index())?;
+            }
+            InstructionRef::InsertField { operand_ids, index } => {
+                write!(
+                    out,
+                    "InsertField v{}.{index}, v{}",
+                    operand_ids[0].index(),
+                    operand_ids[1].index()
+                )?;
             }
             InstructionRef::BooleanLiteral { value } => {
                 write!(out, "BooleanLiteral {value}")?;
@@ -347,10 +356,7 @@ fn keyword(definition: Definition<'_>) -> &'static str {
 }
 
 fn name<'db>(db: &'db dyn crate::Db, definition: Definition<'db>) -> &'db str {
-    match definition {
-        Definition::Function(key) => function_signature_of(db, key).name.text(db),
-        Definition::Constant(key) => constant_signature_of(db, key).name.text(db),
-    }
+    definition.name(db).text(db)
 }
 
 fn join_values(values: &[ValueId]) -> String {

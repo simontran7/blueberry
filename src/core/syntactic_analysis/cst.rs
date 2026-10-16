@@ -57,6 +57,7 @@ pub(crate) enum SyntaxKind {
     OpenBrace,
     CloseBrace,
     ThinArrow,
+    Dot,
 
     // keywords
     LogicalAnd,
@@ -94,9 +95,8 @@ pub(crate) enum SyntaxKind {
     LetStatement,
 
     // expressions
-    TypeExpression,
     ParenthesizedExpression,
-    UnitLiteral,
+    TupleExpression,
     IntegerLiteral,
     BooleanLiteral,
     PathExpression,
@@ -110,9 +110,15 @@ pub(crate) enum SyntaxKind {
     BreakExpression,
     ContinueExpression,
     Call,
+    FieldExpression,
     Assignment,
     WhileLoop,
     InfiniteLoop,
+
+    // types
+    PathType,
+    TupleType,
+    ParenthesizedType,
 
     // special
     File,
@@ -236,6 +242,7 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::OpenBrace => Self::OpenBrace,
             TokenKind::CloseBrace => Self::CloseBrace,
             TokenKind::ThinArrow => Self::ThinArrow,
+            TokenKind::Dot => Self::Dot,
             TokenKind::LogicalAnd => Self::LogicalAnd,
             TokenKind::LogicalOr => Self::LogicalOr,
             TokenKind::LogicalNot => Self::LogicalNot,
@@ -377,6 +384,13 @@ impl RedNodeTag {
         Self {
             kind: node.kind(),
             span: node.span(),
+        }
+    }
+
+    pub(crate) fn relative_to(self, anchor: TextSize) -> Self {
+        Self {
+            kind: self.kind,
+            span: self.span.relative_to(anchor),
         }
     }
 

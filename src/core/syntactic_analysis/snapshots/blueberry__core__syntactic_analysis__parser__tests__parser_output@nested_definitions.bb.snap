@@ -49,10 +49,14 @@ File
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
 │   │   │   Span: [41, 42)
-│   │   ├─TypeExpression
-│   │   │ └─Identifier
-│   │   │     Lexeme: "I32"
+│   │   ├─PathType
+│   │   │ └─Path
+│   │   │   └─PathSegment
+│   │   │     └─Identifier
+│   │   │         Lexeme: "I32"
+│   │   │         Span: [42, 45)
 │   │   │     Span: [42, 45)
+│   │   │   Span: [42, 45)
 │   │   │ Span: [42, 45)
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
@@ -101,10 +105,14 @@ File
 │   │   │ │ ├─Whitespace
 │   │   │ │ │   Lexeme: " "
 │   │   │ │ │   Span: [70, 71)
-│   │   │ │ └─TypeExpression
-│   │   │ │   └─Identifier
-│   │   │ │       Lexeme: "I32"
+│   │   │ │ └─PathType
+│   │   │ │   └─Path
+│   │   │ │     └─PathSegment
+│   │   │ │       └─Identifier
+│   │   │ │           Lexeme: "I32"
+│   │   │ │           Span: [71, 74)
 │   │   │ │       Span: [71, 74)
+│   │   │ │     Span: [71, 74)
 │   │   │ │   Span: [71, 74)
 │   │   │ │ Span: [68, 74)
 │   │   │ └─CloseParen
@@ -120,10 +128,14 @@ File
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
 │   │   │   Span: [78, 79)
-│   │   ├─TypeExpression
-│   │   │ └─Identifier
-│   │   │     Lexeme: "I32"
+│   │   ├─PathType
+│   │   │ └─Path
+│   │   │   └─PathSegment
+│   │   │     └─Identifier
+│   │   │         Lexeme: "I32"
+│   │   │         Span: [79, 82)
 │   │   │     Span: [79, 82)
+│   │   │   Span: [79, 82)
 │   │   │ Span: [79, 82)
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "

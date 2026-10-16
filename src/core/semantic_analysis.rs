@@ -7,18 +7,19 @@ pub(crate) mod type_checking;
 
 use std::sync::Arc;
 
-use crate::core::common::symbol::Symbol;
+use crate::core::common::span::TextSize;
 use crate::core::module_map::{ModuleMap, ModulePath};
 use crate::core::semantic_analysis::ast_lowering::definition_body_lowerer::DefinitionBodyLowerer;
+use crate::core::semantic_analysis::ast_lowering::{
+    lower_constant_signature, lower_function_signature,
+};
 
 use crate::core::semantic_analysis::hir::nodes::{
-    ConstantSignature, DefinitionBody, DefinitionBodySourceMap, Expression, FunctionSignature,
-    TypeAnnotation,
+    DefinitionBody, Expression, HirNodeSourceMap, HirNodeStore, Signature, TypeExpression,
+    TypeExpressionHandle,
 };
 
-use crate::core::semantic_analysis::ids::keys::{
-    BlockKey, ConstantKey, DefinitionSource, FunctionKey,
-};
+use crate::core::semantic_analysis::ids::keys::{BlockKey, DefinitionSource};
 
 use crate::core::semantic_analysis::name_resolution::definition_list::{
     Definition, DefinitionList,
@@ -27,6 +28,7 @@ use crate::core::semantic_analysis::name_resolution::definition_list::{
 use crate::core::semantic_analysis::name_resolution::import_list::ImportList;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
 use crate::core::semantic_analysis::semantic_diagnostic::{OwnerSpans, SemanticDiagnostic};
+use crate::core::semantic_analysis::type_checking::ty_lowering::lower_type_expression;
 use crate::core::semantic_analysis::type_checking::type_checker::{
     TypeCheckSink, check_constant, check_function,
 };
@@ -122,181 +124,84 @@ pub(crate) fn module_file_of<'db>(
 }
 
 #[salsa::tracked]
-pub(crate) fn function_signature_of<'db>(
+pub(crate) fn signature_of<'db>(
     db: &'db dyn crate::Db,
-    key: FunctionKey<'db>,
-) -> FunctionSignature<'db> {
-    let node = key.to_ast_node(db);
+    definition: Definition<'db>,
+) -> Arc<Signature<'db>> {
+    signature_with_source_map_of(db, definition).0.clone()
+}
 
-    let name = node
-        .name()
-        .map(|token| Symbol::new(db, token.lexeme().to_string()))
-        .unwrap();
+pub(crate) fn signature_source_map_of<'db>(
+    db: &'db dyn crate::Db,
+    definition: Definition<'db>,
+) -> Arc<HirNodeSourceMap> {
+    signature_with_source_map_of(db, definition).1.clone()
+}
 
-    let parameters = match node.parameter_list() {
-        Some(list) => list
-            .parameters()
-            .map(|parameter| {
-                parameter
-                    .type_expression()
-                    .map_or(TypeAnnotation::Error, |type_expression| {
-                        TypeAnnotation::from_type_expression(db, &type_expression)
-                    })
-            })
-            .collect(),
-        None => Vec::new(),
+#[salsa::tracked]
+pub(crate) fn signature_type_of<'db>(
+    db: &'db dyn crate::Db,
+    definition: Definition<'db>,
+) -> Ty<'db> {
+    let signature = signature_of(db, definition);
+    let lower = |annotation_handle| {
+        lower_type_expression(db, signature.store(), annotation_handle, &mut |_| {})
     };
-
-    let return_type_annotation = node
-        .return_type()
-        .map(|ty| TypeAnnotation::from_type_expression(db, &ty));
-
-    FunctionSignature {
-        name,
-        parameters,
-        return_type_annotation,
+    match &**signature {
+        Signature::Function(function) => {
+            let parameters = function
+                .parameter_annotation_handles
+                .iter()
+                .map(|&annotation_handle| lower(annotation_handle))
+                .collect();
+            let return_type = function
+                .return_type_annotation
+                .map_or_else(|| Ty::unit(db), lower);
+            Ty::function(db, parameters, return_type)
+        }
+        Signature::Constant(constant) => constant.annotation.map_or_else(|| Ty::error(db), lower),
     }
 }
 
 #[salsa::tracked]
-pub(crate) fn constant_signature_of<'db>(
+pub(crate) fn body_of<'db>(
     db: &'db dyn crate::Db,
-    key: ConstantKey<'db>,
-) -> ConstantSignature<'db> {
-    let node = key.to_ast_node(db);
+    definition: Definition<'db>,
+) -> Arc<DefinitionBody<'db>> {
+    body_with_source_map_of(db, definition).0.clone()
+}
 
-    let name = node
-        .name()
-        .map(|token| Symbol::new(db, token.lexeme().to_string()))
-        .unwrap();
-
-    let type_annotation = node
-        .type_annotation()
-        .map(|ty| TypeAnnotation::from_type_expression(db, &ty));
-
-    ConstantSignature {
-        name,
-        type_annotation,
-    }
+pub(crate) fn body_source_map_of<'db>(
+    db: &'db dyn crate::Db,
+    definition: Definition<'db>,
+) -> Arc<HirNodeSourceMap> {
+    body_with_source_map_of(db, definition).1.clone()
 }
 
 #[salsa::tracked]
-pub(crate) fn function_signature_type_of<'db>(
+pub(crate) fn scopes_of<'db>(
     db: &'db dyn crate::Db,
-    key: FunctionKey<'db>,
-) -> Ty<'db> {
-    let signature = function_signature_of(db, key);
-
-    let parameters = signature
-        .parameters
-        .iter()
-        .map(|parameter| parameter.to_ty(db))
-        .collect();
-
-    let return_type = signature
-        .return_type_annotation
-        .as_ref()
-        .map_or_else(|| Ty::unit(db), |annotation| annotation.to_ty(db));
-
-    Ty::function(db, parameters, return_type)
-}
-
-#[salsa::tracked]
-pub(crate) fn constant_signature_type_of<'db>(
-    db: &'db dyn crate::Db,
-    key: ConstantKey<'db>,
-) -> Ty<'db> {
-    constant_signature_of(db, key)
-        .type_annotation
-        .as_ref()
-        .map_or_else(
-            || Ty::error(db),
-            |type_annotation| type_annotation.to_ty(db),
-        )
-}
-
-#[salsa::tracked]
-pub(crate) fn function_scopes_of<'db>(
-    db: &'db dyn crate::Db,
-    key: FunctionKey<'db>,
+    definition: Definition<'db>,
 ) -> Arc<ScopeTree<'db>> {
     Arc::new(ScopeTree::new(
-        function_body_of(db, key),
-        key.file(db),
-        key.source(db).block(),
+        body_of(db, definition),
+        definition.file(db),
+        definition.source(db).block(),
     ))
 }
 
 #[salsa::tracked]
-pub(crate) fn constant_scopes_of<'db>(
+pub(crate) fn types_of<'db>(
     db: &'db dyn crate::Db,
-    key: ConstantKey<'db>,
-) -> Arc<ScopeTree<'db>> {
-    Arc::new(ScopeTree::new(
-        constant_body_of(db, key),
-        key.file(db),
-        key.source(db).block(),
-    ))
-}
-
-#[salsa::tracked]
-pub(crate) fn function_types_of<'db>(
-    db: &'db dyn crate::Db,
-    key: FunctionKey<'db>,
+    definition: Definition<'db>,
 ) -> Arc<TypeCheckSink<'db>> {
-    let body = function_body_of(db, key);
-    let scopes = function_scopes_of(db, key);
-    Arc::new(check_function(
-        db,
-        body,
-        scopes,
-        *function_signature_type_of(db, key),
-    ))
-}
-
-#[salsa::tracked]
-pub(crate) fn constant_types_of<'db>(
-    db: &'db dyn crate::Db,
-    key: ConstantKey<'db>,
-) -> Arc<TypeCheckSink<'db>> {
-    let body = constant_body_of(db, key);
-    let scopes = constant_scopes_of(db, key);
-    Arc::new(check_constant(
-        db,
-        body,
-        scopes,
-        *constant_signature_type_of(db, key),
-    ))
-}
-
-#[salsa::tracked]
-pub(crate) fn function_body_of<'db>(
-    db: &'db dyn crate::Db,
-    key: FunctionKey<'db>,
-) -> Arc<DefinitionBody<'db>> {
-    function_body_with_source_map_of(db, key).0.clone()
-}
-
-pub(crate) fn function_source_map_of<'db>(
-    db: &'db dyn crate::Db,
-    key: FunctionKey<'db>,
-) -> Arc<DefinitionBodySourceMap> {
-    function_body_with_source_map_of(db, key).1.clone()
-}
-
-#[salsa::tracked]
-pub(crate) fn constant_body_of<'db>(
-    db: &'db dyn crate::Db,
-    key: ConstantKey<'db>,
-) -> Arc<DefinitionBody<'db>> {
-    constant_body_with_source_map_of(db, key).0.clone()
-}
-
-pub(crate) fn constant_source_map_of<'db>(
-    db: &'db dyn crate::Db,
-    key: ConstantKey<'db>,
-) -> Arc<DefinitionBodySourceMap> {
-    constant_body_with_source_map_of(db, key).1.clone()
+    let body = body_of(db, definition);
+    let scopes = scopes_of(db, definition);
+    let signature_type = *signature_type_of(db, definition);
+    Arc::new(match definition {
+        Definition::Function(_) => check_function(db, body, scopes, signature_type),
+        Definition::Constant(_) => check_constant(db, body, scopes, signature_type),
+    })
 }
 
 /// Returns every definition in `file`, including the ones nested in blocks: each definition is
@@ -311,11 +216,8 @@ pub(crate) fn all_definitions_of<'db>(
         definitions: &mut Vec<Definition<'db>>,
     ) {
         definitions.push(definition);
-        let body = match definition {
-            Definition::Function(key) => function_body_of(db, key),
-            Definition::Constant(key) => constant_body_of(db, key),
-        };
-        for expression in body.expressions.values() {
+        let body = body_of(db, definition);
+        for expression in body.store.expressions.values() {
             if let Expression::Block {
                 block_key: Some(block_key),
                 ..
@@ -335,77 +237,43 @@ pub(crate) fn all_definitions_of<'db>(
     definitions
 }
 
-/// Returns a definition's body, its source map, and its type checking results.
-pub(crate) fn checked_body_of<'db>(
-    db: &'db dyn crate::Db,
-    definition: Definition<'db>,
-) -> (
-    Arc<DefinitionBody<'db>>,
-    Arc<DefinitionBodySourceMap>,
-    Arc<TypeCheckSink<'db>>,
-) {
-    match definition {
-        Definition::Function(key) => (
-            function_body_of(db, key).clone(),
-            function_source_map_of(db, key),
-            function_types_of(db, key).clone(),
-        ),
-        Definition::Constant(key) => (
-            constant_body_of(db, key).clone(),
-            constant_source_map_of(db, key),
-            constant_types_of(db, key).clone(),
-        ),
-    }
-}
-
 pub(crate) fn definition_diagnostics_of<'db>(
     db: &'db dyn crate::Db,
     definition: Definition<'db>,
 ) -> Vec<SemanticDiagnostic> {
-    let file = match definition {
-        Definition::Function(key) => key.file(db),
-        Definition::Constant(key) => key.file(db),
-    };
-    let mut diagnostics = Vec::new();
-    let type_expressions: Vec<ast::TypeExpression> = match definition {
-        Definition::Function(key) => {
-            let node = key.to_ast_node(db);
-            node.parameter_list()
-                .into_iter()
-                .flat_map(|list| list.parameters().collect::<Vec<_>>())
-                .filter_map(|parameter| parameter.type_expression())
-                .chain(node.return_type())
-                .collect()
-        }
-        Definition::Constant(key) => key.to_ast_node(db).type_annotation().into_iter().collect(),
-    };
-    for type_expression in type_expressions {
-        if let Some(name) = type_expression.name()
-            && Ty::to_primitive(db, name.lexeme()).is_none()
-        {
-            diagnostics.push(SemanticDiagnostic::UnknownType {
-                name: name.lexeme().to_string(),
-                span: type_expression.red().span(),
-            });
-        }
-    }
+    let file = definition.file(db);
+    let signature = signature_of(db, definition);
+    let anchor = definition.anchor(db);
+    let mut diagnostics = unknown_type_diagnostics(
+        db,
+        signature.store(),
+        &signature_source_map_of(db, definition),
+        anchor,
+        signature.annotation_handles(),
+    );
 
     let owner = match definition {
         Definition::Function(key) => {
             let node = key.to_ast_node(db);
             OwnerSpans {
                 file,
+                anchor,
                 name: node.name().map(|name| name.span()),
-                return_type: node.return_type().map(|ty| ty.red().span()),
+                return_type: node
+                    .return_type_annotation()
+                    .map(|annotation| annotation.red().span()),
             }
         }
         Definition::Constant(key) => OwnerSpans {
             file,
+            anchor,
             name: key.to_ast_node(db).name().map(|name| name.span()),
             return_type: None,
         },
     };
-    let (body, source_map, types) = checked_body_of(db, definition);
+    let body = body_of(db, definition);
+    let source_map = body_source_map_of(db, definition);
+    let types = types_of(db, definition);
     diagnostics.extend(
         types
             .diagnostics()
@@ -416,25 +284,64 @@ pub(crate) fn definition_diagnostics_of<'db>(
 }
 
 #[salsa::tracked]
-fn function_body_with_source_map_of<'db>(
+fn body_with_source_map_of<'db>(
     db: &'db dyn crate::Db,
-    key: FunctionKey<'db>,
-) -> (Arc<DefinitionBody<'db>>, Arc<DefinitionBodySourceMap>) {
-    let node = key.to_ast_node(db);
-    let lowerer = DefinitionBodyLowerer::new(db, key.file(db), Definition::Function(key));
-    let (body, source_map) = lowerer.lower_function(&node);
+    definition: Definition<'db>,
+) -> (Arc<DefinitionBody<'db>>, Arc<HirNodeSourceMap>) {
+    let lowerer = DefinitionBodyLowerer::new(db, definition.file(db), definition);
+    let (body, source_map) = match definition {
+        Definition::Function(key) => lowerer.lower_function(&key.to_ast_node(db)),
+        Definition::Constant(key) => lowerer.lower_constant(&key.to_ast_node(db)),
+    };
     (Arc::new(body), Arc::new(source_map))
 }
 
 #[salsa::tracked]
-fn constant_body_with_source_map_of<'db>(
+fn signature_with_source_map_of<'db>(
     db: &'db dyn crate::Db,
-    key: ConstantKey<'db>,
-) -> (Arc<DefinitionBody<'db>>, Arc<DefinitionBodySourceMap>) {
-    let node = key.to_ast_node(db);
-    let lowerer = DefinitionBodyLowerer::new(db, key.file(db), Definition::Constant(key));
-    let (body, source_map) = lowerer.lower_constant(&node);
-    (Arc::new(body), Arc::new(source_map))
+    definition: Definition<'db>,
+) -> (Arc<Signature<'db>>, Arc<HirNodeSourceMap>) {
+    let (signature, source_map) = match definition {
+        Definition::Function(key) => {
+            let (function, source_map) =
+                lower_function_signature(db, &key.to_ast_node(db), definition.anchor(db));
+            (Signature::Function(function), source_map)
+        }
+        Definition::Constant(key) => {
+            let (constant, source_map) =
+                lower_constant_signature(db, &key.to_ast_node(db), definition.anchor(db));
+            (Signature::Constant(constant), source_map)
+        }
+    };
+    (Arc::new(signature), Arc::new(source_map))
+}
+
+fn unknown_type_diagnostics<'db>(
+    db: &'db dyn crate::Db,
+    store: &HirNodeStore<'db>,
+    source_map: &HirNodeSourceMap,
+    anchor: TextSize,
+    annotation_handles: impl IntoIterator<Item = TypeExpressionHandle>,
+) -> Vec<SemanticDiagnostic> {
+    let mut diagnostics = Vec::new();
+    for annotation_handle in annotation_handles {
+        lower_type_expression(
+            db,
+            store,
+            annotation_handle,
+            &mut |type_expression_handle| {
+                let TypeExpression::Path(path) = &store.type_expressions[type_expression_handle]
+                else {
+                    unreachable!("only path type expressions can be unknown")
+                };
+                diagnostics.push(SemanticDiagnostic::UnknownType {
+                    name: path.display(db).to_string(),
+                    span: source_map.type_expression_span(type_expression_handle, anchor),
+                });
+            },
+        );
+    }
+    diagnostics
 }
 
 fn collect_definitions<'db>(
@@ -448,8 +355,33 @@ fn collect_definitions<'db>(
         let Some(name) = definition.name() else {
             continue;
         };
-        let name = Symbol::new(db, name.lexeme().to_string());
+        let name = ast_lowering::lower_name(db, &name);
         definition_list.add_definition(db, file, source, name, definition);
     }
     Arc::new(definition_list)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+    use crate::core::db::BlueberryDatabase;
+
+    #[test]
+    fn test_source_maps_are_stable_under_edits_above() {
+        let source =
+            "func a() {}\n\nfunc b(x: (I32, Bool)) -> I32 {\n    let y: I32 = x.0;\n    y\n}\n";
+        let edited = format!("// a comment\n\n{source}");
+        let [before, after] = [source.to_string(), edited].map(|text| {
+            let db = BlueberryDatabase::default();
+            let file = SourceFileKey::new(&db, PathBuf::from("main.bb"), text);
+            let b = file_scoped_definitions_of(&db, file).definitions()[1];
+            (
+                (*signature_source_map_of(&db, b)).clone(),
+                (*body_source_map_of(&db, b)).clone(),
+            )
+        });
+        assert_eq!(before, after);
+    }
 }

@@ -260,10 +260,14 @@ File
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
 │   │ │   Span: [133, 134)
-│   │ ├─TypeExpression
-│   │ │ └─Identifier
-│   │ │     Lexeme: "I32"
+│   │ ├─PathType
+│   │ │ └─Path
+│   │ │   └─PathSegment
+│   │ │     └─Identifier
+│   │ │         Lexeme: "I32"
+│   │ │         Span: [134, 137)
 │   │ │     Span: [134, 137)
+│   │ │   Span: [134, 137)
 │   │ │ Span: [134, 137)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "

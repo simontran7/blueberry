@@ -15,5 +15,5 @@ constant READY: Bool
 constant ALIAS: U32
 └─ Path SMALL 87..92: U32
 
-constant NOTHING: Unit
-└─ Unit 116..118: ()
+constant NOTHING: ()
+└─ Tuple 114..116: ()

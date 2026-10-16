@@ -25,7 +25,7 @@ function statement_without_semicolon() -> Bool
    │  └─ If 149..175: ()
    │     ├─ condition: Boolean true 152..156: Bool
    │     ├─ then: Block 157..163: ()
-   │     │  └─ tail: Unit 159..161: ()
+   │     │  └─ tail: Tuple 159..161: ()
    │     └─ else: Block 169..175: ()
-   │        └─ tail: Unit 171..173: ()
+   │        └─ tail: Tuple 171..173: ()
    └─ tail: Boolean false 180..185: Bool

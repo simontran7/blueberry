@@ -30,13 +30,13 @@ impl SyntaxDiagnostic {
             code: "E0101",
             message: format!("expected `{expected}`, found `{found}`"),
             span,
-            labels: vec![DiagnosticLabel {
+            labels: Box::new([DiagnosticLabel {
                 span,
                 message: Some(format!("expected `{expected}`")),
                 severity: LabelSeverity::Primary,
-            }],
-            notes: Vec::new(),
-            helps: Vec::new(),
+            }]),
+            notes: Box::new([]),
+            helps: Box::new([]),
         }
     }
 

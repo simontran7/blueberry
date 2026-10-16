@@ -90,24 +90,15 @@ flowchart TD
         module_file_of
     end
 
-    subgraph function [Per function]
-        function_signature_of
-        function_signature_type_of
-        function_body_with_source_map_of
-        function_body_of
-        function_scopes_of
-        function_types_of
-        function_mir_of
-    end
-
-    subgraph constant [Per constant]
-        constant_signature_of
-        constant_signature_type_of
-        constant_body_with_source_map_of
-        constant_body_of
-        constant_scopes_of
-        constant_types_of
-        constant_mir_of
+    subgraph definition [Per definition: a function or a constant]
+        signature_with_source_map_of
+        signature_of
+        signature_type_of
+        body_with_source_map_of
+        body_of
+        scopes_of
+        types_of
+        mir_of
     end
 
     SourceFileKey --> tokens_of --> cst_of
@@ -119,24 +110,13 @@ flowchart TD
     ModuleMap --> module_file_of
     imports_of -- "supplies the path argument" --> module_file_of
 
-    cst_of --> function_signature_of
-    function_signature_of --> function_signature_type_of
-    cst_of --> function_body_with_source_map_of
-    function_body_with_source_map_of --> function_body_of --> function_scopes_of
+    cst_of --> signature_with_source_map_of --> signature_of --> signature_type_of
+    cst_of --> body_with_source_map_of --> body_of --> scopes_of
 
-    cst_of --> constant_signature_of
-    constant_signature_of --> constant_signature_type_of
-    cst_of --> constant_body_with_source_map_of
-    constant_body_with_source_map_of --> constant_body_of --> constant_scopes_of
+    body_of & scopes_of & signature_type_of -.-> types_of
+    file_scoped_definitions_of & block_scoped_definitions_of & module_file_of -.-> types_of
 
-    function_body_of & function_scopes_of & function_signature_type_of -.-> function_types_of
-    constant_body_of & constant_scopes_of & constant_signature_type_of -.-> constant_types_of
-
-    file_scoped_definitions_of & block_scoped_definitions_of & module_file_of -.-> function_types_of
-    file_scoped_definitions_of & block_scoped_definitions_of & module_file_of -.-> constant_types_of
-
-    function_body_of & function_scopes_of & function_signature_type_of & function_types_of --> function_mir_of
-    constant_body_of & constant_scopes_of & constant_signature_type_of & constant_types_of --> constant_mir_of
+    body_of & signature_type_of & types_of --> mir_of
 ```
 
 Each stage is explained in its own document:

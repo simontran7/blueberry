@@ -1,10 +1,9 @@
-use crate::core::common::segments::Segment;
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::ast_lowering::definition_body_builder::DefinitionBodyBuilder;
+use crate::core::semantic_analysis::ast_lowering::hir_node_store_builder::HirNodeStoreBuilder;
 use crate::core::semantic_analysis::hir::nodes::{
-    BinaryOperator, DefinitionBody, DefinitionBodySourceMap, Expression, ExpressionHandle,
-    LocalBinding, LocalBindingHandle, LoopSource, Path, Statement, StatementHandle, TypeAnnotation,
-    TypeAnnotationHandle, UnaryOperator,
+    BinaryOperator, DefinitionBody, Expression, ExpressionHandle, HirNodeSourceMap, LocalBinding,
+    LocalBindingHandle, LoopSource, Path, Statement, StatementHandle, TypeExpressionHandle,
+    UnaryOperator,
 };
 use crate::core::semantic_analysis::ids::keys::BlockKey;
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
@@ -17,7 +16,7 @@ pub(crate) struct DefinitionBodyLowerer<'db> {
     file: SourceFileKey,
     owner: Definition<'db>,
     current_block: Option<BlockKey<'db>>,
-    builder: DefinitionBodyBuilder<'db>,
+    builder: HirNodeStoreBuilder<'db>,
 }
 
 impl<'db> DefinitionBodyLowerer<'db> {
@@ -27,7 +26,7 @@ impl<'db> DefinitionBodyLowerer<'db> {
             file,
             owner,
             current_block: None,
-            builder: DefinitionBodyBuilder::new(),
+            builder: HirNodeStoreBuilder::new(owner.anchor(db)),
         }
     }
 
@@ -42,8 +41,27 @@ impl<'db> DefinitionBodyLowerer<'db> {
                     .map_or(Expression::Error, Expression::Boolean),
                 literal.red(),
             ),
-            ast::Expression::UnitLiteral(literal) => {
-                self.builder.add_expression(Expression::Unit, literal.red())
+            ast::Expression::TupleExpression(tuple) => {
+                let element_handles: Vec<ExpressionHandle> = tuple
+                    .elements()
+                    .map(|element| self.lower_expression(element))
+                    .collect();
+                let element_run = self.builder.add_expression_children(&element_handles);
+                self.builder
+                    .add_expression(Expression::Tuple { element_run }, tuple.red())
+            }
+            ast::Expression::FieldExpression(field) => {
+                let receiver_handle = self.lower_optional_expression(field.receiver(), field.red());
+                let name = field
+                    .field()
+                    .map(|token| super::lower_name(self.db, &token));
+                self.builder.add_expression(
+                    Expression::Field {
+                        receiver_handle,
+                        name,
+                    },
+                    field.red(),
+                )
             }
             ast::Expression::PathExpression(path_expression) => {
                 let lowered = path_expression
@@ -102,12 +120,12 @@ impl<'db> DefinitionBodyLowerer<'db> {
                         self.lower_optional_expression(argument.value(), argument.red())
                     })
                     .collect();
-                let argument_segment = self.builder.add_expression_children(&argument_handles);
+                let argument_run = self.builder.add_expression_children(&argument_handles);
 
                 self.builder.add_expression(
                     Expression::Call {
                         callee_handle,
-                        argument_segment,
+                        argument_run,
                     },
                     call.red(),
                 )
@@ -188,19 +206,32 @@ impl<'db> DefinitionBodyLowerer<'db> {
     pub(crate) fn lower_function(
         mut self,
         function: &ast::FunctionDefinition,
-    ) -> (DefinitionBody<'db>, DefinitionBodySourceMap) {
-        let parameter_segment = self.lower_parameters(function.parameter_list());
+    ) -> (DefinitionBody<'db>, HirNodeSourceMap) {
+        let parameter_handles = self.lower_parameters(function.parameter_list());
         let root_handle = self.lower_optional_block(function.body(), function.red());
-        self.builder.finish(root_handle, parameter_segment)
+        self.finish(root_handle, parameter_handles)
     }
 
     pub(crate) fn lower_constant(
         mut self,
         constant: &ast::ConstantDefinition,
-    ) -> (DefinitionBody<'db>, DefinitionBodySourceMap) {
-        let parameter_segment = self.builder.add_binding_children(&[]);
+    ) -> (DefinitionBody<'db>, HirNodeSourceMap) {
         let root_handle = self.lower_optional_expression(constant.value(), constant.red());
-        self.builder.finish(root_handle, parameter_segment)
+        self.finish(root_handle, Box::new([]))
+    }
+
+    fn finish(
+        self,
+        root_handle: ExpressionHandle,
+        parameter_handles: Box<[LocalBindingHandle]>,
+    ) -> (DefinitionBody<'db>, HirNodeSourceMap) {
+        let (store, source_map) = self.builder.finish();
+        let body = DefinitionBody {
+            store,
+            root_handle,
+            parameter_handles,
+        };
+        (body, source_map)
     }
 
     fn lower_path(&self, path: &ast::Path) -> Option<Path<'db>> {
@@ -212,7 +243,8 @@ impl<'db> DefinitionBodyLowerer<'db> {
             ast::Statement::Let(let_statement) => {
                 let name = let_statement
                     .name()
-                    .map_or_else(String::new, |token| token.lexeme().to_string());
+                    .map(|token| token.lexeme().to_string())
+                    .unwrap_or_default();
                 let name_handle = self.builder.add_local_binding(
                     LocalBinding {
                         name: Symbol::new(self.db, name),
@@ -223,7 +255,7 @@ impl<'db> DefinitionBodyLowerer<'db> {
 
                 let annotation_handle = let_statement
                     .type_annotation()
-                    .map(|type_expression| self.lower_type_annotation(&type_expression));
+                    .map(|annotation| self.lower_type_expression(&annotation));
 
                 let initializer_handle =
                     self.lower_optional_expression(let_statement.value(), let_statement.red());
@@ -262,17 +294,18 @@ impl<'db> DefinitionBodyLowerer<'db> {
     fn lower_parameters(
         &mut self,
         parameter_list: Option<ast::ParameterList>,
-    ) -> Segment<LocalBindingHandle> {
+    ) -> Box<[LocalBindingHandle]> {
         let parameters: Vec<ast::Parameter> = parameter_list
             .map(|parameter_list| parameter_list.parameters().collect())
             .unwrap_or_default();
 
-        let parameter_handles: Vec<LocalBindingHandle> = parameters
+        parameters
             .into_iter()
             .map(|parameter| {
                 let name = parameter
                     .name()
-                    .map_or_else(String::new, |token| token.lexeme().to_string());
+                    .map(|token| token.lexeme().to_string())
+                    .unwrap_or_default();
                 self.builder.add_local_binding(
                     LocalBinding {
                         name: Symbol::new(self.db, name),
@@ -281,9 +314,7 @@ impl<'db> DefinitionBodyLowerer<'db> {
                     parameter.red(),
                 )
             })
-            .collect();
-
-        self.builder.add_binding_children(&parameter_handles)
+            .collect()
     }
 
     fn lower_while_loop(&mut self, while_loop: ast::WhileLoop) -> ExpressionHandle {
@@ -308,12 +339,12 @@ impl<'db> DefinitionBodyLowerer<'db> {
         );
 
         // lowers `loop {}`
-        let statement_segment = self.builder.add_statement_children(&[]);
+        let statement_run = self.builder.add_statement_children(&[]);
 
         let body_handle = self.builder.add_expression(
             Expression::Block {
                 block_key: None,
-                statement_segment,
+                statement_run,
                 tail_handle: Some(if_expression_handle),
             },
             node,
@@ -364,13 +395,13 @@ impl<'db> DefinitionBodyLowerer<'db> {
                 statement => statement_handles.push(self.lower_statement(statement)),
             }
         }
-        let statement_segment = self.builder.add_statement_children(&statement_handles);
+        let statement_run = self.builder.add_statement_children(&statement_handles);
         self.current_block = parent_block;
 
         self.builder.add_expression(
             Expression::Block {
                 block_key: Some(block_key),
-                statement_segment,
+                statement_run,
                 tail_handle,
             },
             block.red(),
@@ -388,12 +419,10 @@ impl<'db> DefinitionBodyLowerer<'db> {
         }
     }
 
-    fn lower_type_annotation(
+    fn lower_type_expression(
         &mut self,
         type_expression: &ast::TypeExpression,
-    ) -> TypeAnnotationHandle {
-        let annotation = TypeAnnotation::from_type_expression(self.db, type_expression);
-        self.builder
-            .add_type_annotation(annotation, type_expression.red())
+    ) -> TypeExpressionHandle {
+        super::lower_type_expression(self.db, &mut self.builder, type_expression)
     }
 }

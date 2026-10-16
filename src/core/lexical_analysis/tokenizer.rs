@@ -64,6 +64,7 @@ impl<'src> Tokenizer<'src> {
                 }
             }
             ',' => TokenKind::Comma,
+            '.' => TokenKind::Dot,
             '+' => TokenKind::Plus,
             '*' => TokenKind::Star,
             '/' => {

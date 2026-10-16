@@ -6,7 +6,7 @@ input_file: src/core/syntactic_analysis/snapshot_inputs/unit.bb
 function f()
 └─ Block
    ├─ Let x
-   │  └─ initializer: Unit
+   │  └─ initializer: Tuple
    └─ Let y
       └─ initializer: Binary +
          ├─ Integer 1

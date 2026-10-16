@@ -113,9 +113,9 @@ pub(crate) struct Continue {
 pub(crate) enum Expression {
     IntegerLiteral(IntegerLiteral),
     BooleanLiteral(BooleanLiteral),
-    UnitLiteral(UnitLiteral),
     PathExpression(PathExpression),
     ParenthesizedExpression(ParenthesizedExpression),
+    TupleExpression(TupleExpression),
     UnaryOperation(UnaryOperation),
     BinaryOperation(BinaryOperation),
     Assignment(Assignment),
@@ -123,6 +123,7 @@ pub(crate) enum Expression {
     WhileLoop(WhileLoop),
     InfiniteLoop(InfiniteLoop),
     Call(Call),
+    FieldExpression(FieldExpression),
     Block(Block),
     Return(Return),
     Break(Break),
@@ -181,7 +182,17 @@ pub(crate) struct Argument {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+pub(crate) struct FieldExpression {
+    red: RedNode,
+}
+
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct ParenthesizedExpression {
+    red: RedNode,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct TupleExpression {
     red: RedNode,
 }
 
@@ -201,11 +212,6 @@ pub(crate) struct BooleanLiteral {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(crate) struct UnitLiteral {
-    red: RedNode,
-}
-
-#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct Block {
     red: RedNode,
 }
@@ -221,7 +227,24 @@ pub(crate) struct Parameter {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(crate) struct TypeExpression {
+pub(crate) enum TypeExpression {
+    PathType(PathType),
+    TupleType(TupleType),
+    ParenthesizedType(ParenthesizedType),
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct PathType {
+    red: RedNode,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct TupleType {
+    red: RedNode,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct ParenthesizedType {
     red: RedNode,
 }
 
@@ -383,7 +406,7 @@ impl FunctionDefinition {
         child(self.red())
     }
 
-    pub(crate) fn return_type(&self) -> Option<TypeExpression> {
+    pub(crate) fn return_type_annotation(&self) -> Option<TypeExpression> {
         child(self.red())
     }
 
@@ -599,9 +622,9 @@ impl AstNode for Expression {
             kind,
             SyntaxKind::IntegerLiteral
                 | SyntaxKind::BooleanLiteral
-                | SyntaxKind::UnitLiteral
                 | SyntaxKind::PathExpression
                 | SyntaxKind::ParenthesizedExpression
+                | SyntaxKind::TupleExpression
                 | SyntaxKind::UnaryOperation
                 | SyntaxKind::BinaryOperation
                 | SyntaxKind::Assignment
@@ -609,6 +632,7 @@ impl AstNode for Expression {
                 | SyntaxKind::WhileLoop
                 | SyntaxKind::InfiniteLoop
                 | SyntaxKind::Call
+                | SyntaxKind::FieldExpression
                 | SyntaxKind::Block
                 | SyntaxKind::ReturnExpression
                 | SyntaxKind::BreakExpression
@@ -620,11 +644,11 @@ impl AstNode for Expression {
         let result = match red.kind() {
             SyntaxKind::IntegerLiteral => Self::IntegerLiteral(IntegerLiteral { red }),
             SyntaxKind::BooleanLiteral => Self::BooleanLiteral(BooleanLiteral { red }),
-            SyntaxKind::UnitLiteral => Self::UnitLiteral(UnitLiteral { red }),
             SyntaxKind::PathExpression => Self::PathExpression(PathExpression { red }),
             SyntaxKind::ParenthesizedExpression => {
                 Self::ParenthesizedExpression(ParenthesizedExpression { red })
             }
+            SyntaxKind::TupleExpression => Self::TupleExpression(TupleExpression { red }),
             SyntaxKind::UnaryOperation => Self::UnaryOperation(UnaryOperation { red }),
             SyntaxKind::BinaryOperation => Self::BinaryOperation(BinaryOperation { red }),
             SyntaxKind::Assignment => Self::Assignment(Assignment { red }),
@@ -632,6 +656,7 @@ impl AstNode for Expression {
             SyntaxKind::WhileLoop => Self::WhileLoop(WhileLoop { red }),
             SyntaxKind::InfiniteLoop => Self::InfiniteLoop(InfiniteLoop { red }),
             SyntaxKind::Call => Self::Call(Call { red }),
+            SyntaxKind::FieldExpression => Self::FieldExpression(FieldExpression { red }),
             SyntaxKind::Block => Self::Block(Block { red }),
             SyntaxKind::ReturnExpression => Self::Return(Return { red }),
             SyntaxKind::BreakExpression => Self::Break(Break { red }),
@@ -645,9 +670,9 @@ impl AstNode for Expression {
         match self {
             Self::IntegerLiteral(n) => n.red(),
             Self::BooleanLiteral(n) => n.red(),
-            Self::UnitLiteral(n) => n.red(),
             Self::PathExpression(n) => n.red(),
             Self::ParenthesizedExpression(n) => n.red(),
+            Self::TupleExpression(n) => n.red(),
             Self::UnaryOperation(n) => n.red(),
             Self::BinaryOperation(n) => n.red(),
             Self::Assignment(n) => n.red(),
@@ -655,6 +680,7 @@ impl AstNode for Expression {
             Self::WhileLoop(n) => n.red(),
             Self::InfiniteLoop(n) => n.red(),
             Self::Call(n) => n.red(),
+            Self::FieldExpression(n) => n.red(),
             Self::Block(n) => n.red(),
             Self::Return(n) => n.red(),
             Self::Break(n) => n.red(),
@@ -928,6 +954,37 @@ impl AstNode for Argument {
     }
 }
 
+impl FieldExpression {
+    pub(crate) fn receiver(&self) -> Option<Expression> {
+        child(self.red())
+    }
+
+    pub(crate) fn field(&self) -> Option<RedToken> {
+        self.red().children().find_map(|child| match child {
+            RedChild::Token(t)
+                if matches!(t.kind(), SyntaxKind::Integer | SyntaxKind::Identifier) =>
+            {
+                Some(t)
+            }
+            _ => None,
+        })
+    }
+}
+
+impl AstNode for FieldExpression {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::FieldExpression
+    }
+
+    fn cast(red: RedNode) -> Option<Self> {
+        Self::can_cast(red.kind()).then_some(Self { red })
+    }
+
+    fn red(&self) -> &RedNode {
+        &self.red
+    }
+}
+
 impl ParenthesizedExpression {
     pub(crate) fn expression(&self) -> Option<Expression> {
         child(self.red())
@@ -937,6 +994,26 @@ impl ParenthesizedExpression {
 impl AstNode for ParenthesizedExpression {
     fn can_cast(kind: SyntaxKind) -> bool {
         kind == SyntaxKind::ParenthesizedExpression
+    }
+
+    fn cast(red: RedNode) -> Option<Self> {
+        Self::can_cast(red.kind()).then_some(Self { red })
+    }
+
+    fn red(&self) -> &RedNode {
+        &self.red
+    }
+}
+
+impl TupleExpression {
+    pub(crate) fn elements(&self) -> impl Iterator<Item = Expression> {
+        children(self.red())
+    }
+}
+
+impl AstNode for TupleExpression {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TupleExpression
     }
 
     fn cast(red: RedNode) -> Option<Self> {
@@ -1030,20 +1107,6 @@ impl AstNode for BooleanLiteral {
     }
 }
 
-impl AstNode for UnitLiteral {
-    fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::UnitLiteral
-    }
-
-    fn cast(red: RedNode) -> Option<Self> {
-        Self::can_cast(red.kind()).then_some(Self { red })
-    }
-
-    fn red(&self) -> &RedNode {
-        &self.red
-    }
-}
-
 impl Block {
     pub(crate) fn statements(&self) -> impl Iterator<Item = Statement> {
         children(self.red())
@@ -1096,7 +1159,7 @@ impl Parameter {
         token(self.red(), SyntaxKind::Identifier)
     }
 
-    pub(crate) fn type_expression(&self) -> Option<TypeExpression> {
+    pub(crate) fn type_annotation(&self) -> Option<TypeExpression> {
         child(self.red())
     }
 }
@@ -1115,15 +1178,82 @@ impl AstNode for Parameter {
     }
 }
 
-impl TypeExpression {
-    pub(crate) fn name(&self) -> Option<RedToken> {
-        token(self.red(), SyntaxKind::Identifier)
+impl AstNode for TypeExpression {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        matches!(
+            kind,
+            SyntaxKind::PathType | SyntaxKind::TupleType | SyntaxKind::ParenthesizedType
+        )
+    }
+
+    fn cast(red: RedNode) -> Option<Self> {
+        let result = match red.kind() {
+            SyntaxKind::PathType => Self::PathType(PathType { red }),
+            SyntaxKind::TupleType => Self::TupleType(TupleType { red }),
+            SyntaxKind::ParenthesizedType => Self::ParenthesizedType(ParenthesizedType { red }),
+            _ => return None,
+        };
+        Some(result)
+    }
+
+    fn red(&self) -> &RedNode {
+        match self {
+            Self::PathType(n) => n.red(),
+            Self::TupleType(n) => n.red(),
+            Self::ParenthesizedType(n) => n.red(),
+        }
     }
 }
 
-impl AstNode for TypeExpression {
+impl PathType {
+    pub(crate) fn path(&self) -> Option<Path> {
+        child(self.red())
+    }
+}
+
+impl AstNode for PathType {
     fn can_cast(kind: SyntaxKind) -> bool {
-        kind == SyntaxKind::TypeExpression
+        kind == SyntaxKind::PathType
+    }
+
+    fn cast(red: RedNode) -> Option<Self> {
+        Self::can_cast(red.kind()).then_some(Self { red })
+    }
+
+    fn red(&self) -> &RedNode {
+        &self.red
+    }
+}
+
+impl TupleType {
+    pub(crate) fn elements(&self) -> impl Iterator<Item = TypeExpression> {
+        children(self.red())
+    }
+}
+
+impl AstNode for TupleType {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::TupleType
+    }
+
+    fn cast(red: RedNode) -> Option<Self> {
+        Self::can_cast(red.kind()).then_some(Self { red })
+    }
+
+    fn red(&self) -> &RedNode {
+        &self.red
+    }
+}
+
+impl ParenthesizedType {
+    pub(crate) fn inner(&self) -> Option<TypeExpression> {
+        child(self.red())
+    }
+}
+
+impl AstNode for ParenthesizedType {
+    fn can_cast(kind: SyntaxKind) -> bool {
+        kind == SyntaxKind::ParenthesizedType
     }
 
     fn cast(red: RedNode) -> Option<Self> {

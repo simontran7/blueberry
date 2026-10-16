@@ -17,11 +17,11 @@ pub(crate) struct DiagnosticDescription {
     pub(crate) code: &'static str,
     pub(crate) message: String,
     pub(crate) span: Span,
-    pub(crate) labels: Vec<DiagnosticLabel>,
+    pub(crate) labels: Box<[DiagnosticLabel]>,
     /// Shown after the source snippet as `= note: ...`.
-    pub(crate) notes: Vec<String>,
+    pub(crate) notes: Box<[String]>,
     /// Shown after the source snippet as `= help: ...`.
-    pub(crate) helps: Vec<String>,
+    pub(crate) helps: Box<[String]>,
 }
 
 pub(crate) struct DiagnosticLabel {

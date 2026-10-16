@@ -5,14 +5,12 @@ use crate::core::semantic_analysis::hir::nodes::{
     StatementHandle, UnaryOperator,
 };
 use crate::core::semantic_analysis::name_resolution::resolver::Resolution;
-use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
 use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckSink;
 use crate::core::semantic_analysis::type_checking::types::{Ty, TyKind};
 
 pub(crate) struct MirLowerer<'a, 'db> {
     db: &'db dyn crate::Db,
     body: &'a DefinitionBody<'db>,
-    scopes: &'a ScopeTree<'db>,
     types: &'a TypeCheckSink<'db>,
     cfg: CfgBuilder<'db>,
     loop_frames: Vec<LoopFrame>,
@@ -28,13 +26,11 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     pub(crate) fn new(
         db: &'db dyn crate::Db,
         body: &'a DefinitionBody<'db>,
-        scopes: &'a ScopeTree<'db>,
         types: &'a TypeCheckSink<'db>,
     ) -> Self {
         Self {
             db,
             body,
-            scopes,
             types,
             cfg: CfgBuilder::new(),
             loop_frames: Vec::new(),
@@ -63,7 +59,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
     pub(crate) fn lower_constant(mut self, declared_type: Ty<'db>) -> MirBody<'db> {
         let signature = Signature {
-            parameter_types: Vec::new(),
+            parameter_types: Box::new([]),
             return_type: declared_type,
         };
         let cfg = self.lower_body();
@@ -76,7 +72,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         self.cfg.add_block(entry_block_id);
         self.cfg.seal_block(entry_block_id);
 
-        for &binding_handle in &body.binding_children[body.parameter_segment] {
+        for &binding_handle in &body.parameter_handles {
             let ty = self.types.local_binding_type(binding_handle);
             if self.is_zero_sized(ty) {
                 continue;
@@ -99,7 +95,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     }
 
     fn lower_statement(&mut self, statement_handle: StatementHandle) {
-        match &self.body.statements[statement_handle] {
+        match &self.body.store.statements[statement_handle] {
             Statement::Expression {
                 expression_handle, ..
             } => {
@@ -122,11 +118,21 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     fn lower_expression(&mut self, expression_handle: ExpressionHandle) -> Option<ValueId> {
         let body = self.body;
         let ty = self.types.expression_type(expression_handle);
-        match &body.expressions[expression_handle] {
+        match &body.store.expressions[expression_handle] {
             Expression::Error => {
                 unreachable!("MIR is only built for bodies without errors")
             }
-            Expression::Unit => None,
+            Expression::Tuple { element_run } => {
+                self.lower_tuple(&body.store.expression_children[*element_run], ty)
+            }
+            Expression::Field {
+                receiver_handle,
+                name,
+            } => self.lower_field(
+                *receiver_handle,
+                name.unwrap().as_tuple_index(self.db).unwrap(),
+                ty,
+            ),
             Expression::Boolean(value) => Some(self.cfg.emit_boolean_literal(*value, ty)),
             Expression::Integer(value) => Some(self.cfg.emit_integer_literal(ty, value.unwrap())),
             Expression::UnaryOperation {
@@ -149,17 +155,17 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             Expression::Return { value_handle } => self.lower_return(*value_handle),
             Expression::Call {
                 callee_handle,
-                argument_segment,
+                argument_run,
             } => self.lower_call(
                 *callee_handle,
-                &body.expression_children[*argument_segment],
+                &body.store.expression_children[*argument_run],
                 ty,
             ),
             Expression::Block {
-                statement_segment,
+                statement_run,
                 tail_handle,
                 ..
-            } => self.lower_block(&body.statement_children[*statement_segment], *tail_handle),
+            } => self.lower_block(&body.store.statement_children[*statement_run], *tail_handle),
             Expression::If {
                 condition_handle,
                 then_branch_handle,
@@ -174,6 +180,38 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             Expression::Break { value_handle } => self.lower_break(*value_handle),
             Expression::Continue => self.lower_continue(),
         }
+    }
+
+    fn lower_tuple(
+        &mut self,
+        element_handles: &[ExpressionHandle],
+        ty: Ty<'db>,
+    ) -> Option<ValueId> {
+        let mut element_ids = Vec::with_capacity(element_handles.len());
+        for &element_handle in element_handles {
+            let element_id = self.lower_expression(element_handle);
+            if self.cfg.is_filled_here() {
+                return None;
+            }
+            element_ids.extend(element_id);
+        }
+        if self.is_zero_sized(ty) {
+            return None;
+        }
+        Some(self.cfg.emit_tuple(&element_ids, ty))
+    }
+
+    fn lower_field(
+        &mut self,
+        receiver_handle: ExpressionHandle,
+        index: u32,
+        ty: Ty<'db>,
+    ) -> Option<ValueId> {
+        let receiver_id = self.lower_expression(receiver_handle);
+        if self.cfg.is_filled_here() || self.is_zero_sized(ty) {
+            return None;
+        }
+        Some(self.cfg.emit_extract_field(receiver_id.unwrap(), index, ty))
     }
 
     fn lower_unary_operation(
@@ -223,7 +261,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     }
 
     fn lower_path(&mut self, expression_handle: ExpressionHandle, ty: Ty<'db>) -> Option<ValueId> {
-        match self.resolve_path(expression_handle) {
+        match self.types.path_resolution(expression_handle) {
             Resolution::Local(binding_handle) => {
                 if self.is_zero_sized(ty) {
                     return None;
@@ -252,14 +290,61 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         target_handle: ExpressionHandle,
         value_handle: ExpressionHandle,
     ) -> Option<ValueId> {
-        let Resolution::Local(binding_handle) = self.resolve_path(target_handle) else {
+        let mut indices = Vec::new();
+        let mut base_handle = target_handle;
+        while let Expression::Field {
+            receiver_handle,
+            name,
+        } = &self.body.store.expressions[base_handle]
+        {
+            indices.push(name.unwrap().as_tuple_index(self.db).unwrap());
+            base_handle = *receiver_handle;
+        }
+        indices.reverse();
+
+        let Resolution::Local(binding_handle) = self.types.path_resolution(base_handle) else {
             unreachable!(
                 "semantic analysis already rejects assignments whose target isn't a local binding"
             );
         };
         let value_id = self.lower_expression(value_handle);
-        self.write_local(binding_handle, value_id);
+        if self.cfg.is_filled_here() {
+            return None;
+        }
+        let Some(value_id) = value_id else {
+            return None;
+        };
+
+        let base_ty = self.types.expression_type(base_handle);
+        let block = self.current_block();
+        let base_id = self.cfg.read_variable(binding_handle, base_ty, block);
+        let new_base_id = self.insert_field(base_id, base_ty, &indices, value_id);
+        self.write_local(binding_handle, Some(new_base_id));
         None
+    }
+
+    fn insert_field(
+        &mut self,
+        tuple_id: ValueId,
+        tuple_ty: Ty<'db>,
+        indices: &[u32],
+        value_id: ValueId,
+    ) -> ValueId {
+        let Some((&index, rest)) = indices.split_first() else {
+            return value_id;
+        };
+        let TyKind::Tuple(elements) = tuple_ty.kind(self.db) else {
+            unreachable!("semantic analysis already rejects fields of non-tuples");
+        };
+        let element_ty = elements[index as usize];
+        let element_id = if rest.is_empty() {
+            value_id
+        } else {
+            let element_id = self.cfg.emit_extract_field(tuple_id, index, element_ty);
+            self.insert_field(element_id, element_ty, rest, value_id)
+        };
+        self.cfg
+            .emit_insert_field(tuple_id, element_id, index, tuple_ty)
     }
 
     fn lower_return(&mut self, value_handle: Option<ExpressionHandle>) -> Option<ValueId> {
@@ -279,8 +364,8 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         argument_handles: &[ExpressionHandle],
         ty: Ty<'db>,
     ) -> Option<ValueId> {
-        let function = match &self.body.expressions[callee_handle] {
-            Expression::Path(_) => match self.resolve_path(callee_handle) {
+        let function = match &self.body.store.expressions[callee_handle] {
+            Expression::Path(_) => match self.types.path_resolution(callee_handle) {
                 Resolution::Function(function) => Some(function),
                 Resolution::Local(_)
                 | Resolution::Constant(_)
@@ -586,22 +671,15 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         }
     }
 
-    fn resolve_path(&self, expression_handle: ExpressionHandle) -> Resolution<'db> {
-        let Expression::Path(path) = &self.body.expressions[expression_handle] else {
-            unreachable!("only a path names something");
-        };
-        self.scopes
-            .resolver_for(expression_handle)
-            .resolve_path(self.db, *path)
-            .unwrap()
-    }
-
     fn current_block(&self) -> BlockId {
         self.cfg.current_block().unwrap()
     }
 
     fn is_zero_sized(&self, ty: Ty<'db>) -> bool {
-        matches!(ty.kind(self.db), TyKind::Unit)
+        match ty.kind(self.db) {
+            TyKind::Tuple(elements) => elements.iter().all(|&element| self.is_zero_sized(element)),
+            _ => false,
+        }
     }
 
     fn is_bottom(&self, ty: Ty<'db>) -> bool {

@@ -13,11 +13,23 @@ More importantly, failing loudly in release builds is better than failing silent
 - the core type: `TYPE`
 - the handle: `TYPEHandle`
 - the view: `TYPEView`
-- the handle pointing to a segment of handles: `Segment<TYPE>`
+- a run (a contiguous range) of items inside a `RunList<TYPE>` (of handles, or of plain values): `Run<TYPE>`
 - a variable, parameter, or struct field that's a handle: `<description>_handle`
-- a variable, parameter, or struct field whose type is a handle pointing to a segment of handles: `<description>_segment`
+- a variable, parameter, or struct field whose type is a `Run`: `<description>_run`
 - a variable, parameter, or struct field whose type is an _actual_ slice of handles or a vector of handles: `<description>_handles`
 - a variable, parameter, or struct field whose type is a view: `<description>_view`
+
+## Naming by Kind and by Role
+
+Name a type after what a thing _is_ (its kind), and a field after the part it plays (its role). For example, `: I32` after a `let` is a `TypeExpression` (its kind) used as the `let`'s annotation (its role), so the field is `annotation_handle`, while a type expression nested inside a tuple, which isn't an annotation, is just a `type_expression_handle`. Likewise, a function's `body` is a `Block`, and a binary operation's `operator` is a token.
+
+## Collections
+
+A field of a finished value is a `Box<[T]>` (e.g., a `DefinitionBody`'s `parameter_handles`, a tuple type's elements, a path's segments): it's allocated to its exact length, takes one word less than a `Vec`, and its type says that it's final. A field is a `Vec<T>` only if the type itself grows it (e.g., an arena's items, a builder's output, a `DefinitionList` filled by `add_definition`). Build in a `Vec`, or `collect` directly, then store the result as a `Box<[T]>`.
+
+## Data Layout and APIs
+
+Lay data out flat (arenas of nodes referred to by handle, with their children in a `RunList`), but expose it through methods and views rather than raw fields, so that callers never have to know the layout. An arena and its children always travel together, so they're bundled into one type (e.g., the `HirNodeStore`), and only a node's own children go into it: what an owner does with nodes (its root, its parameters, its annotations) is kept on the owner.
 
 ## Layout
 

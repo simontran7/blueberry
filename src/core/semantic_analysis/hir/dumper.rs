@@ -1,18 +1,17 @@
 use std::sync::Arc;
 
-use crate::core::common::span::Span;
+use crate::core::common::span::{Span, TextSize};
 use crate::core::semantic_analysis::hir::nodes::{
-    DefinitionBody, DefinitionBodySourceMap, Expression, ExpressionHandle, Statement,
-    StatementHandle, TypeAnnotation,
+    DefinitionBody, Expression, ExpressionHandle, HirNodeSourceMap, Signature, Statement,
+    StatementHandle,
 };
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
 use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckSink;
 use crate::core::semantic_analysis::{
-    all_definitions_of, block_scoped_definitions_of, constant_body_of, constant_signature_of,
-    constant_source_map_of, constant_types_of, definition_diagnostics_of,
-    file_scoped_definitions_of, function_body_of, function_signature_of, function_source_map_of,
-    function_types_of, import_diagnostics_of,
+    all_definitions_of, block_scoped_definitions_of, body_of, body_source_map_of,
+    definition_diagnostics_of, file_scoped_definitions_of, import_diagnostics_of, signature_of,
+    types_of,
 };
 use crate::core::source_file_key::SourceFileKey;
 
@@ -24,12 +23,13 @@ pub(crate) struct HirBodyDumper<'db> {
 
 struct BodyTypes<'db> {
     sink: Arc<TypeCheckSink<'db>>,
-    source_map: Arc<DefinitionBodySourceMap>,
+    source_map: Arc<HirNodeSourceMap>,
+    anchor: TextSize,
 }
 
 struct Node {
     label: String,
-    children: Vec<Node>,
+    children: Box<[Node]>,
 }
 
 impl<'db> HirBodyDumper<'db> {
@@ -82,67 +82,57 @@ impl<'db> HirBodyDumper<'db> {
         out
     }
 
-    fn annotation_text(&self, annotation: &TypeAnnotation<'db>) -> String {
-        match annotation {
-            TypeAnnotation::Path(symbol) => symbol.text(self.db).to_string(),
-            TypeAnnotation::Error => "_".to_string(),
-        }
-    }
-
     fn definition(&self, definition: Definition<'db>) -> Node {
-        match definition {
-            Definition::Function(key) => {
-                let signature = function_signature_of(self.db, key);
-                let body = function_body_of(self.db, key);
-                let types = self.with_types.then(|| BodyTypes {
-                    sink: function_types_of(self.db, key).clone(),
-                    source_map: function_source_map_of(self.db, key),
-                });
-                let types = types.as_ref();
-                let parameters: Vec<String> = body.binding_children[body.parameter_segment]
+        let signature = signature_of(self.db, definition);
+        let body = body_of(self.db, definition);
+        let types = self.with_types.then(|| BodyTypes {
+            sink: types_of(self.db, definition).clone(),
+            source_map: body_source_map_of(self.db, definition),
+            anchor: definition.anchor(self.db),
+        });
+        let types = types.as_ref();
+        let store = signature.store();
+        let name = signature.name().text(self.db);
+        let label = match &**signature {
+            Signature::Function(function) => {
+                let parameters: Vec<String> = body
+                    .parameter_handles
                     .iter()
-                    .zip(&signature.parameters)
-                    .map(|(binding_handle, annotation)| {
+                    .zip(&function.parameter_annotation_handles)
+                    .map(|(binding_handle, annotation_handle)| {
                         format!(
                             "{}: {}",
-                            body.local_bindings[*binding_handle].name.text(self.db),
-                            self.annotation_text(annotation)
+                            body.store.local_bindings[*binding_handle]
+                                .name
+                                .text(self.db),
+                            store.display_type_expression(*annotation_handle, self.db)
                         )
                     })
                     .collect();
-                let returns = signature
-                    .return_type_annotation
-                    .as_ref()
-                    .map_or_else(String::new, |ty| {
-                        format!(" -> {}", self.annotation_text(ty))
+                let returns =
+                    function
+                        .return_type_annotation
+                        .map_or_else(String::new, |annotation_handle| {
+                            format!(
+                                " -> {}",
+                                store.display_type_expression(annotation_handle, self.db)
+                            )
+                        });
+                format!("function {name}({}){returns}", parameters.join(", "))
+            }
+            Signature::Constant(constant) => {
+                let ty = constant
+                    .annotation
+                    .map_or_else(String::new, |annotation_handle| {
+                        format!(
+                            ": {}",
+                            store.display_type_expression(annotation_handle, self.db)
+                        )
                     });
-                Node::new(
-                    format!(
-                        "function {}({}){returns}",
-                        signature.name.text(self.db),
-                        parameters.join(", ")
-                    ),
-                    vec![self.expression(body, types, body.root_handle)],
-                )
+                format!("constant {name}{ty}")
             }
-            Definition::Constant(key) => {
-                let signature = constant_signature_of(self.db, key);
-                let body = constant_body_of(self.db, key);
-                let types = self.with_types.then(|| BodyTypes {
-                    sink: constant_types_of(self.db, key).clone(),
-                    source_map: constant_source_map_of(self.db, key),
-                });
-                let types = types.as_ref();
-                let ty = signature
-                    .type_annotation
-                    .as_ref()
-                    .map_or_else(String::new, |ty| format!(": {}", self.annotation_text(ty)));
-                Node::new(
-                    format!("constant {}{ty}", signature.name.text(self.db)),
-                    vec![self.expression(body, types, body.root_handle)],
-                )
-            }
-        }
+        };
+        Node::new(label, vec![self.expression(body, types, body.root_handle)])
     }
 
     fn expression(
@@ -151,19 +141,25 @@ impl<'db> HirBodyDumper<'db> {
         types: Option<&BodyTypes<'db>>,
         expression_handle: ExpressionHandle,
     ) -> Node {
-        let node = match &body.expressions[expression_handle] {
-            Expression::Unit => Node::leaf("Unit"),
+        let node = match &body.store.expressions[expression_handle] {
             Expression::Integer(Some(value)) => Node::leaf(format!("Integer {value}")),
             Expression::Integer(None) => Node::leaf("Integer (too large)"),
             Expression::Boolean(value) => Node::leaf(format!("Boolean {value}")),
-            Expression::Path(path) => {
-                let segments: Vec<&str> = path
-                    .segments(self.db)
+            Expression::Path(path) => Node::leaf(format!("Path {}", path.display(self.db))),
+            Expression::Tuple { element_run } => Node::new(
+                "Tuple",
+                body.store.expression_children[*element_run]
                     .iter()
-                    .map(|segment| segment.text(self.db))
-                    .collect();
-                Node::leaf(format!("Path {}", segments.join("::")))
-            }
+                    .map(|element_handle| self.expression(body, types, *element_handle))
+                    .collect(),
+            ),
+            Expression::Field {
+                receiver_handle,
+                name,
+            } => Node::new(
+                format!("Field {}", name.map_or("?", |name| name.text(self.db))),
+                vec![self.expression(body, types, *receiver_handle)],
+            ),
             Expression::Error => Node::leaf("Error"),
             Expression::If {
                 condition_handle,
@@ -186,10 +182,10 @@ impl<'db> HirBodyDumper<'db> {
             }
             Expression::Block {
                 block_key,
-                statement_segment,
+                statement_run,
                 tail_handle,
             } => {
-                let mut children: Vec<Node> = body.statement_children[*statement_segment]
+                let mut children: Vec<Node> = body.store.statement_children[*statement_run]
                     .iter()
                     .map(|statement_handle| self.statement(body, types, *statement_handle))
                     .collect();
@@ -220,13 +216,13 @@ impl<'db> HirBodyDumper<'db> {
             ),
             Expression::Call {
                 callee_handle,
-                argument_segment,
+                argument_run,
             } => {
                 let mut children = vec![
                     self.expression(body, types, *callee_handle)
                         .labeled("callee"),
                 ];
-                children.extend(body.expression_children[*argument_segment].iter().map(
+                children.extend(body.store.expression_children[*argument_run].iter().map(
                     |argument_handle| {
                         self.expression(body, types, *argument_handle)
                             .labeled("argument")
@@ -283,12 +279,19 @@ impl<'db> HirBodyDumper<'db> {
         };
         match types {
             Some(types) => node
-                .ranged(&self.range(types.source_map.expressions[expression_handle].span))
+                .ranged(
+                    &self.range(
+                        types
+                            .source_map
+                            .expression_span(expression_handle, types.anchor),
+                    ),
+                )
                 .typed(
                     &types
                         .sink
                         .expression_type(expression_handle)
-                        .display(self.db),
+                        .display(self.db)
+                        .to_string(),
                 ),
             None => node,
         }
@@ -300,17 +303,19 @@ impl<'db> HirBodyDumper<'db> {
         types: Option<&BodyTypes<'db>>,
         statement_handle: StatementHandle,
     ) -> Node {
-        match &body.statements[statement_handle] {
+        match &body.store.statements[statement_handle] {
             Statement::Let {
                 name_handle,
                 annotation_handle,
                 initializer_handle,
             } => {
-                let binding = &body.local_bindings[*name_handle];
+                let binding = &body.store.local_bindings[*name_handle];
                 let mutability = if binding.mutable { "mut " } else { "" };
                 let mut children = Vec::new();
                 if let Some(annotation_handle) = annotation_handle {
-                    let text = self.annotation_text(&body.type_annotations[*annotation_handle]);
+                    let text = body
+                        .store
+                        .display_type_expression(*annotation_handle, self.db);
                     children.push(Node::leaf(format!("type: {text}")));
                 }
                 children.push(
@@ -322,9 +327,13 @@ impl<'db> HirBodyDumper<'db> {
                     children,
                 );
                 match types {
-                    Some(types) => {
-                        node.typed(&types.sink.local_binding_type(*name_handle).display(self.db))
-                    }
+                    Some(types) => node.typed(
+                        &types
+                            .sink
+                            .local_binding_type(*name_handle)
+                            .display(self.db)
+                            .to_string(),
+                    ),
                     None => node,
                 }
             }
@@ -402,7 +411,7 @@ impl Node {
     fn new(label: impl Into<String>, children: Vec<Node>) -> Self {
         Self {
             label: label.into(),
-            children,
+            children: children.into_boxed_slice(),
         }
     }
 

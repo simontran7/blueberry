@@ -3,11 +3,11 @@ use crate::core::semantic_analysis::hir::nodes::Path;
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(crate) struct ImportList<'db> {
-    paths: Vec<Path<'db>>,
+    paths: Box<[Path<'db>]>,
 }
 
 impl<'db> ImportList<'db> {
-    pub(crate) fn new(paths: Vec<Path<'db>>) -> Self {
+    pub(crate) fn new(paths: Box<[Path<'db>]>) -> Self {
         Self { paths }
     }
 

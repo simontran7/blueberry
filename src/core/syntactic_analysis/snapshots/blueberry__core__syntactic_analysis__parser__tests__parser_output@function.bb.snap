@@ -64,10 +64,14 @@ File
 │ ├─Whitespace
 │ │   Lexeme: " "
 │ │   Span: [23, 24)
-│ ├─TypeExpression
-│ │ └─Identifier
-│ │     Lexeme: "I32"
+│ ├─PathType
+│ │ └─Path
+│ │   └─PathSegment
+│ │     └─Identifier
+│ │         Lexeme: "I32"
+│ │         Span: [24, 27)
 │ │     Span: [24, 27)
+│ │   Span: [24, 27)
 │ │ Span: [24, 27)
 │ ├─Whitespace
 │ │   Lexeme: " "

@@ -331,10 +331,7 @@ impl Parser {
             TokenKind::Integer => Some(self.parse_integer_literal()),
             TokenKind::True | TokenKind::False => Some(self.parse_boolean_literal()),
             TokenKind::Identifier => Some(self.parse_path_expression()),
-            TokenKind::OpenParen if self.cursor.peek_ahead(1) == TokenKind::CloseParen => {
-                Some(self.parse_unit_literal())
-            }
-            TokenKind::OpenParen => Some(self.parse_parenthesized_expression()),
+            TokenKind::OpenParen => Some(self.parse_parenthesized_or_tuple_expression()),
             TokenKind::Loop => Some(self.parse_infinite_loop()),
             TokenKind::While => Some(self.parse_while_loop()),
             TokenKind::If => Some(self.parse_if()),
@@ -371,26 +368,32 @@ impl Parser {
         self.close(marker, SyntaxKind::PathExpression)
     }
 
-    fn parse_unit_literal(&mut self) -> ClosedMarker {
-        assert!(self.cursor.at(TokenKind::OpenParen));
-        assert!(self.cursor.peek_ahead(1) == TokenKind::CloseParen);
-        let marker = self.open();
-
-        self.require(TokenKind::OpenParen);
-        self.require(TokenKind::CloseParen);
-
-        self.close(marker, SyntaxKind::UnitLiteral)
-    }
-
-    fn parse_parenthesized_expression(&mut self) -> ClosedMarker {
+    fn parse_parenthesized_or_tuple_expression(&mut self) -> ClosedMarker {
         assert!(self.cursor.at(TokenKind::OpenParen));
         let marker = self.open();
 
         self.require(TokenKind::OpenParen);
-        let _ = self.parse_expression(Self::MIN_BINDING_POWER);
+        let mut saw_expression = false;
+        let mut saw_comma = false;
+        while !self.cursor.at(TokenKind::CloseParen) && !self.cursor.at_eof() {
+            if !self.cursor.at_any(Self::EXPRESSION_STARTERS) {
+                break;
+            }
+            saw_expression = true;
+            let _ = self.parse_expression(Self::MIN_BINDING_POWER);
+            if !self.cursor.at(TokenKind::CloseParen) {
+                saw_comma = true;
+                self.require(TokenKind::Comma);
+            }
+        }
         self.require(TokenKind::CloseParen);
 
-        self.close(marker, SyntaxKind::ParenthesizedExpression)
+        let kind = if saw_expression && !saw_comma {
+            SyntaxKind::ParenthesizedExpression
+        } else {
+            SyntaxKind::TupleExpression
+        };
+        self.close(marker, kind)
     }
 
     fn parse_infinite_loop(&mut self) -> ClosedMarker {
@@ -451,8 +454,21 @@ impl Parser {
 
     fn led_postfix(&mut self, lhs: ClosedMarker) -> ClosedMarker {
         let marker = self.open_before(lhs);
-        self.parse_argument_list();
-        self.close(marker, SyntaxKind::Call)
+        if self.cursor.at(TokenKind::Dot) {
+            self.require(TokenKind::Dot);
+            if self
+                .cursor
+                .at_any(&[TokenKind::Integer, TokenKind::Identifier])
+            {
+                self.advance();
+            } else {
+                self.record_diagnostic("field name");
+            }
+            self.close(marker, SyntaxKind::FieldExpression)
+        } else {
+            self.parse_argument_list();
+            self.close(marker, SyntaxKind::Call)
+        }
     }
 
     fn led_infix(&mut self, lhs: ClosedMarker, rbp: u8) -> ClosedMarker {
@@ -497,11 +513,54 @@ impl Parser {
     }
 
     fn parse_type_expression(&mut self) {
+        if self.cursor.at(TokenKind::OpenParen) {
+            self.parse_parenthesized_or_tuple_type();
+        } else {
+            self.parse_path_type();
+        }
+    }
+
+    fn parse_path_type(&mut self) {
         let marker = self.open();
 
-        self.require(TokenKind::Identifier);
+        if self.cursor.at(TokenKind::Identifier) {
+            self.parse_path();
+        } else {
+            self.record_diagnostic(&TokenKind::Identifier.to_string());
+        }
 
-        self.close(marker, SyntaxKind::TypeExpression);
+        self.close(marker, SyntaxKind::PathType);
+    }
+
+    fn parse_parenthesized_or_tuple_type(&mut self) {
+        assert!(self.cursor.at(TokenKind::OpenParen));
+        let marker = self.open();
+
+        self.require(TokenKind::OpenParen);
+        let mut type_count = 0;
+        let mut trailing_comma = false;
+        while !self.cursor.at(TokenKind::CloseParen) && !self.cursor.at_eof() {
+            if !self
+                .cursor
+                .at_any(&[TokenKind::Identifier, TokenKind::OpenParen])
+            {
+                break;
+            }
+            type_count += 1;
+            self.parse_type_expression();
+            trailing_comma = self.eat(TokenKind::Comma);
+            if !trailing_comma {
+                break;
+            }
+        }
+        self.require(TokenKind::CloseParen);
+
+        let kind = if type_count == 1 && !trailing_comma {
+            SyntaxKind::ParenthesizedType
+        } else {
+            SyntaxKind::TupleType
+        };
+        self.close(marker, kind);
     }
 
     fn open(&mut self) -> OpenMarker {

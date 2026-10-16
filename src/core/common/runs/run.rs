@@ -2,15 +2,15 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::ops::Range;
 
-/// A `{ start, len }` range of items inside a `SegmentList<T>`.
+/// A `{ start, len }` range of items inside a `RunList<T>`.
 #[derive(salsa::SalsaValue)]
-pub(crate) struct Segment<T> {
+pub(crate) struct Run<T> {
     start: u32,
     len: u32,
     _marker: PhantomData<fn() -> T>,
 }
 
-impl<T> Segment<T> {
+impl<T> Run<T> {
     pub(super) fn new(start: u32, len: u32) -> Self {
         Self {
             start,
@@ -36,25 +36,25 @@ impl<T> Segment<T> {
     }
 }
 
-impl<T> Clone for Segment<T> {
+impl<T> Clone for Run<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<T> Copy for Segment<T> {}
+impl<T> Copy for Run<T> {}
 
 // NOTE: manually implemented, since `#[derive(PartialEq)]` would add
 // an unwanted `T: PartialEq` bound via the `PhantomData<T>` field.
-impl<T> PartialEq for Segment<T> {
+impl<T> PartialEq for Run<T> {
     fn eq(&self, other: &Self) -> bool {
         self.start == other.start && self.len == other.len
     }
 }
-impl<T> Eq for Segment<T> {}
+impl<T> Eq for Run<T> {}
 
-impl<T> fmt::Debug for Segment<T> {
+impl<T> fmt::Debug for Run<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Segment")
+        f.debug_struct("Run")
             .field("start", &self.start)
             .field("len", &self.len)
             .finish()

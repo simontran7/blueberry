@@ -13,13 +13,13 @@ impl LexicalDiagnostic {
                 code: "E0102",
                 message: format!("unknown start of token: `{character}`"),
                 span: *span,
-                labels: vec![DiagnosticLabel {
+                labels: Box::new([DiagnosticLabel {
                     span: *span,
                     message: Some("unrecognized character".to_string()),
                     severity: LabelSeverity::Primary,
-                }],
-                notes: Vec::new(),
-                helps: Vec::new(),
+                }]),
+                notes: Box::new([]),
+                helps: Box::new([]),
             },
         }
     }

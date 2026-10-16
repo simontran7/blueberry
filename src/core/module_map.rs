@@ -14,7 +14,7 @@ pub(crate) struct ModuleMap {
 
 /// A module path's segments, e.g. `["a", "b"]` for an import declaration `import a::b;`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct ModulePath(Vec<String>);
+pub(crate) struct ModulePath(Box<[String]>);
 
 impl ModuleMap {
     pub(crate) fn load(db: &dyn crate::Db, root: &FilePath) -> io::Result<Self> {
