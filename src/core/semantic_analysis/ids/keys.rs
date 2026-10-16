@@ -6,52 +6,52 @@ use crate::core::syntactic_analysis::cst::{RedNode, RedNodeTag};
 use crate::core::syntactic_analysis::cst_of;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
-pub(crate) enum DefinitionSource<'db> {
+pub(in crate::core) enum DefinitionSource<'db> {
     File(SourceFileKey),
     Block(BlockKey<'db>),
 }
 
 #[salsa::tracked(debug)]
-pub(crate) struct FunctionKey<'db> {
+pub(in crate::core) struct FunctionKey<'db> {
     #[returns(copy)]
-    pub(crate) file: SourceFileKey,
+    pub(in crate::core) file: SourceFileKey,
     #[returns(copy)]
-    pub(crate) source: DefinitionSource<'db>,
+    pub(in crate::core) source: DefinitionSource<'db>,
     #[returns(copy)]
-    pub(crate) name: Symbol<'db>,
+    pub(in crate::core) name: Symbol<'db>,
     #[returns(copy)]
     #[tracked]
-    pub(crate) node: RedNodeTag,
+    pub(in crate::core) node: RedNodeTag,
 }
 
 #[salsa::tracked(debug)]
-pub(crate) struct ConstantKey<'db> {
+pub(in crate::core) struct ConstantKey<'db> {
     #[returns(copy)]
-    pub(crate) file: SourceFileKey,
+    pub(in crate::core) file: SourceFileKey,
     #[returns(copy)]
-    pub(crate) source: DefinitionSource<'db>,
+    pub(in crate::core) source: DefinitionSource<'db>,
     #[returns(copy)]
-    pub(crate) name: Symbol<'db>,
+    pub(in crate::core) name: Symbol<'db>,
     #[returns(copy)]
     #[tracked]
-    pub(crate) node: RedNodeTag,
+    pub(in crate::core) node: RedNodeTag,
 }
 
 #[salsa::tracked(debug)]
-pub(crate) struct BlockKey<'db> {
+pub(in crate::core) struct BlockKey<'db> {
     #[returns(copy)]
-    pub(crate) file: SourceFileKey,
+    pub(in crate::core) file: SourceFileKey,
     #[returns(copy)]
-    pub(crate) owner: Definition<'db>,
+    pub(in crate::core) owner: Definition<'db>,
     #[returns(copy)]
-    pub(crate) parent: Option<BlockKey<'db>>,
+    pub(in crate::core) parent: Option<BlockKey<'db>>,
     #[returns(copy)]
     #[tracked]
-    pub(crate) node: RedNodeTag,
+    pub(in crate::core) node: RedNodeTag,
 }
 
 impl<'db> DefinitionSource<'db> {
-    pub(crate) fn block(self) -> Option<BlockKey<'db>> {
+    pub(in crate::core) fn block(self) -> Option<BlockKey<'db>> {
         match self {
             Self::File(_) => None,
             Self::Block(block) => Some(block),
@@ -60,23 +60,23 @@ impl<'db> DefinitionSource<'db> {
 }
 
 impl<'db> FunctionKey<'db> {
-    pub(crate) fn to_ast_node(self, db: &'db dyn crate::Db) -> ast::FunctionDefinition {
+    pub(in crate::core) fn to_ast_node(self, db: &'db dyn crate::Db) -> ast::FunctionDefinition {
         to_ast_node(db, self.file(db), self.node(db))
     }
 }
 
 impl<'db> ConstantKey<'db> {
-    pub(crate) fn to_ast_node(self, db: &'db dyn crate::Db) -> ast::ConstantDefinition {
+    pub(in crate::core) fn to_ast_node(self, db: &'db dyn crate::Db) -> ast::ConstantDefinition {
         to_ast_node(db, self.file(db), self.node(db))
     }
 }
 
 impl<'db> BlockKey<'db> {
-    pub(crate) fn to_ast_node(self, db: &'db dyn crate::Db) -> ast::Block {
+    pub(in crate::core) fn to_ast_node(self, db: &'db dyn crate::Db) -> ast::Block {
         to_ast_node(db, self.file(db), self.node(db))
     }
 
-    pub(crate) fn enclosing_block(self, db: &'db dyn crate::Db) -> Option<BlockKey<'db>> {
+    pub(in crate::core) fn enclosing_block(self, db: &'db dyn crate::Db) -> Option<BlockKey<'db>> {
         self.parent(db)
             .or_else(|| self.owner(db).source(db).block())
     }

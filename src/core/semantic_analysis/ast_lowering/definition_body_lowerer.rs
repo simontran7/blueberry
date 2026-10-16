@@ -1,5 +1,5 @@
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::ast_lowering::hir_node_store_builder::HirNodeStoreBuilder;
+use crate::core::semantic_analysis::hir::hir_node_store_builder::HirNodeStoreBuilder;
 use crate::core::semantic_analysis::hir::nodes::{
     BinaryOperator, DefinitionBody, Expression, ExpressionHandle, HirNodeSourceMap, LocalBinding,
     LocalBindingHandle, LoopSource, Path, Statement, StatementHandle, TypeExpressionHandle,
@@ -11,7 +11,7 @@ use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
 use crate::core::syntactic_analysis::cst::{RedNode, RedNodeTag};
 
-pub(crate) struct DefinitionBodyLowerer<'db> {
+pub(in crate::core) struct DefinitionBodyLowerer<'db> {
     db: &'db dyn crate::Db,
     file: SourceFileKey,
     owner: Definition<'db>,
@@ -20,7 +20,11 @@ pub(crate) struct DefinitionBodyLowerer<'db> {
 }
 
 impl<'db> DefinitionBodyLowerer<'db> {
-    pub(crate) fn new(db: &'db dyn crate::Db, file: SourceFileKey, owner: Definition<'db>) -> Self {
+    pub(in crate::core) fn new(
+        db: &'db dyn crate::Db,
+        file: SourceFileKey,
+        owner: Definition<'db>,
+    ) -> Self {
         Self {
             db,
             file,
@@ -30,7 +34,10 @@ impl<'db> DefinitionBodyLowerer<'db> {
         }
     }
 
-    pub(crate) fn lower_expression(&mut self, expression: ast::Expression) -> ExpressionHandle {
+    pub(in crate::core) fn lower_expression(
+        &mut self,
+        expression: ast::Expression,
+    ) -> ExpressionHandle {
         match expression {
             ast::Expression::IntegerLiteral(literal) => self
                 .builder
@@ -203,7 +210,7 @@ impl<'db> DefinitionBodyLowerer<'db> {
         }
     }
 
-    pub(crate) fn lower_function(
+    pub(in crate::core) fn lower_function(
         mut self,
         function: &ast::FunctionDefinition,
     ) -> (DefinitionBody<'db>, HirNodeSourceMap) {
@@ -212,7 +219,7 @@ impl<'db> DefinitionBodyLowerer<'db> {
         self.finish(root_handle, parameter_handles)
     }
 
-    pub(crate) fn lower_constant(
+    pub(in crate::core) fn lower_constant(
         mut self,
         constant: &ast::ConstantDefinition,
     ) -> (DefinitionBody<'db>, HirNodeSourceMap) {

@@ -8,14 +8,14 @@ use crate::core::semantic_analysis::{
 };
 use crate::core::source_file_key::SourceFileKey;
 
-pub(crate) struct Resolver<'a, 'db> {
-    pub(crate) file: SourceFileKey,
-    pub(crate) scope_view: ScopeView<'a, 'db>,
-    pub(crate) enclosing_block: Option<BlockKey<'db>>,
+pub(in crate::core) struct Resolver<'a, 'db> {
+    pub(in crate::core) file: SourceFileKey,
+    pub(in crate::core) scope_view: ScopeView<'a, 'db>,
+    pub(in crate::core) enclosing_block: Option<BlockKey<'db>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) enum Resolution<'db> {
+pub(in crate::core) enum Resolution<'db> {
     Local(LocalBindingHandle),
     Function(FunctionKey<'db>),
     Constant(ConstantKey<'db>),
@@ -24,7 +24,7 @@ pub(crate) enum Resolution<'db> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) enum ResolveError<'db> {
+pub(in crate::core) enum ResolveError<'db> {
     Unresolved {
         segment_index: usize,
     },
@@ -38,7 +38,7 @@ pub(crate) enum ResolveError<'db> {
 }
 
 impl<'a, 'db> Resolver<'a, 'db> {
-    pub(crate) fn resolve_path(
+    pub(in crate::core) fn resolve_path(
         &self,
         db: &'db dyn crate::Db,
         path: Path<'db>,

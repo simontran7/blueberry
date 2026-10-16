@@ -3,18 +3,18 @@ use std::ops::Index;
 use super::run::Run;
 
 #[derive(Clone, PartialEq, Eq, Debug, salsa::SalsaValue)]
-pub(crate) struct RunList<T> {
+pub(in crate::core) struct RunList<T> {
     items: Vec<T>,
 }
 
 impl<T> RunList<T> {
-    pub(crate) fn new() -> Self {
+    pub(in crate::core) fn new() -> Self {
         Self { items: Vec::new() }
     }
 }
 
 impl<T: Copy> RunList<T> {
-    pub(crate) fn add_many(&mut self, items: &[T]) -> Run<T> {
+    pub(in crate::core) fn add_many(&mut self, items: &[T]) -> Run<T> {
         let start = u32::try_from(self.items.len()).unwrap();
         let len = u32::try_from(items.len()).unwrap();
         self.items.extend_from_slice(items);

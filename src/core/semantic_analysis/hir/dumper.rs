@@ -15,7 +15,7 @@ use crate::core::semantic_analysis::{
 };
 use crate::core::source_file_key::SourceFileKey;
 
-pub(crate) struct HirBodyDumper<'db> {
+pub(in crate::core) struct HirBodyDumper<'db> {
     db: &'db dyn crate::Db,
     source: &'db str,
     with_types: bool,
@@ -33,11 +33,14 @@ struct Node {
 }
 
 impl<'db> HirBodyDumper<'db> {
-    pub(crate) fn dump_file(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
+    pub(in crate::core) fn dump_file(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
         Self::dump(db, file, false)
     }
 
-    pub(crate) fn dump_file_with_types(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
+    pub(in crate::core) fn dump_file_with_types(
+        db: &'db dyn crate::Db,
+        file: SourceFileKey,
+    ) -> String {
         Self::dump(db, file, true)
     }
 
@@ -69,7 +72,11 @@ impl<'db> HirBodyDumper<'db> {
         diagnostics.extend(
             all_definitions_of(self.db, file)
                 .into_iter()
-                .flat_map(|definition| definition_diagnostics_of(self.db, definition)),
+                .flat_map(|definition| {
+                    definition_diagnostics_of(self.db, definition)
+                        .iter()
+                        .cloned()
+                }),
         );
         diagnostics.sort_by_key(|diagnostic| diagnostic.describe().span.start());
         let mut out = String::new();
@@ -102,9 +109,7 @@ impl<'db> HirBodyDumper<'db> {
                     .map(|(binding_handle, annotation_handle)| {
                         format!(
                             "{}: {}",
-                            body.store.local_bindings[*binding_handle]
-                                .name
-                                .text(self.db),
+                            body.store[*binding_handle].name.text(self.db),
                             store.display_type_expression(*annotation_handle, self.db)
                         )
                     })
@@ -141,14 +146,14 @@ impl<'db> HirBodyDumper<'db> {
         types: Option<&BodyTypes<'db>>,
         expression_handle: ExpressionHandle,
     ) -> Node {
-        let node = match &body.store.expressions[expression_handle] {
+        let node = match &body.store[expression_handle] {
             Expression::Integer(Some(value)) => Node::leaf(format!("Integer {value}")),
             Expression::Integer(None) => Node::leaf("Integer (too large)"),
             Expression::Boolean(value) => Node::leaf(format!("Boolean {value}")),
             Expression::Path(path) => Node::leaf(format!("Path {}", path.display(self.db))),
             Expression::Tuple { element_run } => Node::new(
                 "Tuple",
-                body.store.expression_children[*element_run]
+                body.store[*element_run]
                     .iter()
                     .map(|element_handle| self.expression(body, types, *element_handle))
                     .collect(),
@@ -185,7 +190,7 @@ impl<'db> HirBodyDumper<'db> {
                 statement_run,
                 tail_handle,
             } => {
-                let mut children: Vec<Node> = body.store.statement_children[*statement_run]
+                let mut children: Vec<Node> = body.store[*statement_run]
                     .iter()
                     .map(|statement_handle| self.statement(body, types, *statement_handle))
                     .collect();
@@ -222,12 +227,10 @@ impl<'db> HirBodyDumper<'db> {
                     self.expression(body, types, *callee_handle)
                         .labeled("callee"),
                 ];
-                children.extend(body.store.expression_children[*argument_run].iter().map(
-                    |argument_handle| {
-                        self.expression(body, types, *argument_handle)
-                            .labeled("argument")
-                    },
-                ));
+                children.extend(body.store[*argument_run].iter().map(|argument_handle| {
+                    self.expression(body, types, *argument_handle)
+                        .labeled("argument")
+                }));
                 Node::new("Call", children)
             }
             Expression::Continue => Node::leaf("Continue"),
@@ -303,13 +306,13 @@ impl<'db> HirBodyDumper<'db> {
         types: Option<&BodyTypes<'db>>,
         statement_handle: StatementHandle,
     ) -> Node {
-        match &body.store.statements[statement_handle] {
+        match &body.store[statement_handle] {
             Statement::Let {
                 name_handle,
                 annotation_handle,
                 initializer_handle,
             } => {
-                let binding = &body.store.local_bindings[*name_handle];
+                let binding = &body.store[*name_handle];
                 let mutability = if binding.mutable { "mut " } else { "" };
                 let mut children = Vec::new();
                 if let Some(annotation_handle) = annotation_handle {

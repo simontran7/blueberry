@@ -1,4 +1,4 @@
-pub(crate) mod inference_table;
-pub(crate) mod ty_lowering;
-pub(crate) mod type_checker;
-pub(crate) mod types;
+pub(in crate::core) mod inference_table;
+pub(in crate::core) mod ty_lowering;
+pub(in crate::core) mod type_checker;
+pub(in crate::core) mod types;

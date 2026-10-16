@@ -1,13 +1,13 @@
 use crate::core::syntactic_analysis::cst::{GreenChild, GreenNode};
 
-pub(crate) struct CstDumper<'cst> {
+pub(in crate::core) struct CstDumper<'cst> {
     root: &'cst GreenNode,
     dump: String,
     offset: usize,
 }
 
 impl<'cst> CstDumper<'cst> {
-    pub(crate) fn new(root: &'cst GreenNode) -> Self {
+    pub(in crate::core) fn new(root: &'cst GreenNode) -> Self {
         Self {
             root,
             dump: String::new(),
@@ -15,7 +15,7 @@ impl<'cst> CstDumper<'cst> {
         }
     }
 
-    pub(crate) fn dump(&mut self) -> String {
+    pub(in crate::core) fn dump(&mut self) -> String {
         self.dump.push_str(&format!("{:?}\n", self.root.kind()));
         self.dump_children(self.root, "");
         self.dump.push_str(&format!(

@@ -2,20 +2,20 @@ use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::hir::nodes::Path;
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct ImportList<'db> {
+pub(in crate::core) struct ImportList<'db> {
     paths: Box<[Path<'db>]>,
 }
 
 impl<'db> ImportList<'db> {
-    pub(crate) fn new(paths: Box<[Path<'db>]>) -> Self {
+    pub(in crate::core) fn new(paths: Box<[Path<'db>]>) -> Self {
         Self { paths }
     }
 
-    pub(crate) fn paths(&self) -> &[Path<'db>] {
+    pub(in crate::core) fn paths(&self) -> &[Path<'db>] {
         &self.paths
     }
 
-    pub(crate) fn matching(
+    pub(in crate::core) fn matching(
         &self,
         db: &'db dyn crate::Db,
         name: Symbol<'db>,

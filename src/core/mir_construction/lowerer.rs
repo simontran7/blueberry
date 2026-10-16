@@ -8,7 +8,7 @@ use crate::core::semantic_analysis::name_resolution::resolver::Resolution;
 use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckSink;
 use crate::core::semantic_analysis::type_checking::types::{Ty, TyKind};
 
-pub(crate) struct MirLowerer<'a, 'db> {
+pub(in crate::core) struct MirLowerer<'a, 'db> {
     db: &'db dyn crate::Db,
     body: &'a DefinitionBody<'db>,
     types: &'a TypeCheckSink<'db>,
@@ -23,7 +23,7 @@ struct LoopFrame {
 }
 
 impl<'a, 'db> MirLowerer<'a, 'db> {
-    pub(crate) fn new(
+    pub(in crate::core) fn new(
         db: &'db dyn crate::Db,
         body: &'a DefinitionBody<'db>,
         types: &'a TypeCheckSink<'db>,
@@ -37,7 +37,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         }
     }
 
-    pub(crate) fn lower_function(mut self, signature_type: Ty<'db>) -> MirBody<'db> {
+    pub(in crate::core) fn lower_function(mut self, signature_type: Ty<'db>) -> MirBody<'db> {
         let TyKind::Function {
             parameters,
             r#return,
@@ -57,7 +57,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         MirBody { signature, cfg }
     }
 
-    pub(crate) fn lower_constant(mut self, declared_type: Ty<'db>) -> MirBody<'db> {
+    pub(in crate::core) fn lower_constant(mut self, declared_type: Ty<'db>) -> MirBody<'db> {
         let signature = Signature {
             parameter_types: Box::new([]),
             return_type: declared_type,
@@ -95,7 +95,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     }
 
     fn lower_statement(&mut self, statement_handle: StatementHandle) {
-        match &self.body.store.statements[statement_handle] {
+        match &self.body.store[statement_handle] {
             Statement::Expression {
                 expression_handle, ..
             } => {
@@ -118,13 +118,11 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     fn lower_expression(&mut self, expression_handle: ExpressionHandle) -> Option<ValueId> {
         let body = self.body;
         let ty = self.types.expression_type(expression_handle);
-        match &body.store.expressions[expression_handle] {
+        match &body.store[expression_handle] {
             Expression::Error => {
                 unreachable!("MIR is only built for bodies without errors")
             }
-            Expression::Tuple { element_run } => {
-                self.lower_tuple(&body.store.expression_children[*element_run], ty)
-            }
+            Expression::Tuple { element_run } => self.lower_tuple(&body.store[*element_run], ty),
             Expression::Field {
                 receiver_handle,
                 name,
@@ -156,16 +154,12 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             Expression::Call {
                 callee_handle,
                 argument_run,
-            } => self.lower_call(
-                *callee_handle,
-                &body.store.expression_children[*argument_run],
-                ty,
-            ),
+            } => self.lower_call(*callee_handle, &body.store[*argument_run], ty),
             Expression::Block {
                 statement_run,
                 tail_handle,
                 ..
-            } => self.lower_block(&body.store.statement_children[*statement_run], *tail_handle),
+            } => self.lower_block(&body.store[*statement_run], *tail_handle),
             Expression::If {
                 condition_handle,
                 then_branch_handle,
@@ -261,7 +255,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     }
 
     fn lower_path(&mut self, expression_handle: ExpressionHandle, ty: Ty<'db>) -> Option<ValueId> {
-        match self.types.path_resolution(expression_handle) {
+        match self.types.path_resolution(expression_handle).unwrap() {
             Resolution::Local(binding_handle) => {
                 if self.is_zero_sized(ty) {
                     return None;
@@ -295,14 +289,15 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         while let Expression::Field {
             receiver_handle,
             name,
-        } = &self.body.store.expressions[base_handle]
+        } = &self.body.store[base_handle]
         {
             indices.push(name.unwrap().as_tuple_index(self.db).unwrap());
             base_handle = *receiver_handle;
         }
         indices.reverse();
 
-        let Resolution::Local(binding_handle) = self.types.path_resolution(base_handle) else {
+        let Some(Resolution::Local(binding_handle)) = self.types.path_resolution(base_handle)
+        else {
             unreachable!(
                 "semantic analysis already rejects assignments whose target isn't a local binding"
             );
@@ -364,8 +359,8 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         argument_handles: &[ExpressionHandle],
         ty: Ty<'db>,
     ) -> Option<ValueId> {
-        let function = match &self.body.store.expressions[callee_handle] {
-            Expression::Path(_) => match self.types.path_resolution(callee_handle) {
+        let function = match &self.body.store[callee_handle] {
+            Expression::Path(_) => match self.types.path_resolution(callee_handle).unwrap() {
                 Resolution::Function(function) => Some(function),
                 Resolution::Local(_)
                 | Resolution::Constant(_)

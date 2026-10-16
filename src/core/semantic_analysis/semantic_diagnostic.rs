@@ -7,10 +7,11 @@ use crate::core::semantic_analysis::hir::nodes::{
 use crate::core::semantic_analysis::ids::keys::FunctionKey;
 use crate::core::semantic_analysis::name_resolution::resolver::{Resolution, ResolveError};
 use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckSink;
+use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::source_file_key::SourceFileKey;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum SemanticDiagnostic {
+#[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
+pub(in crate::core) enum SemanticDiagnostic {
     TypeMismatch {
         expected: String,
         found: String,
@@ -131,11 +132,11 @@ pub(crate) enum SemanticDiagnostic {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) enum UnresolvedSemanticDiagnostic<'db> {
+pub(in crate::core) enum UnresolvedSemanticDiagnostic<'db> {
     TypeMismatch {
         expression_handle: ExpressionHandle,
-        expected: String,
-        found: String,
+        expected: Ty<'db>,
+        found: Ty<'db>,
         cause: TypeMismatchCause,
     },
     ReturnWithoutValue {
@@ -153,29 +154,29 @@ pub(crate) enum UnresolvedSemanticDiagnostic<'db> {
     },
     UnknownField {
         expression_handle: ExpressionHandle,
-        ty: String,
+        ty: Ty<'db>,
         is_primitive: bool,
     },
     ExpectedFunction {
         call_handle: ExpressionHandle,
-        found: String,
+        found: Ty<'db>,
     },
     MismatchedArgumentCount {
         call_handle: ExpressionHandle,
         function: Option<FunctionKey<'db>>,
-        parameters: Box<[String]>,
+        parameters: Box<[Ty<'db>]>,
     },
     UnaryOperatorCannotBeApplied {
         expression_handle: ExpressionHandle,
         operator: UnaryOperator,
-        found: String,
+        found: Ty<'db>,
         is_unsigned: bool,
     },
     BinaryOperatorCannotBeApplied {
         expression_handle: ExpressionHandle,
         operator: BinaryOperator,
-        lhs: String,
-        rhs: String,
+        lhs: Ty<'db>,
+        rhs: Ty<'db>,
     },
     InvalidAssignmentTarget {
         assignment_handle: ExpressionHandle,
@@ -194,14 +195,14 @@ pub(crate) enum UnresolvedSemanticDiagnostic<'db> {
     },
     LiteralOutOfRange {
         expression_handle: ExpressionHandle,
-        ty: String,
+        ty: Ty<'db>,
         range: String,
-        suggested_ty: Option<String>,
+        suggested_ty: Option<Ty<'db>>,
     },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) enum TypeMismatchCause {
+pub(in crate::core) enum TypeMismatchCause {
     General,
     ReturnValue,
     ImplicitUnitReturn,
@@ -211,15 +212,15 @@ pub(crate) enum TypeMismatchCause {
     IfWithoutElse,
 }
 
-pub(crate) struct OwnerSpans {
-    pub(crate) file: SourceFileKey,
-    pub(crate) anchor: TextSize,
-    pub(crate) name: Option<Span>,
-    pub(crate) return_type: Option<Span>,
+pub(in crate::core) struct OwnerSpans {
+    pub(in crate::core) file: SourceFileKey,
+    pub(in crate::core) anchor: TextSize,
+    pub(in crate::core) name: Option<Span>,
+    pub(in crate::core) return_type: Option<Span>,
 }
 
 impl SemanticDiagnostic {
-    pub(crate) fn describe(&self) -> DiagnosticDescription {
+    pub(in crate::core) fn describe(&self) -> DiagnosticDescription {
         match self {
             Self::TypeMismatch {
                 expected,
@@ -515,7 +516,7 @@ impl SemanticDiagnostic {
 }
 
 impl<'db> UnresolvedSemanticDiagnostic<'db> {
-    pub(crate) fn resolve(
+    pub(in crate::core) fn resolve(
         &self,
         db: &'db dyn crate::Db,
         body: &DefinitionBody<'db>,
@@ -526,9 +527,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
         let span_of = |expression_handle: ExpressionHandle| {
             source_map.expression_span(expression_handle, owner.anchor)
         };
-        let path_text = |expression_handle: ExpressionHandle| match &body.store.expressions
-            [expression_handle]
-        {
+        let path_text = |expression_handle: ExpressionHandle| match &body.store[expression_handle] {
             Expression::Path(path) => Some(path.display(db).to_string()),
             _ => None,
         };
@@ -541,26 +540,26 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
             } => match (*cause, owner.return_type) {
                 (TypeMismatchCause::ImplicitUnitReturn, Some(return_type_span)) => {
                     SemanticDiagnostic::ImplicitUnitReturn {
-                        expected: expected.clone(),
+                        expected: expected.display(db).to_string(),
                         return_type_span,
                         function_name_span: owner.name,
                     }
                 }
                 (TypeMismatchCause::IfElse { then_branch_handle }, _) => {
                     SemanticDiagnostic::IfElseMismatch {
-                        expected: expected.clone(),
-                        found: found.clone(),
+                        expected: expected.display(db).to_string(),
+                        found: found.display(db).to_string(),
                         then_span: span_of(value_expression(body, then_branch_handle)),
                         else_span: span_of(value_expression(body, *expression_handle)),
                     }
                 }
                 (TypeMismatchCause::IfWithoutElse, _) => SemanticDiagnostic::IfWithoutElse {
-                    expected: expected.clone(),
+                    expected: expected.display(db).to_string(),
                     span: span_of(*expression_handle),
                 },
                 (cause, _) => SemanticDiagnostic::TypeMismatch {
-                    expected: expected.clone(),
-                    found: found.clone(),
+                    expected: expected.display(db).to_string(),
+                    found: found.display(db).to_string(),
                     span: span_of(*expression_handle),
                     return_type_span: match cause {
                         TypeMismatchCause::ReturnValue => owner.return_type,
@@ -577,7 +576,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 expression_handle,
                 error,
             } => {
-                let Expression::Path(path) = &body.store.expressions[*expression_handle] else {
+                let Expression::Path(path) = &body.store[*expression_handle] else {
                     unreachable!("reported on paths")
                 };
                 let segments = path.segments(db);
@@ -630,9 +629,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
             Self::UnknownType {
                 type_expression_handle,
             } => {
-                let TypeExpression::Path(path) =
-                    &body.store.type_expressions[*type_expression_handle]
-                else {
+                let TypeExpression::Path(path) = &body.store[*type_expression_handle] else {
                     unreachable!("only path type expressions can be unknown")
                 };
                 SemanticDiagnostic::UnknownType {
@@ -647,7 +644,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
             } => {
                 let Expression::Field {
                     name: Some(name), ..
-                } = &body.store.expressions[*expression_handle]
+                } = &body.store[*expression_handle]
                 else {
                     unreachable!("reported on named fields")
                 };
@@ -656,24 +653,23 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 let span = Span::new(end - TextSize::new(field.len()), end);
                 if *is_primitive {
                     SemanticDiagnostic::PrimitiveHasNoFields {
-                        ty: ty.clone(),
+                        ty: ty.display(db).to_string(),
                         span,
                     }
                 } else {
                     SemanticDiagnostic::UnknownField {
                         field,
-                        ty: ty.clone(),
+                        ty: ty.display(db).to_string(),
                         span,
                     }
                 }
             }
             Self::ExpectedFunction { call_handle, found } => {
-                let Expression::Call { callee_handle, .. } = &body.store.expressions[*call_handle]
-                else {
+                let Expression::Call { callee_handle, .. } = &body.store[*call_handle] else {
                     unreachable!("reported on calls")
                 };
                 SemanticDiagnostic::ExpectedFunction {
-                    found: found.clone(),
+                    found: found.display(db).to_string(),
                     callee_name: path_text(*callee_handle),
                     callee_span: span_of(*callee_handle),
                     call_span: span_of(*call_handle),
@@ -687,11 +683,11 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 let Expression::Call {
                     callee_handle,
                     argument_run,
-                } = &body.store.expressions[*call_handle]
+                } = &body.store[*call_handle]
                 else {
                     unreachable!("reported on calls")
                 };
-                let argument_handles = &body.store.expression_children[*argument_run];
+                let argument_handles = &body.store[*argument_run];
                 let argument_labels = if argument_handles.len() > parameters.len() {
                     (parameters.len()..argument_handles.len())
                         .map(|index| {
@@ -706,7 +702,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 } else {
                     (argument_handles.len()..parameters.len())
                         .map(|index| {
-                            let ty = &parameters[index];
+                            let ty = parameters[index].display(db);
                             (
                                 span_of(*call_handle),
                                 format!("argument #{} of type `{ty}` is missing", index + 1),
@@ -737,7 +733,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                     UnaryOperator::Neg => "-".to_string(),
                     UnaryOperator::Not => "not".to_string(),
                 },
-                found: found.clone(),
+                found: found.display(db).to_string(),
                 is_unsigned: *is_unsigned,
                 span: span_of(*expression_handle),
             },
@@ -751,14 +747,14 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                     lhs_handle,
                     rhs_handle,
                     ..
-                } = &body.store.expressions[*expression_handle]
+                } = &body.store[*expression_handle]
                 else {
                     unreachable!("reported on binary operations")
                 };
                 SemanticDiagnostic::BinaryOperatorCannotBeApplied {
                     operator: *operator,
-                    lhs: lhs.clone(),
-                    rhs: rhs.clone(),
+                    lhs: lhs.display(db).to_string(),
+                    rhs: rhs.display(db).to_string(),
                     span: span_of(*expression_handle),
                     lhs_span: span_of(*lhs_handle),
                     rhs_span: span_of(*rhs_handle),
@@ -800,9 +796,9 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 literal: owner.file.contents(db)
                     [std::ops::Range::from(span_of(*expression_handle))]
                 .to_string(),
-                ty: ty.clone(),
+                ty: ty.display(db).to_string(),
                 range: range.clone(),
-                suggested_ty: suggested_ty.clone(),
+                suggested_ty: suggested_ty.map(|suggested_ty| suggested_ty.display(db).to_string()),
                 span: span_of(*expression_handle),
             },
         }
@@ -813,7 +809,7 @@ fn value_expression(
     body: &DefinitionBody<'_>,
     expression_handle: ExpressionHandle,
 ) -> ExpressionHandle {
-    match &body.store.expressions[expression_handle] {
+    match &body.store[expression_handle] {
         Expression::Block {
             tail_handle: Some(tail_handle),
             ..
@@ -823,7 +819,7 @@ fn value_expression(
 }
 
 fn value_kind(body: &DefinitionBody<'_>, expression_handle: ExpressionHandle) -> &'static str {
-    let is_callee = body.store.expressions.values().any(|other| {
+    let is_callee = body.store.expressions().map(|(_, expression)| expression).any(|other| {
         matches!(other, Expression::Call { callee_handle, .. } if *callee_handle == expression_handle)
     });
     if is_callee { "function" } else { "value" }

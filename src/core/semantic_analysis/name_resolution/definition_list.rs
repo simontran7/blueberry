@@ -1,4 +1,4 @@
-use crate::core::common::span::TextSize;
+use crate::core::common::span::{Span, TextSize};
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::ids::keys::{ConstantKey, DefinitionSource, FunctionKey};
 use crate::core::source_file_key::SourceFileKey;
@@ -6,28 +6,28 @@ use crate::core::syntactic_analysis::cst::RedNodeTag;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct DefinitionList<'db> {
+pub(in crate::core) struct DefinitionList<'db> {
     definitions: Vec<Definition<'db>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, salsa::Supertype, salsa::SalsaValue)]
-pub(crate) enum Definition<'db> {
+pub(in crate::core) enum Definition<'db> {
     Function(FunctionKey<'db>),
     Constant(ConstantKey<'db>),
 }
 
 impl<'db> DefinitionList<'db> {
-    pub(crate) fn new() -> Self {
+    pub(in crate::core) fn new() -> Self {
         Self {
             definitions: Vec::new(),
         }
     }
 
-    pub(crate) fn definitions(&self) -> &[Definition<'db>] {
+    pub(in crate::core) fn definitions(&self) -> &[Definition<'db>] {
         &self.definitions
     }
 
-    pub(crate) fn find(
+    pub(in crate::core) fn find(
         &self,
         db: &'db dyn crate::Db,
         name: Symbol<'db>,
@@ -38,7 +38,7 @@ impl<'db> DefinitionList<'db> {
             .find(|definition| definition.name(db) == name)
     }
 
-    pub(crate) fn add_definition(
+    pub(in crate::core) fn add_definition(
         &mut self,
         db: &'db dyn crate::Db,
         file: SourceFileKey,
@@ -60,29 +60,32 @@ impl<'db> DefinitionList<'db> {
 }
 
 impl<'db> Definition<'db> {
-    pub(crate) fn name(self, db: &'db dyn crate::Db) -> Symbol<'db> {
+    pub(in crate::core) fn name(self, db: &'db dyn crate::Db) -> Symbol<'db> {
         match self {
             Self::Function(key) => key.name(db),
             Self::Constant(key) => key.name(db),
         }
     }
 
-    pub(crate) fn anchor(self, db: &'db dyn crate::Db) -> TextSize {
-        let node = match self {
-            Self::Function(key) => key.node(db),
-            Self::Constant(key) => key.node(db),
-        };
-        node.span.start()
+    pub(in crate::core) fn anchor(self, db: &'db dyn crate::Db) -> TextSize {
+        self.span(db).start()
     }
 
-    pub(crate) fn source(self, db: &'db dyn crate::Db) -> DefinitionSource<'db> {
+    pub(in crate::core) fn span(self, db: &'db dyn crate::Db) -> Span {
+        match self {
+            Self::Function(key) => key.node(db).span,
+            Self::Constant(key) => key.node(db).span,
+        }
+    }
+
+    pub(in crate::core) fn source(self, db: &'db dyn crate::Db) -> DefinitionSource<'db> {
         match self {
             Self::Function(key) => key.source(db),
             Self::Constant(key) => key.source(db),
         }
     }
 
-    pub(crate) fn file(self, db: &'db dyn crate::Db) -> SourceFileKey {
+    pub(in crate::core) fn file(self, db: &'db dyn crate::Db) -> SourceFileKey {
         match self {
             Self::Function(key) => key.file(db),
             Self::Constant(key) => key.file(db),

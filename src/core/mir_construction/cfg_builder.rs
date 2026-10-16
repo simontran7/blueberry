@@ -14,7 +14,7 @@ use crate::core::semantic_analysis::hir::nodes::{
 use crate::core::semantic_analysis::ids::keys::{ConstantKey, FunctionKey};
 use crate::core::semantic_analysis::type_checking::types::Ty;
 
-pub(crate) struct CfgBuilder<'db> {
+pub(in crate::core) struct CfgBuilder<'db> {
     cfg: Cfg<'db>,
     position: Position,
     predecessor_edge_suballocator: HandleArrayListAllocator<InstructionId>,
@@ -48,7 +48,7 @@ enum BlockStatus {
 }
 
 impl<'db> CfgBuilder<'db> {
-    pub(crate) fn new() -> Self {
+    pub(in crate::core) fn new() -> Self {
         Self {
             cfg: Cfg::new(),
             position: Position::Nowhere,
@@ -59,11 +59,11 @@ impl<'db> CfgBuilder<'db> {
         }
     }
 
-    pub(crate) fn first_result(&self, instruction_id: InstructionId) -> Option<ValueId> {
+    pub(in crate::core) fn first_result(&self, instruction_id: InstructionId) -> Option<ValueId> {
         self.cfg.get_instruction(instruction_id).first_result()
     }
 
-    pub(crate) fn current_block(&self) -> Option<BlockId> {
+    pub(in crate::core) fn current_block(&self) -> Option<BlockId> {
         match self.position {
             Position::Nowhere => None,
             Position::At(instruction_id) => {
@@ -73,12 +73,12 @@ impl<'db> CfgBuilder<'db> {
         }
     }
 
-    pub(crate) fn is_filled_here(&self) -> bool {
+    pub(in crate::core) fn is_filled_here(&self) -> bool {
         self.current_block()
             .is_some_and(|block_id| self.block_states[block_id].status == BlockStatus::Filled)
     }
 
-    pub(crate) fn finish(&mut self) -> Cfg<'db> {
+    pub(in crate::core) fn finish(&mut self) -> Cfg<'db> {
         let mut cfg = std::mem::replace(&mut self.cfg, Cfg::new());
         cfg.flush_aliases();
 
@@ -91,11 +91,15 @@ impl<'db> CfgBuilder<'db> {
         cfg
     }
 
-    pub(crate) fn append_block_parameter(&mut self, block_id: BlockId, ty: Ty<'db>) -> ValueId {
+    pub(in crate::core) fn append_block_parameter(
+        &mut self,
+        block_id: BlockId,
+        ty: Ty<'db>,
+    ) -> ValueId {
         self.cfg.get_block_mut(block_id).append_parameter(ty)
     }
 
-    pub(crate) fn create_block(&mut self) -> BlockId {
+    pub(in crate::core) fn create_block(&mut self) -> BlockId {
         let block_id = self.cfg.allocate_block();
         assert_eq!(
             block_id.index(),
@@ -106,7 +110,7 @@ impl<'db> CfgBuilder<'db> {
         block_id
     }
 
-    pub(crate) fn add_block(&mut self, block_id: BlockId) {
+    pub(in crate::core) fn add_block(&mut self, block_id: BlockId) {
         match self.position {
             Position::At(before) => {
                 self.cfg.split_block(block_id, before);
@@ -119,7 +123,7 @@ impl<'db> CfgBuilder<'db> {
         self.position = Position::After(block_id);
     }
 
-    pub(crate) fn seal_block(&mut self, block_id: BlockId) {
+    pub(in crate::core) fn seal_block(&mut self, block_id: BlockId) {
         assert!(
             !self.block_states[block_id].sealed,
             "block {block_id:?} is already sealed"
@@ -136,7 +140,7 @@ impl<'db> CfgBuilder<'db> {
         self.block_states[block_id].sealed = true;
     }
 
-    pub(crate) fn write_variable(
+    pub(in crate::core) fn write_variable(
         &mut self,
         variable_id: LocalBindingHandle,
         block_id: BlockId,
@@ -145,7 +149,7 @@ impl<'db> CfgBuilder<'db> {
         self.current_defs.insert((variable_id, block_id), value_id);
     }
 
-    pub(crate) fn read_variable(
+    pub(in crate::core) fn read_variable(
         &mut self,
         variable: LocalBindingHandle,
         ty: Ty<'db>,
@@ -157,7 +161,7 @@ impl<'db> CfgBuilder<'db> {
         self.read_variable_recursive(variable, ty, block)
     }
 
-    pub(crate) fn emit_binary(
+    pub(in crate::core) fn emit_binary(
         &mut self,
         operator: BinaryOperator,
         lhs_id: ValueId,
@@ -172,7 +176,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(crate) fn emit_unary(
+    pub(in crate::core) fn emit_unary(
         &mut self,
         operator: UnaryOperator,
         operand_id: ValueId,
@@ -186,7 +190,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(crate) fn emit_integer_literal(&mut self, ty: Ty<'db>, value: u128) -> ValueId {
+    pub(in crate::core) fn emit_integer_literal(&mut self, ty: Ty<'db>, value: u128) -> ValueId {
         let instruction = self.cfg.allocate_integer_literal(value);
         let instruction_id = self.add_instruction(instruction, &[ty]);
         self.cfg
@@ -195,7 +199,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(crate) fn emit_boolean_literal(&mut self, value: bool, ty: Ty<'db>) -> ValueId {
+    pub(in crate::core) fn emit_boolean_literal(&mut self, value: bool, ty: Ty<'db>) -> ValueId {
         let instruction = self.cfg.allocate_boolean_literal(value);
         let instruction_id = self.add_instruction(instruction, &[ty]);
         self.cfg
@@ -204,7 +208,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(crate) fn emit_tuple(&mut self, element_ids: &[ValueId], ty: Ty<'db>) -> ValueId {
+    pub(in crate::core) fn emit_tuple(&mut self, element_ids: &[ValueId], ty: Ty<'db>) -> ValueId {
         let instruction = self.cfg.allocate_tuple(element_ids);
         let instruction_id = self.add_instruction(instruction, &[ty]);
         self.cfg
@@ -213,7 +217,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(crate) fn emit_extract_field(
+    pub(in crate::core) fn emit_extract_field(
         &mut self,
         operand_id: ValueId,
         index: u32,
@@ -227,7 +231,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(crate) fn emit_insert_field(
+    pub(in crate::core) fn emit_insert_field(
         &mut self,
         tuple_id: ValueId,
         value_id: ValueId,
@@ -242,7 +246,11 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(crate) fn emit_constant(&mut self, constant: ConstantKey<'db>, ty: Ty<'db>) -> ValueId {
+    pub(in crate::core) fn emit_constant(
+        &mut self,
+        constant: ConstantKey<'db>,
+        ty: Ty<'db>,
+    ) -> ValueId {
         let instruction = self.cfg.allocate_constant(constant);
         let instruction_id = self.add_instruction(instruction, &[ty]);
         self.cfg
@@ -251,7 +259,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(crate) fn emit_function_address(
+    pub(in crate::core) fn emit_function_address(
         &mut self,
         function: FunctionKey<'db>,
         ty: Ty<'db>,
@@ -264,7 +272,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(crate) fn emit_call(
+    pub(in crate::core) fn emit_call(
         &mut self,
         function: FunctionKey<'db>,
         argument_ids: &[ValueId],
@@ -274,7 +282,7 @@ impl<'db> CfgBuilder<'db> {
         self.add_instruction(instruction, result_types)
     }
 
-    pub(crate) fn emit_call_indirect(
+    pub(in crate::core) fn emit_call_indirect(
         &mut self,
         callee_and_argument_ids: &[ValueId],
         result_types: &[Ty<'db>],
@@ -283,7 +291,7 @@ impl<'db> CfgBuilder<'db> {
         self.add_instruction(instruction, result_types)
     }
 
-    pub(crate) fn emit_jump(
+    pub(in crate::core) fn emit_jump(
         &mut self,
         destination_id: BlockId,
         block_argument_ids: &[ValueId],
@@ -294,7 +302,7 @@ impl<'db> CfgBuilder<'db> {
         instruction_id
     }
 
-    pub(crate) fn emit_conditional_branch(
+    pub(in crate::core) fn emit_conditional_branch(
         &mut self,
         operand_id: ValueId,
         true_block_id: BlockId,
@@ -315,12 +323,12 @@ impl<'db> CfgBuilder<'db> {
         instruction_id
     }
 
-    pub(crate) fn emit_return(&mut self, output_ids: &[ValueId]) -> InstructionId {
+    pub(in crate::core) fn emit_return(&mut self, output_ids: &[ValueId]) -> InstructionId {
         let instruction = self.cfg.allocate_return(output_ids);
         self.add_instruction(instruction, &[])
     }
 
-    pub(crate) fn emit_unreachable(&mut self) -> InstructionId {
+    pub(in crate::core) fn emit_unreachable(&mut self) -> InstructionId {
         let instruction = self.cfg.allocate_unreachable();
         self.add_instruction(instruction, &[])
     }

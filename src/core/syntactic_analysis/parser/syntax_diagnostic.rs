@@ -2,7 +2,7 @@ use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, La
 use crate::core::common::span::Span;
 
 #[derive(Debug, Clone)]
-pub(crate) enum SyntaxDiagnostic {
+pub(in crate::core) enum SyntaxDiagnostic {
     UnexpectedToken {
         span: Option<Span>,
         expected: String,
@@ -11,7 +11,7 @@ pub(crate) enum SyntaxDiagnostic {
 }
 
 impl SyntaxDiagnostic {
-    pub(crate) fn new(expected: String, found: String) -> Self {
+    pub(in crate::core) fn new(expected: String, found: String) -> Self {
         Self::UnexpectedToken {
             span: None,
             expected,
@@ -19,7 +19,7 @@ impl SyntaxDiagnostic {
         }
     }
 
-    pub(crate) fn describe(&self) -> DiagnosticDescription {
+    pub(in crate::core) fn describe(&self) -> DiagnosticDescription {
         let Self::UnexpectedToken {
             span,
             expected,
@@ -40,7 +40,7 @@ impl SyntaxDiagnostic {
         }
     }
 
-    pub(crate) fn resolve(&mut self, span: Span) {
+    pub(in crate::core) fn resolve(&mut self, span: Span) {
         let Self::UnexpectedToken { span: s, .. } = self;
         *s = Some(span);
     }

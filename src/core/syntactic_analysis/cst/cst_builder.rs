@@ -8,7 +8,7 @@ use crate::core::syntactic_analysis::cst::{GreenChild, GreenNode};
 use crate::core::syntactic_analysis::parser::sink::{Event, Sink};
 use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
 
-pub(crate) struct CstBuilder<'src> {
+pub(in crate::core) struct CstBuilder<'src> {
     source: &'src str,
     tokens: &'src TokenStream,
     sink: Sink,
@@ -22,7 +22,7 @@ struct TokenCursor<'src> {
 }
 
 impl<'src> CstBuilder<'src> {
-    pub(crate) fn new(
+    pub(in crate::core) fn new(
         source: &'src str,
         tokens: &'src TokenStream,
         sink: Sink,
@@ -36,7 +36,7 @@ impl<'src> CstBuilder<'src> {
         }
     }
 
-    pub(crate) fn build(mut self) -> (Arc<GreenNode>, Vec<SyntaxDiagnostic>) {
+    pub(in crate::core) fn build(mut self) -> (Arc<GreenNode>, Vec<SyntaxDiagnostic>) {
         let mut cursor = TokenCursor::new(self.source, self.tokens);
         let mut events = std::mem::replace(&mut self.sink, Sink::new()).into_events();
         let mut diagnostics = std::mem::take(&mut self.diagnostics);

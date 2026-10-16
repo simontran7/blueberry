@@ -1,8 +1,9 @@
-pub(crate) mod common;
-pub(crate) mod db;
-pub(crate) mod lexical_analysis;
-pub(crate) mod mir_construction;
-pub(crate) mod module_map;
-pub(crate) mod semantic_analysis;
-pub(crate) mod source_file_key;
-pub(crate) mod syntactic_analysis;
+mod common;
+mod db;
+mod lexical_analysis;
+mod mir_construction;
+mod module_map;
+pub(crate) mod program;
+mod semantic_analysis;
+mod source_file_key;
+mod syntactic_analysis;

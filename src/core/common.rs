@@ -1,5 +1,5 @@
-pub(crate) mod diagnostic;
-pub(crate) mod handle_collections;
-pub(crate) mod runs;
-pub(crate) mod span;
-pub(crate) mod symbol;
+pub(in crate::core) mod diagnostic;
+pub(in crate::core) mod handle_collections;
+pub(in crate::core) mod runs;
+pub(in crate::core) mod span;
+pub(in crate::core) mod symbol;

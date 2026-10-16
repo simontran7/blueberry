@@ -7,17 +7,17 @@ use crate::core::semantic_analysis::hir::nodes::Path;
 use crate::core::source_file_key::SourceFileKey;
 
 #[salsa::input(singleton, debug)]
-pub(crate) struct ModuleMap {
+pub(in crate::core) struct ModuleMap {
     #[returns(ref)]
-    pub(crate) files: BTreeMap<ModulePath, SourceFileKey>,
+    pub(in crate::core) files: BTreeMap<ModulePath, SourceFileKey>,
 }
 
 /// A module path's segments, e.g. `["a", "b"]` for an import declaration `import a::b;`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct ModulePath(Box<[String]>);
+pub(in crate::core) struct ModulePath(Box<[String]>);
 
 impl ModuleMap {
-    pub(crate) fn load(db: &dyn crate::Db, root: &FilePath) -> io::Result<Self> {
+    pub(in crate::core) fn load(db: &dyn crate::Db, root: &FilePath) -> io::Result<Self> {
         let mut files = BTreeMap::new();
         let mut directories = vec![root.to_path_buf()];
         while let Some(directory) = directories.pop() {
@@ -37,7 +37,7 @@ impl ModuleMap {
 }
 
 impl ModulePath {
-    pub(crate) fn from_file_path(relative_path: &FilePath) -> Self {
+    pub(in crate::core) fn from_file_path(relative_path: &FilePath) -> Self {
         Self(
             relative_path
                 .with_extension("")
@@ -47,7 +47,7 @@ impl ModulePath {
         )
     }
 
-    pub(crate) fn from_path<'db>(db: &'db dyn crate::Db, path: Path<'db>) -> Self {
+    pub(in crate::core) fn from_path<'db>(db: &'db dyn crate::Db, path: Path<'db>) -> Self {
         Self(
             path.segments(db)
                 .iter()

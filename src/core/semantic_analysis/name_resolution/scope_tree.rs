@@ -10,7 +10,7 @@ use crate::core::semantic_analysis::name_resolution::resolver::Resolver;
 use crate::core::source_file_key::SourceFileKey;
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct ScopeTree<'db> {
+pub(in crate::core) struct ScopeTree<'db> {
     file: SourceFileKey,
     enclosing_block: Option<BlockKey<'db>>,
     scopes: HandleMap<ScopeHandle, Scope<'db>>,
@@ -19,20 +19,20 @@ pub(crate) struct ScopeTree<'db> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct ScopeEntry<'db> {
-    pub(crate) name: Symbol<'db>,
-    pub(crate) binding_handle: LocalBindingHandle,
+pub(in crate::core) struct ScopeEntry<'db> {
+    pub(in crate::core) name: Symbol<'db>,
+    pub(in crate::core) binding_handle: LocalBindingHandle,
 }
 
-handle_impl!(pub(crate) ScopeHandle);
+handle_impl!(pub(in crate::core) ScopeHandle);
 
 #[derive(Clone, Copy)]
-pub(crate) struct ScopeView<'a, 'db> {
+pub(in crate::core) struct ScopeView<'a, 'db> {
     store: &'a ScopeTree<'db>,
     scope_handle: ScopeHandle,
 }
 
-pub(crate) struct ScopeViewMut<'a, 'db> {
+pub(in crate::core) struct ScopeViewMut<'a, 'db> {
     store: &'a mut ScopeTree<'db>,
     scope_handle: ScopeHandle,
 }
@@ -45,7 +45,7 @@ struct Scope<'db> {
 }
 
 impl<'db> ScopeTree<'db> {
-    pub(crate) fn new(
+    pub(in crate::core) fn new(
         body: &DefinitionBody<'db>,
         file: SourceFileKey,
         enclosing_block: Option<BlockKey<'db>>,
@@ -72,14 +72,17 @@ impl<'db> ScopeTree<'db> {
         scope_tree
     }
 
-    pub(crate) fn containing_scope(
+    pub(in crate::core) fn containing_scope(
         &self,
         expression_handle: ExpressionHandle,
     ) -> ScopeView<'_, 'db> {
         self.get_scope(self.containing_scopes[expression_handle])
     }
 
-    pub(crate) fn resolver_for(&self, expression_handle: ExpressionHandle) -> Resolver<'_, 'db> {
+    pub(in crate::core) fn resolver_for(
+        &self,
+        expression_handle: ExpressionHandle,
+    ) -> Resolver<'_, 'db> {
         Resolver {
             file: self.file,
             scope_view: self.containing_scope(expression_handle),
@@ -109,7 +112,7 @@ impl<'db> ScopeTree<'db> {
     ) {
         self.containing_scopes.add(expression_handle, parent_handle);
 
-        match &body.store.expressions[expression_handle] {
+        match &body.store[expression_handle] {
             Expression::Integer(_)
             | Expression::Boolean(_)
             | Expression::Path(_)
@@ -137,8 +140,8 @@ impl<'db> ScopeTree<'db> {
                     entries: Run::empty(),
                 });
 
-                for statement_handle in &body.store.statement_children[*statement_run] {
-                    match &body.store.statements[*statement_handle] {
+                for statement_handle in &body.store[*statement_run] {
+                    match &body.store[*statement_handle] {
                         Statement::Let {
                             name_handle,
                             initializer_handle,
@@ -167,7 +170,7 @@ impl<'db> ScopeTree<'db> {
                 }
             }
             Expression::Tuple { element_run } => {
-                for element_handle in &body.store.expression_children[*element_run] {
+                for element_handle in &body.store[*element_run] {
                     self.visit_expression(body, *element_handle, parent_handle);
                 }
             }
@@ -183,7 +186,7 @@ impl<'db> ScopeTree<'db> {
                 argument_run,
             } => {
                 self.visit_expression(body, *callee_handle, parent_handle);
-                for argument_handle in &body.store.expression_children[*argument_run] {
+                for argument_handle in &body.store[*argument_run] {
                     self.visit_expression(body, *argument_handle, parent_handle);
                 }
             }
@@ -215,26 +218,29 @@ impl<'db> ScopeTree<'db> {
 }
 
 impl<'a, 'db> ScopeView<'a, 'db> {
-    pub(crate) fn block(&self) -> Option<BlockKey<'db>> {
+    pub(in crate::core) fn block(&self) -> Option<BlockKey<'db>> {
         self.store.scopes[self.scope_handle].block_key
     }
 
-    pub(crate) fn entries(&self) -> &'a [ScopeEntry<'db>] {
+    pub(in crate::core) fn entries(&self) -> &'a [ScopeEntry<'db>] {
         let entry_run = self.store.scopes[self.scope_handle].entries;
         &self.store.scope_entries[entry_run]
     }
 
-    pub(crate) fn parent(&self) -> Option<Self> {
+    pub(in crate::core) fn parent(&self) -> Option<Self> {
         self.store.scopes[self.scope_handle]
             .parent_handle
             .map(|parent_handle| self.store.get_scope(parent_handle))
     }
 
-    pub(crate) fn chain(self) -> impl Iterator<Item = Self> {
+    pub(in crate::core) fn chain(self) -> impl Iterator<Item = Self> {
         std::iter::successors(Some(self), Self::parent)
     }
 
-    pub(crate) fn get_local_binding(self, name: Symbol<'db>) -> Option<LocalBindingHandle> {
+    pub(in crate::core) fn get_local_binding(
+        self,
+        name: Symbol<'db>,
+    ) -> Option<LocalBindingHandle> {
         self.chain().find_map(|scope_view| {
             scope_view
                 .entries()
@@ -247,7 +253,7 @@ impl<'a, 'db> ScopeView<'a, 'db> {
 }
 
 impl<'db> ScopeViewMut<'_, 'db> {
-    pub(crate) fn add_entries(
+    pub(in crate::core) fn add_entries(
         &mut self,
         body: &DefinitionBody<'db>,
         binding_handles: &[LocalBindingHandle],
@@ -255,7 +261,7 @@ impl<'db> ScopeViewMut<'_, 'db> {
         let entries: Vec<ScopeEntry<'db>> = binding_handles
             .iter()
             .map(|binding_handle| ScopeEntry {
-                name: body.store.local_bindings[*binding_handle].name,
+                name: body.store[*binding_handle].name,
                 binding_handle: *binding_handle,
             })
             .collect();

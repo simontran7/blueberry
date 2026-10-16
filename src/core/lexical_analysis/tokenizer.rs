@@ -5,7 +5,7 @@ use super::token_stream::TokenStream;
 use crate::core::common::span::{Span, TextSize};
 use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
 
-pub(crate) struct Tokenizer<'src> {
+pub(in crate::core) struct Tokenizer<'src> {
     source: &'src str,
     cursor: Chars<'src>,
     tokens: TokenStream,
@@ -13,7 +13,7 @@ pub(crate) struct Tokenizer<'src> {
 }
 
 impl<'src> Tokenizer<'src> {
-    pub(crate) fn new(source: &'src str) -> Self {
+    pub(in crate::core) fn new(source: &'src str) -> Self {
         Tokenizer {
             source,
             cursor: source.chars(),
@@ -22,7 +22,7 @@ impl<'src> Tokenizer<'src> {
         }
     }
 
-    pub(crate) fn tokenize(mut self) -> (TokenStream, Vec<LexicalDiagnostic>) {
+    pub(in crate::core) fn tokenize(mut self) -> (TokenStream, Vec<LexicalDiagnostic>) {
         while !self.at_eof() {
             let (kind, end) = self.tokenize_one();
             self.tokens.add(kind, end);

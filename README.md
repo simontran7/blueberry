@@ -69,6 +69,8 @@ The compiler core is based on the [**query-based architecture**](https://ollef.g
 
 Queries are memoized thanks to [salsa](https://github.com/salsa-rs/salsa).
 
+The core is designed language-server-first: it's the base for both the batch compiler (`src/batch`) and the language server (`src/language_server`), which reach it only through one facade, `core::program::Program`. The facade answers questions in the core's own terms (a file and an offset in, diagnostics, a type or a definition's location out), and everything behind it (the HIR, its stores and source maps, types, MIR) is private to the core (`pub(in crate::core)`), so the compiler enforces the boundary. Everything specific to a client stays in that client: rendering and sorting diagnostics for the terminal in `src/batch`, and the language server protocol in `src/language_server`.
+
 While the language server calls the queries depending on the interactions, the batch compiler calls the queries as follows:
 
 ```mermaid

@@ -6,14 +6,14 @@ use crate::core::semantic_analysis::hir::nodes::{
 };
 use crate::core::syntactic_analysis::cst::{RedNode, RedNodeTag};
 
-pub(crate) struct HirNodeStoreBuilder<'db> {
+pub(in crate::core) struct HirNodeStoreBuilder<'db> {
     anchor: TextSize,
     store: HirNodeStore<'db>,
     source_map: HirNodeSourceMap,
 }
 
 impl<'db> HirNodeStoreBuilder<'db> {
-    pub(crate) fn new(anchor: TextSize) -> Self {
+    pub(in crate::core) fn new(anchor: TextSize) -> Self {
         Self {
             anchor,
             store: HirNodeStore::default(),
@@ -21,7 +21,7 @@ impl<'db> HirNodeStoreBuilder<'db> {
         }
     }
 
-    pub(crate) fn add_expression(
+    pub(in crate::core) fn add_expression(
         &mut self,
         expression: Expression<'db>,
         node: &RedNode,
@@ -34,7 +34,7 @@ impl<'db> HirNodeStoreBuilder<'db> {
         expression_handle
     }
 
-    pub(crate) fn add_statement(
+    pub(in crate::core) fn add_statement(
         &mut self,
         statement: Statement,
         node: &RedNode,
@@ -47,7 +47,7 @@ impl<'db> HirNodeStoreBuilder<'db> {
         statement_handle
     }
 
-    pub(crate) fn add_local_binding(
+    pub(in crate::core) fn add_local_binding(
         &mut self,
         binding: LocalBinding<'db>,
         node: &RedNode,
@@ -60,7 +60,7 @@ impl<'db> HirNodeStoreBuilder<'db> {
         binding_handle
     }
 
-    pub(crate) fn add_type_expression(
+    pub(in crate::core) fn add_type_expression(
         &mut self,
         type_expression: TypeExpression<'db>,
         node: &RedNode,
@@ -73,28 +73,28 @@ impl<'db> HirNodeStoreBuilder<'db> {
         type_expression_handle
     }
 
-    pub(crate) fn add_expression_children(
+    pub(in crate::core) fn add_expression_children(
         &mut self,
         child_handles: &[ExpressionHandle],
     ) -> Run<ExpressionHandle> {
         self.store.expression_children.add_many(child_handles)
     }
 
-    pub(crate) fn add_statement_children(
+    pub(in crate::core) fn add_statement_children(
         &mut self,
         child_handles: &[StatementHandle],
     ) -> Run<StatementHandle> {
         self.store.statement_children.add_many(child_handles)
     }
 
-    pub(crate) fn add_type_expression_children(
+    pub(in crate::core) fn add_type_expression_children(
         &mut self,
         child_handles: &[TypeExpressionHandle],
     ) -> Run<TypeExpressionHandle> {
         self.store.type_expression_children.add_many(child_handles)
     }
 
-    pub(crate) fn finish(self) -> (HirNodeStore<'db>, HirNodeSourceMap) {
+    pub(in crate::core) fn finish(self) -> (HirNodeStore<'db>, HirNodeSourceMap) {
         (self.store, self.source_map)
     }
 }

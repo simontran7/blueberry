@@ -22,15 +22,23 @@ impl Span {
         self.end
     }
 
-    pub(crate) fn contains(&self, other: Span) -> bool {
+    pub(in crate::core) fn contains(&self, other: Span) -> bool {
         self.start <= other.start && other.end <= self.end
     }
 
-    pub(crate) fn relative_to(self, anchor: TextSize) -> Self {
+    pub(in crate::core) fn contains_offset(&self, offset: TextSize) -> bool {
+        self.start <= offset && offset < self.end
+    }
+
+    pub(in crate::core) fn len(&self) -> TextSize {
+        self.end - self.start
+    }
+
+    pub(in crate::core) fn relative_to(self, anchor: TextSize) -> Self {
         Self::new(self.start - anchor, self.end - anchor)
     }
 
-    pub(crate) fn anchored_at(self, anchor: TextSize) -> Self {
+    pub(in crate::core) fn anchored_at(self, anchor: TextSize) -> Self {
         Self::new(self.start + anchor, self.end + anchor)
     }
 }

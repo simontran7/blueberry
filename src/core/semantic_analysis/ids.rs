@@ -1,1 +1,1 @@
-pub(crate) mod keys;
+pub(in crate::core) mod keys;

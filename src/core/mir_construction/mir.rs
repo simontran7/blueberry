@@ -10,38 +10,38 @@ use crate::core::semantic_analysis::ids::keys::{ConstantKey, FunctionKey};
 use crate::core::semantic_analysis::type_checking::types::Ty;
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct MirBody<'db> {
-    pub(crate) signature: Signature<'db>,
-    pub(crate) cfg: Cfg<'db>,
+pub(in crate::core) struct MirBody<'db> {
+    pub(in crate::core) signature: Signature<'db>,
+    pub(in crate::core) cfg: Cfg<'db>,
 }
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct Cfg<'db> {
+pub(in crate::core) struct Cfg<'db> {
     dfg: DataFlowGraph<'db>,
     layout: Layout,
 }
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct Value<'db> {
+pub(in crate::core) struct Value<'db> {
     ty: Ty<'db>,
     alias_id: Option<ValueId>,
     origin: ValueOrigin<'db>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) enum ValueOrigin<'db> {
+pub(in crate::core) enum ValueOrigin<'db> {
     InstructionResult(InstructionId, u16),
     Parameter(BlockId, u16),
     Undefined(Ty<'db>),
 }
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct Block {
+pub(in crate::core) struct Block {
     parameter_ids: HandleArrayList<ValueId>,
 }
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) enum InstructionKind<'db, T> {
+pub(in crate::core) enum InstructionKind<'db, T> {
     // Arithmetic
     Binary {
         operator: BinaryOperator,
@@ -108,49 +108,49 @@ pub(crate) enum InstructionKind<'db, T> {
     Unreachable,
 }
 
-pub(crate) type Instruction<'db> = InstructionKind<'db, HandleArrayList<ValueId>>;
+pub(in crate::core) type Instruction<'db> = InstructionKind<'db, HandleArrayList<ValueId>>;
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct Signature<'db> {
-    pub(crate) parameter_types: Box<[Ty<'db>]>,
-    pub(crate) return_type: Ty<'db>,
+pub(in crate::core) struct Signature<'db> {
+    pub(in crate::core) parameter_types: Box<[Ty<'db>]>,
+    pub(in crate::core) return_type: Ty<'db>,
 }
 
 // Opaque, 4-byte handles into the tables above.
-handle_impl!(pub(crate) BlockId);
+handle_impl!(pub(in crate::core) BlockId);
 
-handle_impl!(pub(crate) InstructionId);
+handle_impl!(pub(in crate::core) InstructionId);
 
-handle_impl!(pub(crate) ValueId);
+handle_impl!(pub(in crate::core) ValueId);
 
-pub(crate) struct BlockView<'a, 'db> {
+pub(in crate::core) struct BlockView<'a, 'db> {
     block_id: BlockId,
     cfg: &'a Cfg<'db>,
 }
 
-pub(crate) struct BlockViewMut<'a, 'db> {
+pub(in crate::core) struct BlockViewMut<'a, 'db> {
     block_id: BlockId,
     cfg: &'a mut Cfg<'db>,
 }
 
-pub(crate) struct InstructionView<'a, 'db> {
+pub(in crate::core) struct InstructionView<'a, 'db> {
     instruction_id: InstructionId,
     cfg: &'a Cfg<'db>,
 }
 
-pub(crate) type InstructionRef<'a, 'db> = InstructionKind<'db, &'a [ValueId]>;
+pub(in crate::core) type InstructionRef<'a, 'db> = InstructionKind<'db, &'a [ValueId]>;
 
-pub(crate) struct InstructionViewMut<'a, 'db> {
+pub(in crate::core) struct InstructionViewMut<'a, 'db> {
     instruction_id: InstructionId,
     cfg: &'a mut Cfg<'db>,
 }
 
-pub(crate) struct ValueView<'a, 'db> {
+pub(in crate::core) struct ValueView<'a, 'db> {
     value_id: ValueId,
     cfg: &'a Cfg<'db>,
 }
 
-pub(crate) enum UsedValuesIter<'a> {
+pub(in crate::core) enum UsedValuesIter<'a> {
     Slice(slice::Iter<'a, ValueId>),
     Branch {
         operand_id: Option<ValueId>,
@@ -159,12 +159,12 @@ pub(crate) enum UsedValuesIter<'a> {
     },
 }
 
-pub(crate) struct BlockIter<'a> {
+pub(in crate::core) struct BlockIter<'a> {
     layout: &'a Layout,
     next_id: Option<BlockId>,
 }
 
-pub(crate) struct InstructionIter<'a> {
+pub(in crate::core) struct InstructionIter<'a> {
     layout: &'a Layout,
     next_id: Option<InstructionId>,
 }
@@ -204,46 +204,46 @@ struct InstructionNode {
 }
 
 impl<'db> Cfg<'db> {
-    pub(crate) fn new() -> Self {
+    pub(in crate::core) fn new() -> Self {
         Self {
             dfg: DataFlowGraph::new(),
             layout: Layout::new(),
         }
     }
 
-    pub(crate) fn entry(&self) -> Option<BlockView<'_, 'db>> {
+    pub(in crate::core) fn entry(&self) -> Option<BlockView<'_, 'db>> {
         self.layout.entry_id.map(|block_id| BlockView {
             block_id,
             cfg: self,
         })
     }
 
-    pub(crate) fn exit(&self) -> Option<BlockView<'_, 'db>> {
+    pub(in crate::core) fn exit(&self) -> Option<BlockView<'_, 'db>> {
         self.layout.exit_id.map(|block_id| BlockView {
             block_id,
             cfg: self,
         })
     }
 
-    pub(crate) fn block_ids(&self) -> BlockIter<'_> {
+    pub(in crate::core) fn block_ids(&self) -> BlockIter<'_> {
         BlockIter {
             layout: &self.layout,
             next_id: self.layout.entry_id,
         }
     }
 
-    pub(crate) fn ssa_ids(&self) -> impl Iterator<Item = ValueId> + '_ {
+    pub(in crate::core) fn ssa_ids(&self) -> impl Iterator<Item = ValueId> + '_ {
         self.dfg.values.keys()
     }
 
-    pub(crate) fn get_block(&self, block_id: BlockId) -> BlockView<'_, 'db> {
+    pub(in crate::core) fn get_block(&self, block_id: BlockId) -> BlockView<'_, 'db> {
         BlockView {
             block_id,
             cfg: self,
         }
     }
 
-    pub(crate) fn contains(&self, block_id: BlockId) -> bool {
+    pub(in crate::core) fn contains(&self, block_id: BlockId) -> bool {
         Some(block_id) == self.layout.entry_id
             || self
                 .layout
@@ -252,7 +252,7 @@ impl<'db> Cfg<'db> {
                 .is_some_and(|node| node.previous_id.is_some())
     }
 
-    pub(crate) fn get_instruction(
+    pub(in crate::core) fn get_instruction(
         &self,
         instruction_id: InstructionId,
     ) -> InstructionView<'_, 'db> {
@@ -262,7 +262,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn allocate_binary(
+    pub(in crate::core) fn allocate_binary(
         &self,
         operator: BinaryOperator,
         operand_ids: [ValueId; 2],
@@ -273,7 +273,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn allocate_unary(
+    pub(in crate::core) fn allocate_unary(
         &self,
         operator: UnaryOperator,
         operand_id: ValueId,
@@ -284,15 +284,15 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn allocate_integer_literal(&self, value: u128) -> Instruction<'db> {
+    pub(in crate::core) fn allocate_integer_literal(&self, value: u128) -> Instruction<'db> {
         Instruction::IntegerLiteral { value }
     }
 
-    pub(crate) fn allocate_boolean_literal(&self, value: bool) -> Instruction<'db> {
+    pub(in crate::core) fn allocate_boolean_literal(&self, value: bool) -> Instruction<'db> {
         Instruction::BooleanLiteral { value }
     }
 
-    pub(crate) fn allocate_extract_field(
+    pub(in crate::core) fn allocate_extract_field(
         &self,
         operand_id: ValueId,
         index: u32,
@@ -300,7 +300,7 @@ impl<'db> Cfg<'db> {
         Instruction::ExtractField { operand_id, index }
     }
 
-    pub(crate) fn allocate_insert_field(
+    pub(in crate::core) fn allocate_insert_field(
         &self,
         tuple_id: ValueId,
         value_id: ValueId,
@@ -312,26 +312,32 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn allocate_constant(&self, constant: ConstantKey<'db>) -> Instruction<'db> {
+    pub(in crate::core) fn allocate_constant(
+        &self,
+        constant: ConstantKey<'db>,
+    ) -> Instruction<'db> {
         Instruction::Constant { constant }
     }
 
-    pub(crate) fn allocate_function_address(&self, function: FunctionKey<'db>) -> Instruction<'db> {
+    pub(in crate::core) fn allocate_function_address(
+        &self,
+        function: FunctionKey<'db>,
+    ) -> Instruction<'db> {
         Instruction::FunctionAddress { function }
     }
 
-    pub(crate) fn allocate_unreachable(&self) -> Instruction<'db> {
+    pub(in crate::core) fn allocate_unreachable(&self) -> Instruction<'db> {
         Instruction::Unreachable
     }
 
-    pub(crate) fn get_value(&self, value_id: ValueId) -> ValueView<'_, 'db> {
+    pub(in crate::core) fn get_value(&self, value_id: ValueId) -> ValueView<'_, 'db> {
         ValueView {
             value_id,
             cfg: self,
         }
     }
 
-    pub(crate) fn block_argument(
+    pub(in crate::core) fn block_argument(
         &self,
         block_parameter: ValueId,
         predecessor_edge: InstructionId,
@@ -346,7 +352,7 @@ impl<'db> Cfg<'db> {
             .block_argument(block_id, index)
     }
 
-    pub(crate) fn resolve_aliases(&self, value_id: ValueId) -> ValueId {
+    pub(in crate::core) fn resolve_aliases(&self, value_id: ValueId) -> ValueId {
         let mut current_value = value_id;
         for _ in 0..=self.dfg.values.count() {
             match self.dfg.values[current_value].alias_id {
@@ -357,20 +363,20 @@ impl<'db> Cfg<'db> {
         panic!("value alias loop detected");
     }
 
-    pub(crate) fn allocate_block(&mut self) -> BlockId {
+    pub(in crate::core) fn allocate_block(&mut self) -> BlockId {
         self.dfg.blocks.add(Block {
             parameter_ids: HandleArrayList::<ValueId>::new(),
         })
     }
 
-    pub(crate) fn get_block_mut(&mut self, block_id: BlockId) -> BlockViewMut<'_, 'db> {
+    pub(in crate::core) fn get_block_mut(&mut self, block_id: BlockId) -> BlockViewMut<'_, 'db> {
         BlockViewMut {
             block_id,
             cfg: self,
         }
     }
 
-    pub(crate) fn append_block(&mut self, block_id: BlockId) {
+    pub(in crate::core) fn append_block(&mut self, block_id: BlockId) {
         assert!(
             !self.contains(block_id),
             "cannot append a block that is already in the cfg"
@@ -390,7 +396,7 @@ impl<'db> Cfg<'db> {
         self.layout.exit_id = Some(block_id);
     }
 
-    pub(crate) fn add_block_before(&mut self, block_id: BlockId, before_id: BlockId) {
+    pub(in crate::core) fn add_block_before(&mut self, block_id: BlockId, before_id: BlockId) {
         assert!(
             !self.contains(block_id),
             "cannot insert a block that is already in the cfg"
@@ -414,7 +420,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn add_block_after(&mut self, block_id: BlockId, after_id: BlockId) {
+    pub(in crate::core) fn add_block_after(&mut self, block_id: BlockId, after_id: BlockId) {
         assert!(
             !self.contains(block_id),
             "cannot insert a block that is already in the cfg"
@@ -438,7 +444,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn remove_block(&mut self, block_id: BlockId) {
+    pub(in crate::core) fn remove_block(&mut self, block_id: BlockId) {
         assert!(
             self.contains(block_id),
             "block pointed by `block_id` is not in the cfg"
@@ -461,7 +467,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn clear_block(&mut self, block_id: BlockId) {
+    pub(in crate::core) fn clear_block(&mut self, block_id: BlockId) {
         assert!(
             self.contains(block_id),
             "block pointed by `block_id` is not in the cfg"
@@ -471,7 +477,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn get_instruction_mut(
+    pub(in crate::core) fn get_instruction_mut(
         &mut self,
         instruction_id: InstructionId,
     ) -> InstructionViewMut<'_, 'db> {
@@ -481,7 +487,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn add_instruction_before(
+    pub(in crate::core) fn add_instruction_before(
         &mut self,
         instruction: Instruction<'db>,
         result_types: &[Ty<'db>],
@@ -514,7 +520,7 @@ impl<'db> Cfg<'db> {
         instruction_id
     }
 
-    pub(crate) fn append_instruction(
+    pub(in crate::core) fn append_instruction(
         &mut self,
         block_id: BlockId,
         instruction: Instruction<'db>,
@@ -525,14 +531,18 @@ impl<'db> Cfg<'db> {
         instruction_id
     }
 
-    pub(crate) fn set_terminator(&mut self, block_id: BlockId, terminator: Instruction<'db>) {
+    pub(in crate::core) fn set_terminator(
+        &mut self,
+        block_id: BlockId,
+        terminator: Instruction<'db>,
+    ) {
         let instruction_id = self.add_instruction(terminator, &[]);
         self.link_instruction_to_block(block_id, instruction_id);
     }
 
     // NOTE: Its DFG data (and any values it defines) remains valid but is no longer
     // reachable via layout traversal.
-    pub(crate) fn remove_instruction(&mut self, instruction_id: InstructionId) {
+    pub(in crate::core) fn remove_instruction(&mut self, instruction_id: InstructionId) {
         let block_id = self.layout.instructions[instruction_id].block_id.unwrap();
 
         let old_prev = self.layout.instructions[instruction_id].previous_id;
@@ -552,7 +562,11 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn split_block(&mut self, new_block_id: BlockId, split_point_id: InstructionId) {
+    pub(in crate::core) fn split_block(
+        &mut self,
+        new_block_id: BlockId,
+        split_point_id: InstructionId,
+    ) {
         assert!(
             !self.contains(new_block_id),
             "cannot split into a block that is already in the cfg"
@@ -593,7 +607,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn allocate_jump(
+    pub(in crate::core) fn allocate_jump(
         &mut self,
         destination_id: BlockId,
         block_argument_ids: &[ValueId],
@@ -607,19 +621,19 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn allocate_return(&mut self, output_ids: &[ValueId]) -> Instruction<'db> {
+    pub(in crate::core) fn allocate_return(&mut self, output_ids: &[ValueId]) -> Instruction<'db> {
         Instruction::Return {
             output_ids: HandleArrayList::<ValueId>::from(&mut self.dfg.suballocator, output_ids),
         }
     }
 
-    pub(crate) fn allocate_tuple(&mut self, element_ids: &[ValueId]) -> Instruction<'db> {
+    pub(in crate::core) fn allocate_tuple(&mut self, element_ids: &[ValueId]) -> Instruction<'db> {
         Instruction::Tuple {
             element_ids: HandleArrayList::<ValueId>::from(&mut self.dfg.suballocator, element_ids),
         }
     }
 
-    pub(crate) fn allocate_call(
+    pub(in crate::core) fn allocate_call(
         &mut self,
         function: FunctionKey<'db>,
         argument_ids: &[ValueId],
@@ -633,7 +647,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn allocate_call_indirect(
+    pub(in crate::core) fn allocate_call_indirect(
         &mut self,
         callee_and_argument_ids: &[ValueId],
     ) -> Instruction<'db> {
@@ -645,7 +659,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn allocate_conditional_branch(
+    pub(in crate::core) fn allocate_conditional_branch(
         &mut self,
         operand_id: ValueId,
         true_block_id: BlockId,
@@ -668,7 +682,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(crate) fn add_undefined(&mut self, ty: Ty<'db>) -> ValueId {
+    pub(in crate::core) fn add_undefined(&mut self, ty: Ty<'db>) -> ValueId {
         self.dfg.values.add(Value {
             ty,
             alias_id: None,
@@ -676,7 +690,7 @@ impl<'db> Cfg<'db> {
         })
     }
 
-    pub(crate) fn mark_as_alias(&mut self, destination_id: ValueId, source_id: ValueId) {
+    pub(in crate::core) fn mark_as_alias(&mut self, destination_id: ValueId, source_id: ValueId) {
         assert!(
             !self.value_is_attached(destination_id),
             "cannot alias a value that is still attached to an instruction or block"
@@ -697,7 +711,7 @@ impl<'db> Cfg<'db> {
         self.dfg.values[destination_id].alias_id = Some(original);
     }
 
-    pub(crate) fn flush_aliases(&mut self) {
+    pub(in crate::core) fn flush_aliases(&mut self) {
         // step 1: compresses every alias chain so each aliased value points directly at its final target
         let value_ids: Vec<ValueId> = self.dfg.values.keys().collect();
         for mut value_id in value_ids {
@@ -860,34 +874,34 @@ impl<'db> Instruction<'db> {
 }
 
 impl<'a, 'db> BlockView<'a, 'db> {
-    pub(crate) fn id(&self) -> BlockId {
+    pub(in crate::core) fn id(&self) -> BlockId {
         self.block_id
     }
 
-    pub(crate) fn next(&self) -> Option<BlockId> {
+    pub(in crate::core) fn next(&self) -> Option<BlockId> {
         self.cfg.layout.blocks[self.block_id].next_id
     }
 
-    pub(crate) fn prev(&self) -> Option<BlockId> {
+    pub(in crate::core) fn prev(&self) -> Option<BlockId> {
         self.cfg.layout.blocks[self.block_id].previous_id
     }
 
-    pub(crate) fn instructions(&self) -> InstructionIter<'a> {
+    pub(in crate::core) fn instructions(&self) -> InstructionIter<'a> {
         InstructionIter {
             layout: &self.cfg.layout,
             next_id: self.cfg.layout.blocks[self.block_id].first_id,
         }
     }
 
-    pub(crate) fn first_instruction(&self) -> Option<InstructionId> {
+    pub(in crate::core) fn first_instruction(&self) -> Option<InstructionId> {
         self.cfg.layout.blocks[self.block_id].first_id
     }
 
-    pub(crate) fn last_instruction(&self) -> Option<InstructionId> {
+    pub(in crate::core) fn last_instruction(&self) -> Option<InstructionId> {
         self.cfg.layout.blocks[self.block_id].last_id
     }
 
-    pub(crate) fn parameters(&self) -> &'a [ValueId] {
+    pub(in crate::core) fn parameters(&self) -> &'a [ValueId] {
         self.cfg.dfg.blocks[self.block_id]
             .parameter_ids
             .to_slice(&self.cfg.dfg.suballocator)
@@ -895,7 +909,7 @@ impl<'a, 'db> BlockView<'a, 'db> {
 }
 
 impl<'a, 'db> BlockViewMut<'a, 'db> {
-    pub(crate) fn append_parameter(&mut self, ty: Ty<'db>) -> ValueId {
+    pub(in crate::core) fn append_parameter(&mut self, ty: Ty<'db>) -> ValueId {
         let parameter = self.cfg.dfg.values.next_handle();
         self.cfg.dfg.blocks[self.block_id]
             .parameter_ids
@@ -914,7 +928,7 @@ impl<'a, 'db> BlockViewMut<'a, 'db> {
         })
     }
 
-    pub(crate) fn swap_remove_parameter(&mut self, index: usize) {
+    pub(in crate::core) fn swap_remove_parameter(&mut self, index: usize) {
         let params = self.cfg.dfg.blocks[self.block_id]
             .parameter_ids
             .to_mut_slice(&mut self.cfg.dfg.suballocator);
@@ -930,7 +944,7 @@ impl<'a, 'db> BlockViewMut<'a, 'db> {
         }
     }
 
-    pub(crate) fn remove_parameter(&mut self, index: usize) {
+    pub(in crate::core) fn remove_parameter(&mut self, index: usize) {
         self.cfg.dfg.blocks[self.block_id]
             .parameter_ids
             .remove(index, &mut self.cfg.dfg.suballocator);
@@ -944,7 +958,7 @@ impl<'a, 'db> BlockViewMut<'a, 'db> {
         }
     }
 
-    pub(crate) fn detach_parameters(&mut self) -> HandleArrayList<ValueId> {
+    pub(in crate::core) fn detach_parameters(&mut self) -> HandleArrayList<ValueId> {
         let params = self.cfg.dfg.blocks[self.block_id].parameter_ids;
         self.cfg.dfg.blocks[self.block_id].parameter_ids = HandleArrayList::<ValueId>::new();
         params
@@ -952,19 +966,19 @@ impl<'a, 'db> BlockViewMut<'a, 'db> {
 }
 
 impl<'a, 'db> InstructionView<'a, 'db> {
-    pub(crate) fn id(&self) -> InstructionId {
+    pub(in crate::core) fn id(&self) -> InstructionId {
         self.instruction_id
     }
 
-    pub(crate) fn next(&self) -> Option<InstructionId> {
+    pub(in crate::core) fn next(&self) -> Option<InstructionId> {
         self.cfg.layout.instructions[self.instruction_id].next_id
     }
 
-    pub(crate) fn prev(&self) -> Option<InstructionId> {
+    pub(in crate::core) fn prev(&self) -> Option<InstructionId> {
         self.cfg.layout.instructions[self.instruction_id].previous_id
     }
 
-    pub(crate) fn is_terminator(&self) -> bool {
+    pub(in crate::core) fn is_terminator(&self) -> bool {
         matches!(
             self.cfg.dfg.instructions[self.instruction_id],
             Instruction::Jump { .. }
@@ -974,7 +988,7 @@ impl<'a, 'db> InstructionView<'a, 'db> {
         )
     }
 
-    pub(crate) fn inputs(&self) -> &'a [ValueId] {
+    pub(in crate::core) fn inputs(&self) -> &'a [ValueId] {
         let suballocator = &self.cfg.dfg.suballocator;
         match &self.cfg.dfg.instructions[self.instruction_id] {
             Instruction::Binary { operand_ids, .. } => operand_ids,
@@ -999,19 +1013,19 @@ impl<'a, 'db> InstructionView<'a, 'db> {
         }
     }
 
-    pub(crate) fn results(&self) -> &'a [ValueId] {
+    pub(in crate::core) fn results(&self) -> &'a [ValueId] {
         self.cfg.dfg.instruction_results[self.instruction_id].to_slice(&self.cfg.dfg.suballocator)
     }
 
-    pub(crate) fn first_result(&self) -> Option<ValueId> {
+    pub(in crate::core) fn first_result(&self) -> Option<ValueId> {
         self.cfg.dfg.instruction_results[self.instruction_id].get(&self.cfg.dfg.suballocator, 0)
     }
 
-    pub(crate) fn containing_block(&self) -> Option<BlockId> {
+    pub(in crate::core) fn containing_block(&self) -> Option<BlockId> {
         self.cfg.layout.instructions[self.instruction_id].block_id
     }
 
-    pub(crate) fn used_values(&self) -> UsedValuesIter<'a> {
+    pub(in crate::core) fn used_values(&self) -> UsedValuesIter<'a> {
         match &self.cfg.dfg.instructions[self.instruction_id] {
             Instruction::ConditionalBranch {
                 operand_id,
@@ -1044,7 +1058,7 @@ impl<'a, 'db> InstructionView<'a, 'db> {
         }
     }
 
-    pub(crate) fn block_argument(&self, destination_id: BlockId, index: usize) -> ValueId {
+    pub(in crate::core) fn block_argument(&self, destination_id: BlockId, index: usize) -> ValueId {
         let suballocator = &self.cfg.dfg.suballocator;
         match &self.cfg.dfg.instructions[self.instruction_id] {
             Instruction::Jump {
@@ -1076,7 +1090,7 @@ impl<'a, 'db> InstructionView<'a, 'db> {
         }
     }
 
-    pub(crate) fn as_instruction_ref(&self) -> InstructionRef<'a, 'db> {
+    pub(in crate::core) fn as_instruction_ref(&self) -> InstructionRef<'a, 'db> {
         let suballocator = &self.cfg.dfg.suballocator;
         match &self.cfg.dfg.instructions[self.instruction_id] {
             Instruction::Binary {
@@ -1157,12 +1171,16 @@ impl<'a, 'db> InstructionView<'a, 'db> {
 }
 
 impl<'a, 'db> InstructionViewMut<'a, 'db> {
-    pub(crate) fn rewrite_operands(&mut self, f: impl FnMut(ValueId) -> ValueId) {
+    pub(in crate::core) fn rewrite_operands(&mut self, f: impl FnMut(ValueId) -> ValueId) {
         self.cfg.dfg.instructions[self.instruction_id]
             .rewrite_operands(&mut self.cfg.dfg.suballocator, f);
     }
 
-    pub(crate) fn append_block_argument(&mut self, destination_id: BlockId, value: ValueId) {
+    pub(in crate::core) fn append_block_argument(
+        &mut self,
+        destination_id: BlockId,
+        value: ValueId,
+    ) {
         let suballocator = &mut self.cfg.dfg.suballocator;
         match &mut self.cfg.dfg.instructions[self.instruction_id] {
             Instruction::Jump {
@@ -1199,15 +1217,15 @@ impl<'a, 'db> InstructionViewMut<'a, 'db> {
 }
 
 impl<'a, 'db> ValueView<'a, 'db> {
-    pub(crate) fn ty(&self) -> Ty<'db> {
+    pub(in crate::core) fn ty(&self) -> Ty<'db> {
         self.cfg.dfg.values[self.value_id].ty
     }
 
-    pub(crate) fn origin(&self) -> ValueOrigin<'db> {
+    pub(in crate::core) fn origin(&self) -> ValueOrigin<'db> {
         self.cfg.dfg.values[self.cfg.resolve_aliases(self.value_id)].origin
     }
 
-    pub(crate) fn alias_target(&self) -> Option<ValueId> {
+    pub(in crate::core) fn alias_target(&self) -> Option<ValueId> {
         self.cfg.dfg.values[self.value_id].alias_id
     }
 }

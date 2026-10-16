@@ -1,9 +1,8 @@
-pub(crate) mod definition_body_lowerer;
-pub(crate) mod hir_node_store_builder;
+pub(in crate::core) mod definition_body_lowerer;
 
 use crate::core::common::span::TextSize;
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::ast_lowering::hir_node_store_builder::HirNodeStoreBuilder;
+use crate::core::semantic_analysis::hir::hir_node_store_builder::HirNodeStoreBuilder;
 use crate::core::semantic_analysis::hir::nodes::{
     ConstantSignature, FunctionSignature, HirNodeSourceMap, Path, TypeExpression,
     TypeExpressionHandle,
@@ -11,7 +10,7 @@ use crate::core::semantic_analysis::hir::nodes::{
 use crate::core::syntactic_analysis::cst::RedToken;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
 
-pub(crate) fn lower_function_signature<'db>(
+pub(in crate::core) fn lower_function_signature<'db>(
     db: &'db dyn crate::Db,
     function: &ast::FunctionDefinition,
     anchor: TextSize,
@@ -44,7 +43,7 @@ pub(crate) fn lower_function_signature<'db>(
     (signature, source_map)
 }
 
-pub(crate) fn lower_constant_signature<'db>(
+pub(in crate::core) fn lower_constant_signature<'db>(
     db: &'db dyn crate::Db,
     constant: &ast::ConstantDefinition,
     anchor: TextSize,
@@ -66,7 +65,7 @@ pub(crate) fn lower_constant_signature<'db>(
     (signature, source_map)
 }
 
-pub(crate) fn lower_type_expression<'db>(
+pub(in crate::core) fn lower_type_expression<'db>(
     db: &'db dyn crate::Db,
     builder: &mut HirNodeStoreBuilder<'db>,
     type_expression: &ast::TypeExpression,
@@ -91,11 +90,14 @@ pub(crate) fn lower_type_expression<'db>(
     builder.add_type_expression(lowered, type_expression.red())
 }
 
-pub(crate) fn lower_name<'db>(db: &'db dyn crate::Db, token: &RedToken) -> Symbol<'db> {
+pub(in crate::core) fn lower_name<'db>(db: &'db dyn crate::Db, token: &RedToken) -> Symbol<'db> {
     Symbol::new(db, token.lexeme().to_string())
 }
 
-pub(crate) fn lower_path<'db>(db: &'db dyn crate::Db, path: &ast::Path) -> Option<Path<'db>> {
+pub(in crate::core) fn lower_path<'db>(
+    db: &'db dyn crate::Db,
+    path: &ast::Path,
+) -> Option<Path<'db>> {
     let mut segments = Vec::new();
     let mut current = Some(path.clone());
 

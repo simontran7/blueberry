@@ -3,13 +3,13 @@ use crate::core::semantic_analysis::hir::nodes::{
 };
 use crate::core::semantic_analysis::type_checking::types::Ty;
 
-pub(crate) fn lower_type_expression<'db>(
+pub(in crate::core) fn lower_type_expression<'db>(
     db: &'db dyn crate::Db,
     store: &HirNodeStore<'db>,
     type_expression_handle: TypeExpressionHandle,
     on_unknown: &mut impl FnMut(TypeExpressionHandle),
 ) -> Ty<'db> {
-    match &store.type_expressions[type_expression_handle] {
+    match &store[type_expression_handle] {
         TypeExpression::Path(path) => match path.segments(db) {
             [name] => Ty::to_primitive(db, name.text(db)),
             _ => None,
@@ -19,7 +19,7 @@ pub(crate) fn lower_type_expression<'db>(
             Ty::error(db)
         }),
         TypeExpression::Tuple(element_run) => {
-            let elements = store.type_expression_children[*element_run]
+            let elements = store[*element_run]
                 .iter()
                 .map(|&element_handle| lower_type_expression(db, store, element_handle, on_unknown))
                 .collect();

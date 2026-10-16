@@ -31,7 +31,7 @@ use crate::core::common::handle_collections::Handle;
 /// assert_eq!(list.to_slice(&allocator), &[ValueId::new(1), ValueId::new(2), ValueId::new(3)]);
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct HandleArrayList<H> {
+pub(in crate::core) struct HandleArrayList<H> {
     pub(super) start: u32,
     _marker: PhantomData<H>,
 }
@@ -62,7 +62,7 @@ pub(crate) struct HandleArrayList<H> {
 /// embedded in `data` as an `H`.
 /// The tail node of a free list's next pointer is `0`.
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct HandleArrayListAllocator<H> {
+pub(in crate::core) struct HandleArrayListAllocator<H> {
     pub(super) data: Vec<H>,
     free: Vec<usize>,
 }
@@ -81,12 +81,12 @@ impl<H: Handle> HandleArrayList<H> {
     const EMPTY: u32 = 0;
 
     /// Creates and returns a new, empty list.
-    pub(crate) fn new() -> Self {
+    pub(in crate::core) fn new() -> Self {
         Self::default()
     }
 
     /// Allocates a new list in `allocator` and copies `slice`'s elements into it.
-    pub(crate) fn from(allocator: &mut HandleArrayListAllocator<H>, slice: &[H]) -> Self {
+    pub(in crate::core) fn from(allocator: &mut HandleArrayListAllocator<H>, slice: &[H]) -> Self {
         // No allocation if `slice` is empty.
         if slice.is_empty() {
             return Self::new();
@@ -102,12 +102,20 @@ impl<H: Handle> HandleArrayList<H> {
     }
 
     /// Returns the element at `index`, or `None` if out of bounds.
-    pub(crate) fn get(&self, allocator: &HandleArrayListAllocator<H>, index: usize) -> Option<H> {
+    pub(in crate::core) fn get(
+        &self,
+        allocator: &HandleArrayListAllocator<H>,
+        index: usize,
+    ) -> Option<H> {
         self.to_slice(allocator).get(index).copied()
     }
 
     /// Adds `value` to the end of the list.
-    pub(crate) fn add_last(&mut self, allocator: &mut HandleArrayListAllocator<H>, value: H) {
+    pub(in crate::core) fn add_last(
+        &mut self,
+        allocator: &mut HandleArrayListAllocator<H>,
+        value: H,
+    ) {
         let start = self.start as usize;
         if self.is_empty(allocator) {
             let block = allocator.alloc(1);
@@ -136,7 +144,11 @@ impl<H: Handle> HandleArrayList<H> {
     }
 
     /// Removes the element at `index`, shifting later elements down by one to preserve their relative order.
-    pub(crate) fn remove(&mut self, index: usize, allocator: &mut HandleArrayListAllocator<H>) {
+    pub(in crate::core) fn remove(
+        &mut self,
+        index: usize,
+        allocator: &mut HandleArrayListAllocator<H>,
+    ) {
         let count = self.count(allocator);
         assert!(index < count, "index out of bounds");
         // The backing block is not freed or reallocated, just shrunk in place.
@@ -148,7 +160,7 @@ impl<H: Handle> HandleArrayList<H> {
     }
 
     /// Removes the last element, decrementing the header count in place.
-    pub(crate) fn clear_last(&mut self, allocator: &mut HandleArrayListAllocator<H>) {
+    pub(in crate::core) fn clear_last(&mut self, allocator: &mut HandleArrayListAllocator<H>) {
         // The backing block is not freed or reallocated — the slot is simply abandoned.
         let count = self.count(allocator);
         assert!(count > 0, "called `.clear_last()` on an empty list");
@@ -156,7 +168,7 @@ impl<H: Handle> HandleArrayList<H> {
     }
 
     /// Frees the list's backing storage and resets it to empty.
-    pub(crate) fn clear(&mut self, allocator: &mut HandleArrayListAllocator<H>) {
+    pub(in crate::core) fn clear(&mut self, allocator: &mut HandleArrayListAllocator<H>) {
         // Any other `Copy` of this handle still has the old `start` and is left dangling,
         // so it may point at a block the allocator later hands out to a different list.
         if !self.is_empty(allocator) {
@@ -166,7 +178,7 @@ impl<H: Handle> HandleArrayList<H> {
     }
 
     /// Returns the number of elements in the list.
-    pub(crate) fn count(self, allocator: &HandleArrayListAllocator<H>) -> usize {
+    pub(in crate::core) fn count(self, allocator: &HandleArrayListAllocator<H>) -> usize {
         // wrapping_sub so that start == 0 (empty) maps to usize::MAX, which is
         // guaranteed out of bounds for any Vec. This makes `.get()` return `None`,
         // collapsing the emptiness check and bounds check into one.
@@ -177,12 +189,12 @@ impl<H: Handle> HandleArrayList<H> {
     }
 
     /// Returns whether the list has no elements.
-    pub(crate) fn is_empty(self, allocator: &HandleArrayListAllocator<H>) -> bool {
+    pub(in crate::core) fn is_empty(self, allocator: &HandleArrayListAllocator<H>) -> bool {
         self.count(allocator) == 0
     }
 
     /// Returns the list's elements as a slice, or an empty slice if empty.
-    pub(crate) fn to_slice(self, allocator: &HandleArrayListAllocator<H>) -> &[H] {
+    pub(in crate::core) fn to_slice(self, allocator: &HandleArrayListAllocator<H>) -> &[H] {
         if self.is_empty(allocator) {
             &[]
         } else {
@@ -191,7 +203,10 @@ impl<H: Handle> HandleArrayList<H> {
     }
 
     /// Returns the list's elements as a mutable slice, or an empty slice if empty.
-    pub(crate) fn to_mut_slice(self, allocator: &mut HandleArrayListAllocator<H>) -> &mut [H] {
+    pub(in crate::core) fn to_mut_slice(
+        self,
+        allocator: &mut HandleArrayListAllocator<H>,
+    ) -> &mut [H] {
         if self.is_empty(allocator) {
             &mut []
         } else {
@@ -221,7 +236,7 @@ impl<H> Default for HandleArrayList<H> {
 
 impl<H: Handle> HandleArrayListAllocator<H> {
     /// Creates and returns an allocator for lists.
-    pub(crate) const fn new() -> Self {
+    pub(in crate::core) const fn new() -> Self {
         Self {
             data: Vec::new(),
             free: Vec::new(),
@@ -229,7 +244,7 @@ impl<H: Handle> HandleArrayListAllocator<H> {
     }
 
     /// Drops every [`HandleArrayList`]'s contents and free-list state, returning the allocator to its initial empty state.
-    pub(crate) fn reset(&mut self) {
+    pub(in crate::core) fn reset(&mut self) {
         // Any `HandleArrayList` into this allocator is invalidated.
         self.data.clear();
         self.free.clear();

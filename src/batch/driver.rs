@@ -4,18 +4,7 @@ use std::time::Instant;
 
 use crate::batch::arg_parser::EmitKind;
 use crate::batch::diagnostic_render::render_diagnostic;
-use crate::core::common::diagnostic::{Diagnostic, DiagnosticAccumulator};
-use crate::core::db::BlueberryDatabase;
-use crate::core::lexical_analysis::token_stream_dumper::TokenDumper;
-use crate::core::lexical_analysis::tokens_of;
-use crate::core::mir_construction::mir_dumper::MirBodyDumper;
-use crate::core::module_map::{ModuleMap, ModulePath};
-use crate::core::semantic_analysis::hir::dumper::HirBodyDumper;
-use crate::core::semantic_analysis::{
-    all_definitions_of, definition_diagnostics_of, import_diagnostics_of,
-};
-use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
-use crate::core::syntactic_analysis::cst_of;
+use crate::core::program::{BlueberryDatabase, DiagnosticDescription, Program};
 
 pub fn build(path: PathBuf, emit: &HashSet<EmitKind>) {
     todo!();
@@ -43,76 +32,57 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    let modules = match ModuleMap::load(&db, root) {
-        Ok(modules) => modules,
-        Err(error) => {
-            eprintln!(
-                "Error reading directory {}: {}",
-                root.to_string_lossy(),
-                error
-            );
-            std::process::exit(1);
-        }
-    };
-    let module_path = ModulePath::from_file_path(Path::new(path.file_name().unwrap()));
-    let Some(&file) = modules.files(&db).get(&module_path) else {
+    if let Err(error) = Program::load_modules(&db, root) {
+        eprintln!(
+            "Error reading directory {}: {}",
+            root.to_string_lossy(),
+            error
+        );
+        std::process::exit(1);
+    }
+    let program = Program::new(&db);
+    let Some(file) = program.file(Path::new(path.file_name().unwrap())) else {
         eprintln!("Error reading file {}", path.to_string_lossy());
         std::process::exit(1);
     };
-
-    // ---- Stage 1: Lexical Analysis ----
-    tokens_of(&db, file);
-    let lexical_diagnostics = tokens_of::accumulated::<DiagnosticAccumulator>(&db, file);
-    if !lexical_diagnostics.is_empty() {
-        for lexical_diagnostic in lexical_diagnostics {
-            render_diagnostic(&lexical_diagnostic.0, &file_stem, file.contents(&db));
+    let source = program.contents(file);
+    let report = |diagnostics: Vec<DiagnosticDescription>| {
+        let has_diagnostics = !diagnostics.is_empty();
+        for diagnostic in diagnostics {
+            render_diagnostic(diagnostic, &file_stem, source);
         }
+        has_diagnostics
+    };
+
+    // ---- Stage 1: Lexical Program ----
+    if report(program.lexical_diagnostics(file)) {
         return;
     }
     if emit.contains(&EmitKind::Tokens) {
-        let dumper = TokenDumper::new(file.contents(&db), tokens_of(&db, file).clone());
-        println!("{}", dumper.dump());
+        println!("{}", program.dump_tokens(file));
     }
 
-    // ---- Stage 2: Syntactic Analysis ----
-    cst_of(&db, file);
-    let syntactic_diagnostics = cst_of::accumulated::<DiagnosticAccumulator>(&db, file);
-    if !syntactic_diagnostics.is_empty() {
-        for syntactic_diagnostic in syntactic_diagnostics {
-            render_diagnostic(&syntactic_diagnostic.0, &file_stem, file.contents(&db));
-        }
+    // ---- Stage 2: Syntactic Program ----
+    if report(program.syntax_diagnostics(file)) {
         return;
     }
     if emit.contains(&EmitKind::Cst) {
-        let mut dumper = CstDumper::new(cst_of(&db, file));
-        println!("{}", dumper.dump());
+        println!("{}", program.dump_cst(file));
     }
 
-    // ---- Stage 3: Semantic Analysis ----
-    let mut semantic_diagnostics = import_diagnostics_of(&db, file);
-    semantic_diagnostics.extend(
-        all_definitions_of(&db, file)
-            .into_iter()
-            .flat_map(|definition| definition_diagnostics_of(&db, definition)),
-    );
-    semantic_diagnostics.sort_by_key(|diagnostic| diagnostic.describe().span.start());
+    // ---- Stage 3: Semantic Program ----
+    let mut semantic_diagnostics = program.semantic_diagnostics(file);
+    semantic_diagnostics.sort_by_key(|diagnostic| diagnostic.span.start());
     if emit.contains(&EmitKind::Hir) {
-        print!("{}", HirBodyDumper::dump_file_with_types(&db, file));
+        print!("{}", program.dump_hir(file));
     }
-    if !semantic_diagnostics.is_empty() {
-        for semantic_diagnostic in semantic_diagnostics {
-            render_diagnostic(
-                &Diagnostic::Semantic(semantic_diagnostic),
-                &file_stem,
-                file.contents(&db),
-            );
-        }
+    if report(semantic_diagnostics) {
         return;
     }
 
     // ---- Stage 4: MIR Construction ----
     if emit.contains(&EmitKind::Mir) {
-        print!("{}", MirBodyDumper::dump_file(&db, file).unwrap());
+        print!("{}", program.dump_mir(file));
     }
 
     // print compile time

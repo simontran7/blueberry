@@ -1,7 +1,7 @@
-pub(crate) mod lexical_diagnostic;
-pub(crate) mod token_stream;
-pub(crate) mod token_stream_dumper;
-pub(crate) mod tokenizer;
+pub(in crate::core) mod lexical_diagnostic;
+pub(in crate::core) mod token_stream;
+pub(in crate::core) mod token_stream_dumper;
+pub(in crate::core) mod tokenizer;
 
 use salsa::Accumulator;
 
@@ -11,7 +11,7 @@ use crate::core::lexical_analysis::tokenizer::Tokenizer;
 use crate::core::source_file_key::SourceFileKey;
 
 #[salsa::tracked]
-pub(crate) fn tokens_of(db: &dyn crate::Db, file: SourceFileKey) -> TokenStream {
+pub(in crate::core) fn tokens_of(db: &dyn crate::Db, file: SourceFileKey) -> TokenStream {
     let (tokens, diagnostics) = Tokenizer::new(file.contents(db)).tokenize();
     for diagnostic in diagnostics {
         DiagnosticAccumulator(Diagnostic::Lexical(diagnostic)).accumulate(db);

@@ -22,7 +22,7 @@ use crate::core::semantic_analysis::type_checking::types::{
 };
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct TypeCheckSink<'db> {
+pub(in crate::core) struct TypeCheckSink<'db> {
     expressions: SideHandleMap<ExpressionHandle, Ty<'db>>,
     local_bindings: SideHandleMap<LocalBindingHandle, Ty<'db>>,
     path_resolutions: SideHandleMap<ExpressionHandle, Resolution<'db>>,
@@ -64,7 +64,7 @@ enum Diverges {
     Always,
 }
 
-pub(crate) fn check_function<'db>(
+pub(in crate::core) fn check_function<'db>(
     db: &'db dyn crate::Db,
     body: &DefinitionBody<'db>,
     scopes: &ScopeTree<'db>,
@@ -91,7 +91,7 @@ pub(crate) fn check_function<'db>(
     checker.finish()
 }
 
-pub(crate) fn check_constant<'db>(
+pub(in crate::core) fn check_constant<'db>(
     db: &'db dyn crate::Db,
     body: &DefinitionBody<'db>,
     scopes: &ScopeTree<'db>,
@@ -107,25 +107,33 @@ pub(crate) fn check_constant<'db>(
 }
 
 impl<'db> TypeCheckSink<'db> {
-    pub(crate) fn expression_type(&self, expression_handle: ExpressionHandle) -> Ty<'db> {
+    pub(in crate::core) fn expression_type(&self, expression_handle: ExpressionHandle) -> Ty<'db> {
         self.expressions[expression_handle]
     }
 
-    pub(crate) fn local_binding_type(&self, binding_handle: LocalBindingHandle) -> Ty<'db> {
+    pub(in crate::core) fn local_binding_type(
+        &self,
+        binding_handle: LocalBindingHandle,
+    ) -> Ty<'db> {
         self.local_bindings[binding_handle]
     }
 
-    pub(crate) fn path_resolution(&self, expression_handle: ExpressionHandle) -> Resolution<'db> {
-        self.path_resolutions[expression_handle]
+    pub(in crate::core) fn path_resolution(
+        &self,
+        expression_handle: ExpressionHandle,
+    ) -> Option<Resolution<'db>> {
+        self.path_resolutions.get(expression_handle).copied()
     }
 
-    pub(crate) fn expressions(&self) -> impl Iterator<Item = (ExpressionHandle, Ty<'db>)> + '_ {
+    pub(in crate::core) fn expressions(
+        &self,
+    ) -> impl Iterator<Item = (ExpressionHandle, Ty<'db>)> + '_ {
         self.expressions
             .iter()
             .map(|(expression_handle, ty)| (expression_handle, *ty))
     }
 
-    pub(crate) fn local_bindings(
+    pub(in crate::core) fn local_bindings(
         &self,
     ) -> impl Iterator<Item = (LocalBindingHandle, Ty<'db>)> + '_ {
         self.local_bindings
@@ -133,11 +141,11 @@ impl<'db> TypeCheckSink<'db> {
             .map(|(binding_handle, ty)| (binding_handle, *ty))
     }
 
-    pub(crate) fn diagnostics(&self) -> &[UnresolvedSemanticDiagnostic<'db>] {
+    pub(in crate::core) fn diagnostics(&self) -> &[UnresolvedSemanticDiagnostic<'db>] {
         &self.diagnostics
     }
 
-    pub(crate) fn has_errors(&self, db: &'db dyn crate::Db) -> bool {
+    pub(in crate::core) fn has_errors(&self, db: &'db dyn crate::Db) -> bool {
         !self.diagnostics.is_empty()
             || self.expressions.values().any(|ty| ty.is_poisoned(db))
             || self.local_bindings.values().any(|ty| ty.is_poisoned(db))
@@ -182,14 +190,13 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         expression_handle: ExpressionHandle,
         expectation: Expectation<'db>,
     ) -> Ty<'db> {
-        let ty = match &self.body.store.expressions[expression_handle] {
+        let ty = match &self.body.store[expression_handle] {
             Expression::Boolean(_) => Ty::bool(self.db),
             Expression::Integer(_) => self.check_integer_literal(expectation),
             Expression::Path(path) => self.check_path(expression_handle, *path),
-            Expression::Tuple { element_run } => self.check_tuple(
-                &self.body.store.expression_children[*element_run],
-                expectation,
-            ),
+            Expression::Tuple { element_run } => {
+                self.check_tuple(&self.body.store[*element_run], expectation)
+            }
             Expression::Field {
                 receiver_handle,
                 name,
@@ -211,7 +218,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 ..
             } => self.check_block(
                 expression_handle,
-                &self.body.store.statement_children[*statement_run],
+                &self.body.store[*statement_run],
                 *tail_handle,
                 expectation,
             ),
@@ -225,7 +232,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             } => self.check_call(
                 expression_handle,
                 *callee_handle,
-                &self.body.store.expression_children[*argument_run],
+                &self.body.store[*argument_run],
             ),
             Expression::Continue => {
                 if self.loop_frames.is_empty() {
@@ -397,7 +404,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             self.sink
                 .add_diagnostic(UnresolvedSemanticDiagnostic::UnknownField {
                     expression_handle,
-                    ty: receiver_ty.display(self.db).to_string(),
+                    ty: receiver_ty,
                     is_primitive,
                 });
         }
@@ -498,7 +505,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         // check each statement in order.
         // A diverging one (e.g., `return 1;`) makes the rest of the block unreachable
         for statement_handle in statement_handles {
-            match &self.body.store.statements[*statement_handle] {
+            match &self.body.store[*statement_handle] {
                 Statement::Let {
                     name_handle,
                     annotation_handle,
@@ -754,11 +761,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             } => (parameters.clone(), *r#return),
             _ => {
                 if !self.inference.deep_resolve(callee_ty).is_poisoned(self.db) {
-                    let found = self
-                        .inference
-                        .deep_resolve(callee_ty)
-                        .display(self.db)
-                        .to_string();
+                    let found = self.inference.deep_resolve(callee_ty);
                     self.sink
                         .add_diagnostic(UnresolvedSemanticDiagnostic::ExpectedFunction {
                             call_handle,
@@ -779,7 +782,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             };
             let parameters = parameters
                 .iter()
-                .map(|&ty| self.inference.deep_resolve(ty).display(self.db).to_string())
+                .map(|&ty| self.inference.deep_resolve(ty))
                 .collect();
             self.sink
                 .add_diagnostic(UnresolvedSemanticDiagnostic::MismatchedArgumentCount {
@@ -824,11 +827,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                     }
                     kind => {
                         let is_unsigned = matches!(kind, TyKind::Unsigned(_));
-                        let found = self
-                            .inference
-                            .deep_resolve(resolved)
-                            .display(self.db)
-                            .to_string();
+                        let found = self.inference.deep_resolve(resolved);
                         self.sink.add_diagnostic(
                             UnresolvedSemanticDiagnostic::UnaryOperatorCannotBeApplied {
                                 expression_handle,
@@ -889,16 +888,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                     if !self.inference.deep_resolve(lhs_ty).is_poisoned(self.db)
                         && !self.inference.deep_resolve(rhs_ty).is_poisoned(self.db)
                     {
-                        let lhs = self
-                            .inference
-                            .deep_resolve(lhs_ty)
-                            .display(self.db)
-                            .to_string();
-                        let rhs = self
-                            .inference
-                            .deep_resolve(rhs_ty)
-                            .display(self.db)
-                            .to_string();
+                        let lhs = self.inference.deep_resolve(lhs_ty);
+                        let rhs = self.inference.deep_resolve(rhs_ty);
                         self.sink.add_diagnostic(
                             UnresolvedSemanticDiagnostic::BinaryOperatorCannotBeApplied {
                                 expression_handle,
@@ -961,7 +952,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
     }
 
     fn is_place(&self, expression_handle: ExpressionHandle) -> bool {
-        match &self.body.store.expressions[expression_handle] {
+        match &self.body.store[expression_handle] {
             // An unresolved name was already reported.
             Expression::Path(_) => !matches!(
                 self.sink.path_resolutions.get(expression_handle),
@@ -1011,11 +1002,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         for (expression_handle, operand_ty) in std::mem::take(&mut self.pending_negations) {
             let resolved = self.inference.shallow_resolve(operand_ty);
             if let TyKind::Unsigned(_) = resolved.kind(self.db) {
-                let found = self
-                    .inference
-                    .deep_resolve(resolved)
-                    .display(self.db)
-                    .to_string();
+                let found = self.inference.deep_resolve(resolved);
                 self.sink.add_diagnostic(
                     UnresolvedSemanticDiagnostic::UnaryOperatorCannotBeApplied {
                         expression_handle,
@@ -1040,16 +1027,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             self.sink
                 .add_diagnostic(UnresolvedSemanticDiagnostic::TypeMismatch {
                     expression_handle,
-                    expected: self
-                        .inference
-                        .deep_resolve(mismatch.expected)
-                        .display(self.db)
-                        .to_string(),
-                    found: self
-                        .inference
-                        .deep_resolve(mismatch.found)
-                        .display(self.db)
-                        .to_string(),
+                    expected: self.inference.deep_resolve(mismatch.expected),
+                    found: self.inference.deep_resolve(mismatch.found),
                     cause: TypeMismatchCause::General,
                 });
         }
@@ -1066,16 +1045,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             self.sink
                 .add_diagnostic(UnresolvedSemanticDiagnostic::TypeMismatch {
                     expression_handle,
-                    expected: self
-                        .inference
-                        .deep_resolve(mismatch.expected)
-                        .display(self.db)
-                        .to_string(),
-                    found: self
-                        .inference
-                        .deep_resolve(mismatch.found)
-                        .display(self.db)
-                        .to_string(),
+                    expected: self.inference.deep_resolve(mismatch.expected),
+                    found: self.inference.deep_resolve(mismatch.found),
                     cause,
                 });
         }
@@ -1085,8 +1056,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         let body = self.body;
         let negations: HashMap<ExpressionHandle, ExpressionHandle> = body
             .store
-            .expressions
-            .iter()
+            .expressions()
             .filter_map(|(negation_handle, expression)| match expression {
                 Expression::UnaryOperation {
                     operator: UnaryOperator::Neg,
@@ -1100,7 +1070,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             .expressions
             .iter()
             .filter_map(
-                |(expression_handle, ty)| match body.store.expressions[expression_handle] {
+                |(expression_handle, ty)| match body.store[expression_handle] {
                     Expression::Integer(value) => Some((expression_handle, value, *ty)),
                     _ => None,
                 },
@@ -1130,8 +1100,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                     .and_then(|value| {
                         self.suggested_literal_type(ty, value, negation_handle.is_some())
                     })
-                    .map(|suggested_ty| suggested_ty.display(self.db).to_string());
-                let ty = ty.display(self.db).to_string();
+                    .map(|suggested_ty| suggested_ty);
+                let ty = ty;
                 self.sink
                     .add_diagnostic(UnresolvedSemanticDiagnostic::LiteralOutOfRange {
                         expression_handle: negation_handle.unwrap_or(literal_handle),

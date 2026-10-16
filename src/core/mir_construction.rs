@@ -1,7 +1,7 @@
-pub(crate) mod cfg_builder;
-pub(crate) mod lowerer;
-pub(crate) mod mir;
-pub(crate) mod mir_dumper;
+pub(in crate::core) mod cfg_builder;
+pub(in crate::core) mod lowerer;
+pub(in crate::core) mod mir;
+pub(in crate::core) mod mir_dumper;
 
 use std::sync::Arc;
 
@@ -11,7 +11,7 @@ use crate::core::semantic_analysis::name_resolution::definition_list::Definition
 use crate::core::semantic_analysis::{body_of, signature_type_of, types_of};
 
 #[salsa::tracked]
-pub(crate) fn mir_of<'db>(
+pub(in crate::core) fn mir_of<'db>(
     db: &'db dyn crate::Db,
     definition: Definition<'db>,
 ) -> Option<Arc<MirBody<'db>>> {

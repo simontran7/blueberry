@@ -4,10 +4,10 @@ use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
 use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
 
 #[salsa::accumulator]
-pub(crate) struct DiagnosticAccumulator(pub(crate) Diagnostic);
+pub(in crate::core) struct DiagnosticAccumulator(pub(in crate::core) Diagnostic);
 
 #[derive(Debug, Clone)]
-pub(crate) enum Diagnostic {
+pub(in crate::core) enum Diagnostic {
     Lexical(LexicalDiagnostic),
     Syntax(SyntaxDiagnostic),
     Semantic(SemanticDiagnostic),
@@ -36,7 +36,7 @@ pub(crate) enum LabelSeverity {
 }
 
 impl Diagnostic {
-    pub(crate) fn describe(&self) -> DiagnosticDescription {
+    pub(in crate::core) fn describe(&self) -> DiagnosticDescription {
         match self {
             Self::Lexical(diagnostic) => diagnostic.describe(),
             Self::Syntax(diagnostic) => diagnostic.describe(),

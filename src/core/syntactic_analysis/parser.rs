@@ -1,6 +1,6 @@
-pub(crate) mod sink;
+pub(in crate::core) mod sink;
 mod source;
-pub(crate) mod syntax_diagnostic;
+pub(in crate::core) mod syntax_diagnostic;
 
 use std::cell::Cell;
 
@@ -10,7 +10,7 @@ use crate::core::syntactic_analysis::parser::sink::{Event, Sink};
 use crate::core::syntactic_analysis::parser::source::Source;
 use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
 
-pub(crate) struct Parser {
+pub(in crate::core) struct Parser {
     cursor: SourceCursor,
     sink: Sink,
     diagnostics: Vec<SyntaxDiagnostic>,
@@ -58,7 +58,7 @@ impl Parser {
     ];
     const MIN_BINDING_POWER: u8 = 0;
 
-    pub(crate) fn new(tokens: &TokenStream) -> Self {
+    pub(in crate::core) fn new(tokens: &TokenStream) -> Self {
         Self {
             cursor: SourceCursor::new(Source::new(tokens)),
             sink: Sink::new(),
@@ -66,7 +66,7 @@ impl Parser {
         }
     }
 
-    pub(crate) fn parse(mut self) -> (Sink, Vec<SyntaxDiagnostic>) {
+    pub(in crate::core) fn parse(mut self) -> (Sink, Vec<SyntaxDiagnostic>) {
         let marker = self.open();
 
         while !self.cursor.at_eof() {

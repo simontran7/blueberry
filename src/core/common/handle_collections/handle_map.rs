@@ -1,5 +1,5 @@
-pub(crate) mod handle_map;
-pub(crate) mod side_handle_map;
+pub(in crate::core) mod handle_map;
+pub(in crate::core) mod side_handle_map;
 
-pub(crate) use handle_map::HandleMap;
-pub(crate) use side_handle_map::SideHandleMap;
+pub(in crate::core) use handle_map::HandleMap;
+pub(in crate::core) use side_handle_map::SideHandleMap;

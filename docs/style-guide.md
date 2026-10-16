@@ -31,6 +31,10 @@ A field of a finished value is a `Box<[T]>` (e.g., a `DefinitionBody`'s `paramet
 
 Lay data out flat (arenas of nodes referred to by handle, with their children in a `RunList`), but expose it through methods and views rather than raw fields, so that callers never have to know the layout. An arena and its children always travel together, so they're bundled into one type (e.g., the `HirNodeStore`), and only a node's own children go into it: what an owner does with nodes (its root, its parameters, its annotations) is kept on the owner.
 
+## Visibility
+
+The core's items are `pub(in crate::core)`, and its modules are private: only `core::program` (the facade used by `src/batch` and `src/language_server`) and the plain types it hands out (e.g., `DiagnosticDescription`, `Span`, `SourceFileKey`) are `pub(crate)`. Inside the core, a type's internals are restricted to the module that owns them when possible (e.g., the `HirNodeStore`'s fields are `pub(in crate::core::semantic_analysis::hir)`, so only the HIR and its builder can touch them, and everyone else goes through indexing).
+
 ## Layout
 
 ### Directory Layout

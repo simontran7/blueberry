@@ -3,7 +3,7 @@ use crate::core::semantic_analysis::type_checking::types::{
     GeneralVariableHandle, InferenceVariable, IntegerVariableHandle, SignedIntTy, Ty, TyKind,
 };
 
-pub(crate) struct InferenceTable<'db> {
+pub(in crate::core) struct InferenceTable<'db> {
     db: &'db dyn crate::Db,
     general_inference_variables:
         HandleDisjointSet<GeneralVariableHandle, GeneralInferenceVariableSolution<'db>>,
@@ -12,9 +12,9 @@ pub(crate) struct InferenceTable<'db> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct TypeMismatch<'db> {
-    pub(crate) expected: Ty<'db>,
-    pub(crate) found: Ty<'db>,
+pub(in crate::core) struct TypeMismatch<'db> {
+    pub(in crate::core) expected: Ty<'db>,
+    pub(in crate::core) found: Ty<'db>,
 }
 
 /// The solution of a disjoint set of general inference variables.
@@ -33,7 +33,7 @@ struct IntegerInferenceVariableSolution<'db> {
 }
 
 impl<'db> InferenceTable<'db> {
-    pub(crate) fn new(db: &'db dyn crate::Db) -> Self {
+    pub(in crate::core) fn new(db: &'db dyn crate::Db) -> Self {
         Self {
             db,
             general_inference_variables: HandleDisjointSet::new(),
@@ -41,7 +41,7 @@ impl<'db> InferenceTable<'db> {
         }
     }
 
-    pub(crate) fn shallow_resolve(&mut self, ty: Ty<'db>) -> Ty<'db> {
+    pub(in crate::core) fn shallow_resolve(&mut self, ty: Ty<'db>) -> Ty<'db> {
         let mut current = ty;
 
         loop {
@@ -75,14 +75,14 @@ impl<'db> InferenceTable<'db> {
 
     /// Replaces every solved variable inside `ty` with its solution, at every depth, leaving
     /// unsolved ones as they are.
-    pub(crate) fn deep_resolve(&mut self, ty: Ty<'db>) -> Ty<'db> {
+    pub(in crate::core) fn deep_resolve(&mut self, ty: Ty<'db>) -> Ty<'db> {
         let ty = self.shallow_resolve(ty);
         ty.map_children(self.db, |child| self.deep_resolve(child))
     }
 
     /// Resolves `ty` like [`Self::deep_resolve`], but replaces an unsolved general variable with
     /// the error type and reports it through `on_unsolved`.
-    pub(crate) fn deep_resolve_with_poisoning(
+    pub(in crate::core) fn deep_resolve_with_poisoning(
         &mut self,
         ty: Ty<'db>,
         on_unsolved: &mut impl FnMut(GeneralVariableHandle),
@@ -102,7 +102,7 @@ impl<'db> InferenceTable<'db> {
         }
     }
 
-    pub(crate) fn new_general_inference_variable(&mut self) -> Ty<'db> {
+    pub(in crate::core) fn new_general_inference_variable(&mut self) -> Ty<'db> {
         let inference_variable_handle =
             self.general_inference_variables
                 .make_set(GeneralInferenceVariableSolution {
@@ -115,7 +115,7 @@ impl<'db> InferenceTable<'db> {
         )
     }
 
-    pub(crate) fn make_integer_inference_variable(&mut self) -> Ty<'db> {
+    pub(in crate::core) fn make_integer_inference_variable(&mut self) -> Ty<'db> {
         let inference_variable_handle = self
             .integer_inference_variables
             .make_set(IntegerInferenceVariableSolution { ty: None });
@@ -125,7 +125,7 @@ impl<'db> InferenceTable<'db> {
         )
     }
 
-    pub(crate) fn unify(
+    pub(in crate::core) fn unify(
         &mut self,
         expected: Ty<'db>,
         found: Ty<'db>,
@@ -234,7 +234,11 @@ impl<'db> InferenceTable<'db> {
     }
 
     /// Coerces `from` to `to`.
-    pub(crate) fn coerce(&mut self, from: Ty<'db>, to: Ty<'db>) -> Result<(), TypeMismatch<'db>> {
+    pub(in crate::core) fn coerce(
+        &mut self,
+        from: Ty<'db>,
+        to: Ty<'db>,
+    ) -> Result<(), TypeMismatch<'db>> {
         if matches!(self.shallow_resolve(from).kind(self.db), TyKind::Bottom) {
             if let TyKind::InferenceVariable(InferenceVariable::General(variable_handle)) =
                 self.shallow_resolve(to).kind(self.db)
@@ -248,7 +252,7 @@ impl<'db> InferenceTable<'db> {
     }
 
     /// Solves every integer variable that's still unsolved to `I32`
-    pub(crate) fn fallback_integer_variables(&mut self) {
+    pub(in crate::core) fn fallback_integer_variables(&mut self) {
         let i32 = Ty::signed(self.db, SignedIntTy::I32);
         for value in self.integer_inference_variables.values_mut() {
             value.ty.get_or_insert(i32);
@@ -256,7 +260,7 @@ impl<'db> InferenceTable<'db> {
     }
 
     /// Solves every set that's still unsolved and was coerced from `Bottom` to `Bottom`.
-    pub(crate) fn fallback_general_variables(&mut self) {
+    pub(in crate::core) fn fallback_general_variables(&mut self) {
         let bottom = Ty::bottom(self.db);
         for value in self.general_inference_variables.values_mut() {
             if value.coerced_from_bottom {

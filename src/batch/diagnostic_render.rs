@@ -1,10 +1,8 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 
-use crate::core::common::diagnostic::{Diagnostic, LabelSeverity};
+use crate::core::program::{DiagnosticDescription, LabelSeverity};
 
-pub(crate) fn render_diagnostic(diagnostic: &Diagnostic, filename: &str, source: &str) {
-    let description = diagnostic.describe();
-
+pub(crate) fn render_diagnostic(description: DiagnosticDescription, filename: &str, source: &str) {
     let mut report = Report::build(
         ReportKind::Error,
         filename,
