@@ -28,10 +28,10 @@ use crate::core::semantic_analysis::name_resolution::definition_list::{
 use crate::core::semantic_analysis::name_resolution::import_list::ImportList;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
 use crate::core::semantic_analysis::semantic_diagnostic::{OwnerSpans, SemanticDiagnostic};
-use crate::core::semantic_analysis::type_checking::ty_lowering::lower_type_expression;
 use crate::core::semantic_analysis::type_checking::type_checker::{
     TypeCheckSink, check_constant, check_function,
 };
+use crate::core::semantic_analysis::type_checking::type_expression_lowering::lower_type_expression;
 use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::RedNode;

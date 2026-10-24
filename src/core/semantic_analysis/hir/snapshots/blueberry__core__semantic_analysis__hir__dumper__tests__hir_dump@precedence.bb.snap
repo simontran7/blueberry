@@ -12,14 +12,16 @@ function main()
          │  └─ Binary *
          │     ├─ Integer 2
          │     └─ Integer 3
-         └─ Binary /
-            ├─ Integer 4
-            └─ Integer 2
+         └─ Binary mod
+            ├─ Binary div
+            │  ├─ Integer 4
+            │  └─ Integer 2
+            └─ Integer 3
 
 function g()
 └─ Block
    ├─ Expression ;
-   │  └─ Binary ||
+   │  └─ Binary or
    │     ├─ Binary <=
    │     │  ├─ Path a
    │     │  └─ Path b

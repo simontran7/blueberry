@@ -4,7 +4,7 @@ expression: "HirBodyDumper::dump_file_with_types(&db, file)"
 input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/operators.bb
 ---
 function f(a: I32, b: U64, c: Bool) -> Bool
-└─ Block 40..242: Bool
+└─ Block 40..250: Bool
    ├─ Let negated: I32
    │  └─ initializer: Unary - 60..62: I32
    │     └─ Path a 61..62: I32
@@ -12,34 +12,36 @@ function f(a: I32, b: U64, c: Bool) -> Bool
    │  └─ initializer: Unary - 82..84: I32
    │     └─ Integer 5 83..84: I32
    ├─ Let sum: I32
-   │  └─ initializer: Binary - 100..117: I32
+   │  └─ initializer: Binary - 100..125: I32
    │     ├─ Binary + 100..109: I32
    │     │  ├─ Path a 100..101: I32
    │     │  └─ Binary * 104..109: I32
    │     │     ├─ Integer 1 104..105: I32
    │     │     └─ Integer 2 108..109: I32
-   │     └─ Binary / 112..117: I32
-   │        ├─ Path a 112..113: I32
-   │        └─ Integer 3 116..117: I32
+   │     └─ Binary mod 112..125: I32
+   │        ├─ Binary div 112..119: I32
+   │        │  ├─ Path a 112..113: I32
+   │        │  └─ Integer 3 118..119: I32
+   │        └─ Integer 2 124..125: I32
    ├─ Let unsigned: U64
-   │  └─ initializer: Binary + 138..143: U64
-   │     ├─ Integer 1 138..139: U64
-   │     └─ Path b 142..143: U64
+   │  └─ initializer: Binary + 146..151: U64
+   │     ├─ Integer 1 146..147: U64
+   │     └─ Path b 150..151: U64
    ├─ Let compared: Bool
-   │  └─ initializer: Binary && 164..180: Bool
-   │     ├─ Binary < 164..169: Bool
-   │     │  ├─ Path a 164..165: I32
-   │     │  └─ Integer 3 168..169: I32
-   │     └─ Binary >= 174..180: Bool
-   │        ├─ Path b 174..175: U64
-   │        └─ Integer 2 179..180: U64
+   │  └─ initializer: Binary and 172..188: Bool
+   │     ├─ Binary < 172..177: Bool
+   │     │  ├─ Path a 172..173: I32
+   │     │  └─ Integer 3 176..177: I32
+   │     └─ Binary >= 182..188: Bool
+   │        ├─ Path b 182..183: U64
+   │        └─ Integer 2 187..188: U64
    ├─ Let equal: Bool
-   │  └─ initializer: Binary || 198..217: Bool
-   │     ├─ Binary == 198..208: Bool
-   │     │  ├─ Path c 198..199: Bool
-   │     │  └─ Unary not 203..208: Bool
-   │     │     └─ Path c 207..208: Bool
-   │     └─ Boolean false 212..217: Bool
-   └─ tail: Binary || 223..240: Bool
-      ├─ Path compared 223..231: Bool
-      └─ Path equal 235..240: Bool
+   │  └─ initializer: Binary or 206..225: Bool
+   │     ├─ Binary == 206..216: Bool
+   │     │  ├─ Path c 206..207: Bool
+   │     │  └─ Unary not 211..216: Bool
+   │     │     └─ Path c 215..216: Bool
+   │     └─ Boolean false 220..225: Bool
+   └─ tail: Binary or 231..248: Bool
+      ├─ Path compared 231..239: Bool
+      └─ Path equal 243..248: Bool

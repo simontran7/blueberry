@@ -16,7 +16,7 @@ use crate::core::semantic_analysis::signature_type_of;
 use crate::core::semantic_analysis::type_checking::inference_table::{
     InferenceTable, TypeMismatch,
 };
-use crate::core::semantic_analysis::type_checking::ty_lowering::lower_type_expression;
+use crate::core::semantic_analysis::type_checking::type_expression_lowering::lower_type_expression;
 use crate::core::semantic_analysis::type_checking::types::{
     InferenceVariable, SignedIntTy, Ty, TyKind, UnsignedIntTy,
 };
@@ -879,7 +879,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             BinaryOperator::Add
             | BinaryOperator::Sub
             | BinaryOperator::Mul
-            | BinaryOperator::Div => {
+            | BinaryOperator::Div
+            | BinaryOperator::Mod => {
                 let lhs_ty = self.check_binary_operands(lhs_handle, rhs_handle);
                 if self.require_integer(lhs_ty) {
                     lhs_ty

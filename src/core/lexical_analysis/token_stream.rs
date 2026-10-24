@@ -19,7 +19,6 @@ pub(in crate::core) enum TokenKind {
     Plus,
     Minus,
     Star,
-    Slash,
     LessThan,
     GreaterThan,
     LessEqual,
@@ -43,6 +42,8 @@ pub(in crate::core) enum TokenKind {
     LogicalAnd,
     LogicalOr,
     LogicalNot,
+    Div,
+    Mod,
     Let,
     Mut,
     Const,
@@ -117,6 +118,8 @@ impl TokenKind {
             "not" => Self::LogicalNot,
             "and" => Self::LogicalAnd,
             "or" => Self::LogicalOr,
+            "div" => Self::Div,
+            "mod" => Self::Mod,
             "return" => Self::Return,
             "true" => Self::True,
             "false" => Self::False,
@@ -154,7 +157,7 @@ impl TokenKind {
                 Some((9, 10))
             }
             Self::Plus | Self::Minus => Some((11, 12)),
-            Self::Star | Self::Slash => Some((13, 14)),
+            Self::Star | Self::Div | Self::Mod => Some((13, 14)),
             _ => None,
         }
     }
@@ -177,7 +180,6 @@ impl fmt::Display for TokenKind {
             Self::Plus => "+",
             Self::Minus => "-",
             Self::Star => "*",
-            Self::Slash => "/",
             Self::LessThan => "<",
             Self::GreaterThan => ">",
             Self::LessEqual => "<=",
@@ -199,6 +201,8 @@ impl fmt::Display for TokenKind {
             Self::LogicalAnd => "and",
             Self::LogicalOr => "or",
             Self::LogicalNot => "not",
+            Self::Div => "div",
+            Self::Mod => "mod",
             Self::Let => "let",
             Self::Mut => "mut",
             Self::Const => "const",

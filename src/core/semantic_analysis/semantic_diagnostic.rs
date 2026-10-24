@@ -433,6 +433,9 @@ impl SemanticDiagnostic {
                     BinaryOperator::Sub => format!("cannot subtract `{rhs}` from `{lhs}`"),
                     BinaryOperator::Mul => format!("cannot multiply `{lhs}` by `{rhs}`"),
                     BinaryOperator::Div => format!("cannot divide `{lhs}` by `{rhs}`"),
+                    BinaryOperator::Mod => {
+                        format!("cannot calculate the remainder of `{lhs}` divided by `{rhs}`")
+                    }
                     _ => unreachable!("only arithmetic operators need integer operands"),
                 };
                 description(

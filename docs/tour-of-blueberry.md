@@ -21,7 +21,7 @@ Only line comments, starting with `//` and running to the end of the line. There
 ```
 // leading comment
 func f() -> I32 {
-    6 / 2 // a single slash is division, not a comment
+    6 div 2 // trailing comment
 }
 ```
 
@@ -90,9 +90,11 @@ func abs(x: I32) -> I32 {
 
 ## Operators
 
-- Arithmetic: `+ - * /`
+- Arithmetic: `+ - * div mod`
 - Comparison: `< > <= >= == !=`
 - Logical: `and`, `or`, `not`
+
+`div` and `mod` are Euclidean: `a mod b` is never negative, and `a == b * (a div b) + a mod b`. For example, `-7 div 2` is `-4` and `-7 mod 2` is `1`.
 
 ```
 if a < b and b < c {

@@ -72,7 +72,7 @@ impl<'src> Tokenizer<'src> {
                     self.eat_inline_comment();
                     TokenKind::InlineComment
                 } else {
-                    TokenKind::Slash
+                    TokenKind::Error
                 }
             }
             '-' => {

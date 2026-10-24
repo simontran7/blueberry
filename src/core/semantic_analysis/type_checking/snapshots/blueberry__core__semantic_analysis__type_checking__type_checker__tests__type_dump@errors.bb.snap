@@ -71,7 +71,7 @@ function operators(c: Bool)
    │  └─ initializer: Unary not 403..408: Bool
    │     └─ Integer 1 407..408: I32
    └─ Let e: Bool
-      └─ initializer: Binary && 422..429: Bool
+      └─ initializer: Binary and 422..429: Bool
          ├─ Integer 1 422..423: I32
          └─ Path c 428..429: Bool
 

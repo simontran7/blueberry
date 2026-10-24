@@ -44,7 +44,7 @@ A signature is kept separate from its body, so that `f` can call `g` using only 
 
 This only works because blueberry requires every signature to be fully annotated, and so the header alone says what the type is.
 
-_In the code:_ `signature_of(d)`, a `Signature` (either a `FunctionSignature` or a `ConstantSignature`, lowered by `lower_function_signature` and `lower_constant_signature` in `ast_lowering.rs`), its source map `signature_source_map_of(d)`, and as a type, `signature_type_of(d)`; annotations are lowered by `lower_type_expression` (`type_checking/ty_lowering.rs`)
+_In the code:_ `signature_of(d)`, a `Signature` (either a `FunctionSignature` or a `ConstantSignature`, lowered by `lower_function_signature` and `lower_constant_signature` in `ast_lowering.rs`), its source map `signature_source_map_of(d)`, and as a type, `signature_type_of(d)`; annotations are lowered by `lower_type_expression` (`type_checking/type_expression_lowering.rs`)
 
 Every query here and below takes a `Definition` (a function or a constant), rather than having one query per kind of definition: `Definition` is a salsa **supertype** (an enum of the two salsa keys, `FunctionKey` and `ConstantKey`), so a single query can be keyed by either, and only matches on the kind where the two genuinely differ (e.g., `types_of` checks a function body against its return type, and a constant body against its declared type).
 
@@ -447,7 +447,7 @@ let s = p.2;             // no field `2` on type `(U64, Bool)`
 
 #### Operators
 
-- `a + b`, `a - b`, `a * b`, `a / b`: `a` is checked first; `b` is checked with `a`'s type, and must be `a`'s type, which must be an integer type. The expression has `a`'s type.
+- `a + b`, `a - b`, `a * b`, `a div b`, `a mod b`: `a` is checked first; `b` is checked with `a`'s type, and must be `a`'s type, which must be an integer type. The expression has `a`'s type.
 - `a < b`, `a == b`, …: the same, except any type is allowed, and the expression has type `Bool`
 - `a && b`, `a || b`: both are checked with `Bool`, and must be `Bool`
 - `-e`: `e` must be a signed integer type, or an integer variable (e.g., `-1` is fine, `-x` with `x: U32` isn't). An integer variable might only become unsigned later (e.g., `let y = -1; let z: U64 = y;`), so it's checked again once the body is finished
@@ -478,7 +478,7 @@ let s = p.2;             // no field `2` on type `(U64, Bool)`
 | `f(a1, .., an)` where `f: fn(p1, .., pn) -> r` | each `ai` must be `pi` | `r` |
 | `-e` | `e` must be a signed integer | `ty(e)` |
 | `not e` | `e` must be `Bool` | `Bool` |
-| `a + b`, `a - b`, `a * b`, `a / b` | `b` must be `ty(a)`, an integer | `ty(a)` |
+| `a + b`, `a - b`, `a * b`, `a div b`, `a mod b` | `b` must be `ty(a)`, an integer | `ty(a)` |
 | `a < b`, `a == b`, … | `b` must be `ty(a)` | `Bool` |
 | `a && b`, `a \|\| b` | `a` and `b` must be `Bool` | `Bool` |
 | `a = b` | `b` must be `ty(a)` | `()` |

@@ -11,7 +11,7 @@ function main()
    │     │  └─ Path a
    │     └─ Path b
    └─ Expression ;
-      └─ Binary &&
+      └─ Binary and
          ├─ Unary not
          │  └─ Path flag
          └─ Path other

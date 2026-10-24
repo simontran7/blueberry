@@ -81,70 +81,86 @@ File
 │   │ │ │   Lexeme: " "
 │   │ │ │   Span: [29, 30)
 │   │ │ └─BinaryOperation
-│   │ │   ├─IntegerLiteral
-│   │ │   │ └─Integer
-│   │ │   │     Lexeme: "4"
-│   │ │   │     Span: [30, 31)
-│   │ │   │ Span: [30, 31)
+│   │ │   ├─BinaryOperation
+│   │ │   │ ├─IntegerLiteral
+│   │ │   │ │ └─Integer
+│   │ │   │ │     Lexeme: "4"
+│   │ │   │ │     Span: [30, 31)
+│   │ │   │ │ Span: [30, 31)
+│   │ │   │ ├─Whitespace
+│   │ │   │ │   Lexeme: " "
+│   │ │   │ │   Span: [31, 32)
+│   │ │   │ ├─Div
+│   │ │   │ │   Lexeme: "div"
+│   │ │   │ │   Span: [32, 35)
+│   │ │   │ ├─Whitespace
+│   │ │   │ │   Lexeme: " "
+│   │ │   │ │   Span: [35, 36)
+│   │ │   │ └─IntegerLiteral
+│   │ │   │   └─Integer
+│   │ │   │       Lexeme: "2"
+│   │ │   │       Span: [36, 37)
+│   │ │   │   Span: [36, 37)
+│   │ │   │ Span: [30, 37)
 │   │ │   ├─Whitespace
 │   │ │   │   Lexeme: " "
-│   │ │   │   Span: [31, 32)
-│   │ │   ├─Slash
-│   │ │   │   Lexeme: "/"
-│   │ │   │   Span: [32, 33)
+│   │ │   │   Span: [37, 38)
+│   │ │   ├─Mod
+│   │ │   │   Lexeme: "mod"
+│   │ │   │   Span: [38, 41)
 │   │ │   ├─Whitespace
 │   │ │   │   Lexeme: " "
-│   │ │   │   Span: [33, 34)
+│   │ │   │   Span: [41, 42)
 │   │ │   └─IntegerLiteral
 │   │ │     └─Integer
-│   │ │         Lexeme: "2"
-│   │ │         Span: [34, 35)
-│   │ │     Span: [34, 35)
-│   │ │   Span: [30, 35)
-│   │ │ Span: [18, 35)
+│   │ │         Lexeme: "3"
+│   │ │         Span: [42, 43)
+│   │ │     Span: [42, 43)
+│   │ │   Span: [30, 43)
+│   │ │ Span: [18, 43)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [35, 36)
-│   │ Span: [18, 36)
+│   │     Span: [43, 44)
+│   │ Span: [18, 44)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [36, 37)
+│   │   Span: [44, 45)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [37, 38)
-│   Span: [12, 38)
-│ Span: [0, 38)
+│       Span: [45, 46)
+│   Span: [12, 46)
+│ Span: [0, 46)
 ├─Whitespace
 │   Lexeme: "\n\n"
-│   Span: [38, 40)
+│   Span: [46, 48)
 ├─FunctionDefinition
 │ ├─Func
 │ │   Lexeme: "func"
-│ │   Span: [40, 44)
+│ │   Span: [48, 52)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [44, 45)
+│ │   Span: [52, 53)
 │ ├─Identifier
 │ │   Lexeme: "g"
-│ │   Span: [45, 46)
+│ │   Span: [53, 54)
 │ ├─ParameterList
 │ │ ├─OpenParen
 │ │ │   Lexeme: "("
-│ │ │   Span: [46, 47)
+│ │ │   Span: [54, 55)
 │ │ └─CloseParen
 │ │     Lexeme: ")"
-│ │     Span: [47, 48)
-│ │ Span: [46, 48)
+│ │     Span: [55, 56)
+│ │ Span: [54, 56)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [48, 49)
+│ │   Span: [56, 57)
 │ └─Block
 │   ├─OpenBrace
 │   │   Lexeme: "{"
-│   │   Span: [49, 50)
+│   │   Span: [57, 58)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [50, 55)
+│   │   Span: [58, 63)
 │   ├─ExpressionStatement
 │   │ ├─BinaryOperation
 │   │ │ ├─BinaryOperation
@@ -153,75 +169,75 @@ File
 │   │ │ │ │   └─PathSegment
 │   │ │ │ │     └─Identifier
 │   │ │ │ │         Lexeme: "a"
-│   │ │ │ │         Span: [55, 56)
-│   │ │ │ │     Span: [55, 56)
-│   │ │ │ │   Span: [55, 56)
-│   │ │ │ │ Span: [55, 56)
+│   │ │ │ │         Span: [63, 64)
+│   │ │ │ │     Span: [63, 64)
+│   │ │ │ │   Span: [63, 64)
+│   │ │ │ │ Span: [63, 64)
 │   │ │ │ ├─Whitespace
 │   │ │ │ │   Lexeme: " "
-│   │ │ │ │   Span: [56, 57)
+│   │ │ │ │   Span: [64, 65)
 │   │ │ │ ├─LessEqual
 │   │ │ │ │   Lexeme: "<="
-│   │ │ │ │   Span: [57, 59)
+│   │ │ │ │   Span: [65, 67)
 │   │ │ │ ├─Whitespace
 │   │ │ │ │   Lexeme: " "
-│   │ │ │ │   Span: [59, 60)
+│   │ │ │ │   Span: [67, 68)
 │   │ │ │ └─PathExpression
 │   │ │ │   └─Path
 │   │ │ │     └─PathSegment
 │   │ │ │       └─Identifier
 │   │ │ │           Lexeme: "b"
-│   │ │ │           Span: [60, 61)
-│   │ │ │       Span: [60, 61)
-│   │ │ │     Span: [60, 61)
-│   │ │ │   Span: [60, 61)
-│   │ │ │ Span: [55, 61)
+│   │ │ │           Span: [68, 69)
+│   │ │ │       Span: [68, 69)
+│   │ │ │     Span: [68, 69)
+│   │ │ │   Span: [68, 69)
+│   │ │ │ Span: [63, 69)
 │   │ │ ├─Whitespace
 │   │ │ │   Lexeme: " "
-│   │ │ │   Span: [61, 62)
+│   │ │ │   Span: [69, 70)
 │   │ │ ├─LogicalOr
 │   │ │ │   Lexeme: "or"
-│   │ │ │   Span: [62, 64)
+│   │ │ │   Span: [70, 72)
 │   │ │ ├─Whitespace
 │   │ │ │   Lexeme: " "
-│   │ │ │   Span: [64, 65)
+│   │ │ │   Span: [72, 73)
 │   │ │ └─BinaryOperation
 │   │ │   ├─PathExpression
 │   │ │   │ └─Path
 │   │ │   │   └─PathSegment
 │   │ │   │     └─Identifier
 │   │ │   │         Lexeme: "c"
-│   │ │   │         Span: [65, 66)
-│   │ │   │     Span: [65, 66)
-│   │ │   │   Span: [65, 66)
-│   │ │   │ Span: [65, 66)
+│   │ │   │         Span: [73, 74)
+│   │ │   │     Span: [73, 74)
+│   │ │   │   Span: [73, 74)
+│   │ │   │ Span: [73, 74)
 │   │ │   ├─Whitespace
 │   │ │   │   Lexeme: " "
-│   │ │   │   Span: [66, 67)
+│   │ │   │   Span: [74, 75)
 │   │ │   ├─GreaterEqual
 │   │ │   │   Lexeme: ">="
-│   │ │   │   Span: [67, 69)
+│   │ │   │   Span: [75, 77)
 │   │ │   ├─Whitespace
 │   │ │   │   Lexeme: " "
-│   │ │   │   Span: [69, 70)
+│   │ │   │   Span: [77, 78)
 │   │ │   └─PathExpression
 │   │ │     └─Path
 │   │ │       └─PathSegment
 │   │ │         └─Identifier
 │   │ │             Lexeme: "d"
-│   │ │             Span: [70, 71)
-│   │ │         Span: [70, 71)
-│   │ │       Span: [70, 71)
-│   │ │     Span: [70, 71)
-│   │ │   Span: [65, 71)
-│   │ │ Span: [55, 71)
+│   │ │             Span: [78, 79)
+│   │ │         Span: [78, 79)
+│   │ │       Span: [78, 79)
+│   │ │     Span: [78, 79)
+│   │ │   Span: [73, 79)
+│   │ │ Span: [63, 79)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [71, 72)
-│   │ Span: [55, 72)
+│   │     Span: [79, 80)
+│   │ Span: [63, 80)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [72, 77)
+│   │   Span: [80, 85)
 │   ├─ExpressionStatement
 │   │ ├─BinaryOperation
 │   │ │ ├─PathExpression
@@ -229,42 +245,42 @@ File
 │   │ │ │   └─PathSegment
 │   │ │ │     └─Identifier
 │   │ │ │         Lexeme: "a"
-│   │ │ │         Span: [77, 78)
-│   │ │ │     Span: [77, 78)
-│   │ │ │   Span: [77, 78)
-│   │ │ │ Span: [77, 78)
+│   │ │ │         Span: [85, 86)
+│   │ │ │     Span: [85, 86)
+│   │ │ │   Span: [85, 86)
+│   │ │ │ Span: [85, 86)
 │   │ │ ├─Whitespace
 │   │ │ │   Lexeme: " "
-│   │ │ │   Span: [78, 79)
+│   │ │ │   Span: [86, 87)
 │   │ │ ├─NotEqual
 │   │ │ │   Lexeme: "!="
-│   │ │ │   Span: [79, 81)
+│   │ │ │   Span: [87, 89)
 │   │ │ ├─Whitespace
 │   │ │ │   Lexeme: " "
-│   │ │ │   Span: [81, 82)
+│   │ │ │   Span: [89, 90)
 │   │ │ └─PathExpression
 │   │ │   └─Path
 │   │ │     └─PathSegment
 │   │ │       └─Identifier
 │   │ │           Lexeme: "b"
-│   │ │           Span: [82, 83)
-│   │ │       Span: [82, 83)
-│   │ │     Span: [82, 83)
-│   │ │   Span: [82, 83)
-│   │ │ Span: [77, 83)
+│   │ │           Span: [90, 91)
+│   │ │       Span: [90, 91)
+│   │ │     Span: [90, 91)
+│   │ │   Span: [90, 91)
+│   │ │ Span: [85, 91)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [83, 84)
-│   │ Span: [77, 84)
+│   │     Span: [91, 92)
+│   │ Span: [85, 92)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [84, 85)
+│   │   Span: [92, 93)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [85, 86)
-│   Span: [49, 86)
-│ Span: [40, 86)
+│       Span: [93, 94)
+│   Span: [57, 94)
+│ Span: [48, 94)
 └─Whitespace
     Lexeme: "\n"
-    Span: [86, 87)
-Span: [0, 87)
+    Span: [94, 95)
+Span: [0, 95)

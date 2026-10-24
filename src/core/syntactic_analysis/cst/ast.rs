@@ -795,7 +795,8 @@ impl BinaryOperation {
                     SyntaxKind::Plus
                         | SyntaxKind::Minus
                         | SyntaxKind::Star
-                        | SyntaxKind::Slash
+                        | SyntaxKind::Div
+                        | SyntaxKind::Mod
                         | SyntaxKind::LessThan
                         | SyntaxKind::GreaterThan
                         | SyntaxKind::LessEqual
