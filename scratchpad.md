@@ -5,7 +5,7 @@
 
 ### Before starting
 
-- [ ] Read [docs/core/database.md](docs/core/database.md): the database, its inputs, and the module map
+- [ ] Read [docs/architecture/database.md](docs/architecture/database.md): the database, its inputs, and the module map
 
 ### 0. The spine
 
@@ -18,11 +18,8 @@
   - [ ] `definition_diagnostics_of`, `import_diagnostics_of`
   - [ ] `definition_at`, `all_definitions_of`
   - [ ] the private helpers at the bottom
-- [ ] Run a tiny program with `blueberry check --path=main.bb --emit=hir`, then break it and read the error
 
 ### 1. AST lowering
-
-Doc: [AST Lowering](docs/core/semantic-analysis.md#ast-lowering)
 
 - [ ] ★ [keys.rs](src/core/semantic_analysis/keys.rs): `FunctionKey`, `ConstantKey`, `BlockKey`
 - [ ] ★ [ast_lowering/nodes.rs](src/core/semantic_analysis/ast_lowering/nodes.rs): `Body`, `Signature`, `Expression`, `Statement`, `HirNodeStore`, `HirNodeSourceMap`
@@ -33,8 +30,6 @@ Doc: [AST Lowering](docs/core/semantic-analysis.md#ast-lowering)
 
 ### 2. Name collecting and resolving
 
-Doc: [Name Collecting](docs/core/semantic-analysis.md#name-collecting), [Resolving a Path](docs/core/semantic-analysis.md#resolving-a-path)
-
 - [ ] ★ [name_resolution/definition_list.rs](src/core/semantic_analysis/name_resolution/definition_list.rs): `DefinitionList`, `Definition`
 - [ ] ◐ [name_resolution/import_list.rs](src/core/semantic_analysis/name_resolution/import_list.rs)
 - [ ] ★ [name_resolution/scope_tree.rs](src/core/semantic_analysis/name_resolution/scope_tree.rs): `containing_scope`, `visit_expression`
@@ -43,7 +38,7 @@ Doc: [Name Collecting](docs/core/semantic-analysis.md#name-collecting), [Resolvi
 
 ### 3. Type checking
 
-Doc: [Type Checking a Body](docs/core/semantic-analysis.md#type-checking-a-body)
+Doc: [Type Checking a Body](docs/architecture/semantic-analysis.md#type-checking-a-body)
 
 - [x] ★ [type_checking/types.rs](src/core/semantic_analysis/type_checking/types.rs): `Ty`, `TyKind`, `InferenceVariable`, `is_poisoned`
 - [x] ★ [type_checking/inference_table.rs](src/core/semantic_analysis/type_checking/inference_table.rs): resolving, `unify`, `coerce`, `occurs`, the fallbacks

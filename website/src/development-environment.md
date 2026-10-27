@@ -49,7 +49,7 @@ blueberry check --path=hello/main.bb
 
 When there are none, it prints `Compiled main`.
 
-Options are written as `--name=value`, and `--path` is always required.
+Options are written as `--name=value`, and `--path` is always required. Run `blueberry --help` to see every command and option.
 
 ## Looking Inside the Compiler
 

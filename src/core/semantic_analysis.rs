@@ -6,7 +6,7 @@ pub(in crate::core) mod type_checking;
 
 use std::sync::Arc;
 
-use crate::core::common::span::TextSize;
+use crate::core::common::span::{Span, TextSize};
 use crate::core::module_map::{ModuleMap, ModulePath};
 use crate::core::semantic_analysis::ast_lowering::body_lowerer::BodyLowerer;
 use crate::core::semantic_analysis::ast_lowering::{
@@ -251,6 +251,48 @@ pub(in crate::core) fn import_diagnostics_of(
                 })
         })
         .collect()
+}
+
+/// Returns the errors about `main`, the entry point of a program compiled from `file`: only a
+/// top-level function counts, and it must take no parameters and return `()`.
+pub(in crate::core) fn entry_point_diagnostics_of(
+    db: &dyn crate::Db,
+    file: SourceFileKey,
+) -> Vec<SemanticDiagnostic> {
+    let main = file_scoped_definitions_of(db, file)
+        .definitions()
+        .iter()
+        .copied()
+        .find(|definition| {
+            matches!(definition, Definition::Function(_)) && definition.name(db).text(db) == "main"
+        });
+    let Some(main) = main else {
+        let file_name = file.path(db).file_name().unwrap_or_default();
+        let end = TextSize::new(file.contents(db).len());
+        return vec![SemanticDiagnostic::MainNotFound {
+            file: file_name.to_string_lossy().into_owned(),
+            span: Span::new(end, end),
+        }];
+    };
+
+    let ty = *signature_type_of(db, main);
+    let expected = Ty::function(db, Box::new([]), Ty::unit(db));
+    // a poisoned signature (e.g., with an unknown type) was already reported
+    if ty == expected || ty.is_poisoned(db) {
+        return Vec::new();
+    }
+    let Definition::Function(key) = main else {
+        unreachable!("`main` was found among the functions");
+    };
+    let span = key
+        .to_ast_node(db)
+        .name()
+        .map_or_else(|| main.span(db), |name| name.span());
+    vec![SemanticDiagnostic::MainWrongType {
+        expected: expected.display(db).to_string(),
+        found: ty.display(db).to_string(),
+        span,
+    }]
 }
 
 pub(in crate::core) fn definition_at<'db>(

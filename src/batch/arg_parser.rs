@@ -21,9 +21,36 @@ pub enum EmitKind {
     Dot,
 }
 
+const USAGE: &str = "\
+blueberry: the compiler for the blueberry programming language
+
+Usage: blueberry <command> --path=<file> [--emit=<stages>]
+
+Commands:
+  check    Check a program for errors
+  build    Compile a program into an executable (not implemented yet)
+  run      Build a program, then run it (not implemented yet)
+
+Options:
+  --path=<file>      The `.bb` file to compile, whose directory is the project's root
+  --emit=<stages>    Also print what the compiler produced at some of its stages, for the
+                     compiled file: one or more of tokens, cst, hir, mir, separated by commas
+  -h, --help         Print this help
+";
+
 impl Command {
     pub fn parse() -> Self {
-        let mut arguments = std::env::args().skip(1);
+        let arguments: Vec<String> = std::env::args().skip(1).collect();
+        if matches!(arguments.first().map(String::as_str), None | Some("help"))
+            || arguments
+                .iter()
+                .any(|argument| argument == "--help" || argument == "-h")
+        {
+            print!("{USAGE}");
+            std::process::exit(0);
+        }
+
+        let mut arguments = arguments.into_iter();
         let subcommand = arguments
             .next()
             .unwrap_or_else(|| print_usage_error("missing command"));
@@ -76,5 +103,6 @@ fn parse_emit_kind(s: &str) -> EmitKind {
 
 fn print_usage_error(message: &str) -> ! {
     eprintln!("error: {message}");
+    eprintln!("Run `blueberry --help` for usage.");
     std::process::exit(2);
 }

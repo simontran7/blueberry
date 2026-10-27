@@ -54,11 +54,11 @@ flowchart TD
 
 Read them in the order a program goes through them:
 
-1. [Database](core/database.md): `Compiler` (the core's facade), the database, its inputs, the module map, and how a project is loaded
-2. [Lexical Analysis](core/lexical-analysis.md): source text to tokens (not written yet)
-3. [Syntactic Analysis](core/syntactic-analysis.md): tokens to a concrete syntax tree
-4. [Semantic Analysis](core/semantic-analysis.md): what each name refers to, and what type each expression has
-5. [MIR Construction](core/mir-construction.md): the typed HIR to a control-flow graph in SSA form
+1. [Database](architecture/database.md): `Compiler` (the core's facade), the database, its inputs, the module map, and how a project is loaded
+2. [Lexical Analysis](architecture/lexical-analysis.md): source text to tokens (not written yet)
+3. [Syntactic Analysis](architecture/syntactic-analysis.md): tokens to a concrete syntax tree
+4. [Semantic Analysis](architecture/semantic-analysis.md): what each name refers to, and what type each expression has
+5. [MIR Construction](architecture/mir-construction.md): the typed HIR to a control-flow graph in SSA form
 
 ## Testing
 
@@ -82,7 +82,7 @@ cargo run -- check --path=main.bb
 cargo run -- check --path=main.bb --emit=hir,mir
 ```
 
-Imports are resolved from the directory of the compiled file.
+Imports are resolved from the directory of the compiled file, and only the compiled file must define `main`. `cargo run -- --help` lists every command and option.
 
 ## Style
 

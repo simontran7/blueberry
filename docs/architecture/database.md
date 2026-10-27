@@ -1,6 +1,6 @@
 # Database
 
-`Compiler` is the core's **facade**.
+`Compiler` is the `core`'s **facade**.
 
 This means that the batch compiler and the language server never calls a query directly, but asks `Compiler`, which calls the queries. 
 

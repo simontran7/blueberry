@@ -87,8 +87,12 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
     if emit.contains(&EmitKind::Hir) {
         print!("{}", compiler.dump_hir(file));
     }
-    if report(&|file| {
-        let mut diagnostics = compiler.semantic_diagnostics(file);
+    if report(&|checked| {
+        let mut diagnostics = compiler.semantic_diagnostics(checked);
+        // only the compiled file's `main` is the program's entry point
+        if checked == file {
+            diagnostics.extend(compiler.entry_point_diagnostics(checked));
+        }
         diagnostics.sort_by_key(|diagnostic| diagnostic.span.start());
         diagnostics
     }) {

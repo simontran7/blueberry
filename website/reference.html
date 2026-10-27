@@ -761,7 +761,7 @@ let y: U64 = x; // x is a U64, so 5 is too</code></pre>
 
 <p class="r" id="modules.compile">Compiling a file also checks every module it imports, directly or not. A module that nothing imports isn't checked.</p>
 
-<h2 id="program-entry-point">Program Entry Point <span class="badge">Unimplemented</span></h2>
+<h2 id="program-entry-point">Program Entry Point</h2>
 
 <pre><code>func main() {
     …
@@ -769,7 +769,7 @@ let y: U64 = x; // x is a U64, so 5 is too</code></pre>
 
 <p class="r" id="program.main">A program starts running at <code>main</code>: a function defined at the top level of the file being compiled, with no parameters, and returning <code>()</code>.</p>
 
-<p class="r" id="program.main.errors">A compiled file without a top-level <code>main</code>, or whose <code>main</code> has parameters or another return type, is an error. Today, the compiler doesn't check for <code>main</code>.</p>
+<p class="r" id="program.main.errors">A compiled file without a top-level <code>main</code>, or whose <code>main</code> has parameters or another return type, is an error.</p>
 
 <p class="r" id="program.main.modules">A <code>main</code> in an imported module is an ordinary function: only the compiled file's <code>main</code> is the entry point.</p>
 

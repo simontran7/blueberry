@@ -129,6 +129,15 @@ pub(in crate::core) enum SemanticDiagnostic {
         suggested_ty: Option<String>,
         span: Span,
     },
+    MainNotFound {
+        file: String,
+        span: Span,
+    },
+    MainWrongType {
+        expected: String,
+        found: String,
+        span: Span,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
@@ -496,6 +505,25 @@ impl SemanticDiagnostic {
                 "type annotations needed",
                 *span,
                 vec![primary(*span, "cannot infer type")],
+            ),
+            Self::MainNotFound { file, span } => description(
+                "E0601",
+                &format!("`main` function not found in `{file}`"),
+                *span,
+                vec![primary(
+                    *span,
+                    format!("consider adding a `main` function to `{file}`"),
+                )],
+            ),
+            Self::MainWrongType {
+                expected,
+                found,
+                span,
+            } => description(
+                "E0580",
+                "`main` function has wrong type",
+                *span,
+                vec![primary(*span, expected_found(expected, found))],
             ),
             Self::LiteralOutOfRange {
                 literal,

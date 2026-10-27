@@ -17,7 +17,7 @@ use crate::core::semantic_analysis::name_resolution::definition_list::Definition
 use crate::core::semantic_analysis::name_resolution::resolver::Resolution;
 use crate::core::semantic_analysis::{
     all_definitions_of, body_source_map_of, definition_at, definition_diagnostics_of,
-    import_diagnostics_of, imports_of, module_file_of, types_of,
+    entry_point_diagnostics_of, import_diagnostics_of, imports_of, module_file_of, types_of,
 };
 use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
 use crate::core::syntactic_analysis::cst_of;
@@ -94,6 +94,17 @@ impl<'db> Compiler<'db> {
         import_diagnostics_of(self.db, file)
             .into_iter()
             .chain(definition_diagnostics)
+            .map(|diagnostic| Diagnostic::Semantic(diagnostic).describe())
+            .collect()
+    }
+
+    /// Returns the errors about `main`, for a program compiled from `file`.
+    pub(crate) fn entry_point_diagnostics(
+        &self,
+        file: SourceFileKey,
+    ) -> Vec<DiagnosticDescription> {
+        entry_point_diagnostics_of(self.db, file)
+            .into_iter()
             .map(|diagnostic| Diagnostic::Semantic(diagnostic).describe())
             .collect()
     }
