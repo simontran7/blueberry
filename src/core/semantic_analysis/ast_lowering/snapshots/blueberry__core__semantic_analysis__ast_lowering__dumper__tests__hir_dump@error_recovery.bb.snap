@@ -1,0 +1,18 @@
+---
+source: src/core/semantic_analysis/ast_lowering/dumper.rs
+expression: "HirBodyDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/error_recovery.bb
+---
+function f()
+└─ Block
+   └─ Let x
+      └─ initializer: Integer 1
+
+function fib(n: i32) -> i32
+└─ Block
+   ├─ Let x
+   │  └─ initializer: Binary +
+   │     ├─ Integer 1
+   │     └─ Error
+   └─ Let y
+      └─ initializer: Integer 2

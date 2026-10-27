@@ -1,0 +1,12 @@
+---
+source: src/core/semantic_analysis/ast_lowering/dumper.rs
+expression: "HirBodyDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/parameters.bb
+---
+function add(x: I32, y: I32, z: I32) -> I32
+└─ Block
+   └─ tail: Binary +
+      ├─ Binary +
+      │  ├─ Path x
+      │  └─ Path y
+      └─ Path z

@@ -1,12 +1,12 @@
 use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
 use crate::core::common::span::{Span, TextSize};
-use crate::core::semantic_analysis::hir::nodes::{
-    BinaryOperator, DefinitionBody, Expression, ExpressionHandle, HirNodeSourceMap, TypeExpression,
+use crate::core::semantic_analysis::ast_lowering::nodes::{
+    BinaryOperator, Body, Expression, ExpressionHandle, HirNodeSourceMap, TypeExpression,
     TypeExpressionHandle, UnaryOperator,
 };
-use crate::core::semantic_analysis::ids::keys::FunctionKey;
+use crate::core::semantic_analysis::keys::FunctionKey;
 use crate::core::semantic_analysis::name_resolution::resolver::{Resolution, ResolveError};
-use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckSink;
+use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckResult;
 use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::source_file_key::SourceFileKey;
 
@@ -184,8 +184,12 @@ pub(in crate::core) enum UnresolvedSemanticDiagnostic<'db> {
     },
     BreakOutsideOfLoop {
         expression_handle: ExpressionHandle,
-        is_break: bool,
-        bad_value_break: bool,
+    },
+    ContinueOutsideOfLoop {
+        expression_handle: ExpressionHandle,
+    },
+    BreakWithValueFromWhile {
+        expression_handle: ExpressionHandle,
     },
     ReturnOutsideFunction {
         expression_handle: ExpressionHandle,
@@ -522,9 +526,9 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
     pub(in crate::core) fn resolve(
         &self,
         db: &'db dyn crate::Db,
-        body: &DefinitionBody<'db>,
+        body: &Body<'db>,
         source_map: &HirNodeSourceMap,
-        types: &TypeCheckSink<'db>,
+        types: &TypeCheckResult<'db>,
         owner: &OwnerSpans,
     ) -> SemanticDiagnostic {
         let span_of = |expression_handle: ExpressionHandle| {
@@ -695,7 +699,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                     (parameters.len()..argument_handles.len())
                         .map(|index| {
                             let argument_handle = argument_handles[index];
-                            let ty = types.expression_type(argument_handle).display(db);
+                            let ty = types[argument_handle].display(db);
                             (
                                 span_of(argument_handle),
                                 format!("unexpected argument #{} of type `{ty}`", index + 1),
@@ -733,7 +737,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 is_unsigned,
             } => SemanticDiagnostic::UnaryOperatorCannotBeApplied {
                 operator: match operator {
-                    UnaryOperator::Neg => "-".to_string(),
+                    UnaryOperator::Negation => "-".to_string(),
                     UnaryOperator::Not => "not".to_string(),
                 },
                 found: found.display(db).to_string(),
@@ -770,16 +774,19 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 span: span_of(*assignment_handle),
                 target_span: span_of(*target_handle),
             },
-            Self::BreakOutsideOfLoop {
-                expression_handle,
-                is_break,
-                bad_value_break,
-            } => {
-                let span = span_of(*expression_handle);
-                match (is_break, bad_value_break) {
-                    (true, true) => SemanticDiagnostic::BreakWithValueFromWhile { span },
-                    (true, false) => SemanticDiagnostic::BreakOutsideOfLoop { span },
-                    (false, _) => SemanticDiagnostic::ContinueOutsideOfLoop { span },
+            Self::BreakOutsideOfLoop { expression_handle } => {
+                SemanticDiagnostic::BreakOutsideOfLoop {
+                    span: span_of(*expression_handle),
+                }
+            }
+            Self::ContinueOutsideOfLoop { expression_handle } => {
+                SemanticDiagnostic::ContinueOutsideOfLoop {
+                    span: span_of(*expression_handle),
+                }
+            }
+            Self::BreakWithValueFromWhile { expression_handle } => {
+                SemanticDiagnostic::BreakWithValueFromWhile {
+                    span: span_of(*expression_handle),
                 }
             }
             Self::ReturnOutsideFunction { expression_handle } => {
@@ -808,10 +815,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
     }
 }
 
-fn value_expression(
-    body: &DefinitionBody<'_>,
-    expression_handle: ExpressionHandle,
-) -> ExpressionHandle {
+fn value_expression(body: &Body<'_>, expression_handle: ExpressionHandle) -> ExpressionHandle {
     match &body.store[expression_handle] {
         Expression::Block {
             tail_handle: Some(tail_handle),
@@ -821,7 +825,7 @@ fn value_expression(
     }
 }
 
-fn value_kind(body: &DefinitionBody<'_>, expression_handle: ExpressionHandle) -> &'static str {
+fn value_kind(body: &Body<'_>, expression_handle: ExpressionHandle) -> &'static str {
     let is_callee = body.store.expressions().map(|(_, expression)| expression).any(|other| {
         matches!(other, Expression::Call { callee_handle, .. } if *callee_handle == expression_handle)
     });

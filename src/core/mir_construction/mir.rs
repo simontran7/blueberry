@@ -5,8 +5,8 @@ use crate::core::common::handle_collections::handle_list::{
     HandleArrayList, HandleArrayListAllocator,
 };
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
-use crate::core::semantic_analysis::hir::nodes::{BinaryOperator, UnaryOperator};
-use crate::core::semantic_analysis::ids::keys::{ConstantKey, FunctionKey};
+use crate::core::semantic_analysis::ast_lowering::nodes::{BinaryOperator, UnaryOperator};
+use crate::core::semantic_analysis::keys::{ConstantKey, FunctionKey};
 use crate::core::semantic_analysis::type_checking::types::Ty;
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]

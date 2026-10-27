@@ -1,0 +1,16 @@
+---
+source: src/core/semantic_analysis/ast_lowering/dumper.rs
+expression: "HirBodyDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/const.bb
+---
+constant THRESHOLD: I32
+└─ Integer 10
+
+constant ENABLED: Bool
+└─ Boolean true
+
+function f()
+└─ Block
+   └─ Let x
+      ├─ type: I32
+      └─ initializer: Path THRESHOLD

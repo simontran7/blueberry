@@ -25,15 +25,11 @@ Name a type after what a thing _is_ (its kind), and a field after the part it pl
 
 ## Collections
 
-A field of a finished value is a `Box<[T]>` (e.g., a `DefinitionBody`'s `parameter_handles`, a tuple type's elements, a path's segments): it's allocated to its exact length, takes one word less than a `Vec`, and its type says that it's final. A field is a `Vec<T>` only if the type itself grows it (e.g., an arena's items, a builder's output, a `DefinitionList` filled by `add_definition`). Build in a `Vec`, or `collect` directly, then store the result as a `Box<[T]>`.
+A field of a finished value is a `Box<[T]>` (e.g., a `Body`'s `parameter_handles`, a tuple type's elements, a path's segments): it's allocated to its exact length, takes one word less than a `Vec`, and its type says that it's final. A field is a `Vec<T>` only if the type itself grows it (e.g., an arena's items, a builder's output, a `DefinitionList` filled by `add_definition`). Build in a `Vec`, or `collect` directly, then store the result as a `Box<[T]>`.
 
 ## Data Layout and APIs
 
 Lay data out flat (arenas of nodes referred to by handle, with their children in a `RunList`), but expose it through methods and views rather than raw fields, so that callers never have to know the layout. An arena and its children always travel together, so they're bundled into one type (e.g., the `HirNodeStore`), and only a node's own children go into it: what an owner does with nodes (its root, its parameters, its annotations) is kept on the owner.
-
-## Visibility
-
-The core's items are `pub(in crate::core)`, and its modules are private: only `core::program` (the facade used by `src/batch` and `src/language_server`) and the plain types it hands out (e.g., `DiagnosticDescription`, `Span`, `SourceFileKey`) are `pub(crate)`. Inside the core, a type's internals are restricted to the module that owns them when possible (e.g., the `HirNodeStore`'s fields are `pub(in crate::core::semantic_analysis::hir)`, so only the HIR and its builder can touch them, and everyone else goes through indexing).
 
 ## Layout
 

@@ -1,4 +1,4 @@
-use crate::core::semantic_analysis::hir::nodes::{
+use crate::core::semantic_analysis::ast_lowering::nodes::{
     HirNodeStore, TypeExpression, TypeExpressionHandle,
 };
 use crate::core::semantic_analysis::type_checking::types::Ty;

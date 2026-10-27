@@ -1,0 +1,13 @@
+---
+source: src/core/semantic_analysis/ast_lowering/dumper.rs
+expression: "HirBodyDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/unit.bb
+---
+function f()
+└─ Block
+   ├─ Let x
+   │  └─ initializer: Tuple
+   └─ Let y
+      └─ initializer: Binary +
+         ├─ Integer 1
+         └─ Integer 2

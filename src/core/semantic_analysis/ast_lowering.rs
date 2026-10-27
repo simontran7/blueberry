@@ -1,9 +1,12 @@
-pub(in crate::core) mod definition_body_lowerer;
+pub(in crate::core) mod body_lowerer;
+pub(in crate::core) mod dumper;
+pub(in crate::core) mod hir_node_store_builder;
+pub(in crate::core) mod nodes;
 
 use crate::core::common::span::TextSize;
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::hir::hir_node_store_builder::HirNodeStoreBuilder;
-use crate::core::semantic_analysis::hir::nodes::{
+use crate::core::semantic_analysis::ast_lowering::hir_node_store_builder::HirNodeStoreBuilder;
+use crate::core::semantic_analysis::ast_lowering::nodes::{
     ConstantSignature, FunctionSignature, HirNodeSourceMap, Path, TypeExpression,
     TypeExpressionHandle,
 };

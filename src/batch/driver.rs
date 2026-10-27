@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use crate::batch::arg_parser::EmitKind;
 use crate::batch::diagnostic_render::render_diagnostic;
-use crate::core::program::{BlueberryDatabase, DiagnosticDescription, Program};
+use crate::core::compiler::{BlueberryDatabase, Compiler, DiagnosticDescription, SourceFileKey};
 
 pub fn build(path: PathBuf, emit: &HashSet<EmitKind>) {
     todo!();
@@ -32,7 +32,7 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    if let Err(error) = Program::load_modules(&db, root) {
+    if let Err(error) = Compiler::load_modules(&db, root) {
         eprintln!(
             "Error reading directory {}: {}",
             root.to_string_lossy(),
@@ -40,49 +40,64 @@ fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
         );
         std::process::exit(1);
     }
-    let program = Program::new(&db);
-    let Some(file) = program.file(Path::new(path.file_name().unwrap())) else {
+    let compiler = Compiler::new(&db);
+    let Some(file) = compiler.file(Path::new(path.file_name().unwrap())) else {
         eprintln!("Error reading file {}", path.to_string_lossy());
         std::process::exit(1);
     };
-    let source = program.contents(file);
-    let report = |diagnostics: Vec<DiagnosticDescription>| {
-        let has_diagnostics = !diagnostics.is_empty();
-        for diagnostic in diagnostics {
-            render_diagnostic(diagnostic, &file_stem, source);
+    // the compiled file, then every file it imports, each named by its path relative to the root
+    let files: Vec<(SourceFileKey, String)> = compiler
+        .files_reachable_from(file)
+        .into_iter()
+        .map(|file| {
+            let path = compiler.path(file);
+            let name = path.strip_prefix(root).unwrap_or(path).with_extension("");
+            (file, name.to_string_lossy().into_owned())
+        })
+        .collect();
+    // reports a stage's diagnostics in every file, returning whether there were any
+    let report = |diagnostics_of: &dyn Fn(SourceFileKey) -> Vec<DiagnosticDescription>| {
+        let mut has_diagnostics = false;
+        for (file, name) in &files {
+            for diagnostic in diagnostics_of(*file) {
+                render_diagnostic(diagnostic, name, compiler.contents(*file));
+                has_diagnostics = true;
+            }
         }
         has_diagnostics
     };
 
     // ---- Stage 1: Lexical Program ----
-    if report(program.lexical_diagnostics(file)) {
+    if report(&|file| compiler.lexical_diagnostics(file)) {
         return;
     }
     if emit.contains(&EmitKind::Tokens) {
-        println!("{}", program.dump_tokens(file));
+        println!("{}", compiler.dump_tokens(file));
     }
 
     // ---- Stage 2: Syntactic Program ----
-    if report(program.syntax_diagnostics(file)) {
+    if report(&|file| compiler.syntax_diagnostics(file)) {
         return;
     }
     if emit.contains(&EmitKind::Cst) {
-        println!("{}", program.dump_cst(file));
+        println!("{}", compiler.dump_cst(file));
     }
 
     // ---- Stage 3: Semantic Program ----
-    let mut semantic_diagnostics = program.semantic_diagnostics(file);
-    semantic_diagnostics.sort_by_key(|diagnostic| diagnostic.span.start());
     if emit.contains(&EmitKind::Hir) {
-        print!("{}", program.dump_hir(file));
+        print!("{}", compiler.dump_hir(file));
     }
-    if report(semantic_diagnostics) {
+    if report(&|file| {
+        let mut diagnostics = compiler.semantic_diagnostics(file);
+        diagnostics.sort_by_key(|diagnostic| diagnostic.span.start());
+        diagnostics
+    }) {
         return;
     }
 
     // ---- Stage 4: MIR Construction ----
     if emit.contains(&EmitKind::Mir) {
-        print!("{}", program.dump_mir(file));
+        print!("{}", compiler.dump_mir(file));
     }
 
     // print compile time

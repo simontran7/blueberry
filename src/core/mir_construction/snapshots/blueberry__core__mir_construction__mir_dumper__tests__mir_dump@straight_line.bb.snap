@@ -6,7 +6,7 @@ input_file: src/core/mir_construction/snapshot_inputs/straight_line.bb
 function add(I64, I64) -> I64 {
 Block0(v0: I64, v1: I64):
     v2 = Binary Add v0, v1
-    v3 = Unary Neg v2
+    v3 = Unary Negation v2
     v4 = IntegerLiteral 2
     v5 = Binary Mul v3, v4
     Return v5

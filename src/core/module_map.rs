@@ -3,7 +3,7 @@ use std::fs;
 use std::io;
 use std::path::Path as FilePath;
 
-use crate::core::semantic_analysis::hir::nodes::Path;
+use crate::core::semantic_analysis::ast_lowering::nodes::Path;
 use crate::core::source_file_key::SourceFileKey;
 
 #[salsa::input(singleton, debug)]
@@ -37,9 +37,9 @@ impl ModuleMap {
 }
 
 impl ModulePath {
-    pub(in crate::core) fn from_file_path(relative_path: &FilePath) -> Self {
+    pub(in crate::core) fn from_file_path(relative: &FilePath) -> Self {
         Self(
-            relative_path
+            relative
                 .with_extension("")
                 .components()
                 .map(|component| component.as_os_str().to_string_lossy().into_owned())

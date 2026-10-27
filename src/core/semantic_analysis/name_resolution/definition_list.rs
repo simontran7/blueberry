@@ -1,6 +1,6 @@
 use crate::core::common::span::{Span, TextSize};
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::ids::keys::{ConstantKey, DefinitionSource, FunctionKey};
+use crate::core::semantic_analysis::keys::{ConstantKey, DefinitionSource, FunctionKey};
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::RedNodeTag;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode};

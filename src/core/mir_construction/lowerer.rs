@@ -1,17 +1,17 @@
 use crate::core::mir_construction::cfg_builder::CfgBuilder;
 use crate::core::mir_construction::mir::{BlockId, Cfg, MirBody, Signature, ValueId};
-use crate::core::semantic_analysis::hir::nodes::{
-    BinaryOperator, DefinitionBody, Expression, ExpressionHandle, LocalBindingHandle, Statement,
+use crate::core::semantic_analysis::ast_lowering::nodes::{
+    BinaryOperator, Body, Expression, ExpressionHandle, LocalBindingHandle, Statement,
     StatementHandle, UnaryOperator,
 };
 use crate::core::semantic_analysis::name_resolution::resolver::Resolution;
-use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckSink;
+use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckResult;
 use crate::core::semantic_analysis::type_checking::types::{Ty, TyKind};
 
 pub(in crate::core) struct MirLowerer<'a, 'db> {
     db: &'db dyn crate::Db,
-    body: &'a DefinitionBody<'db>,
-    types: &'a TypeCheckSink<'db>,
+    body: &'a Body<'db>,
+    types: &'a TypeCheckResult<'db>,
     cfg: CfgBuilder<'db>,
     loop_frames: Vec<LoopFrame>,
 }
@@ -25,8 +25,8 @@ struct LoopFrame {
 impl<'a, 'db> MirLowerer<'a, 'db> {
     pub(in crate::core) fn new(
         db: &'db dyn crate::Db,
-        body: &'a DefinitionBody<'db>,
-        types: &'a TypeCheckSink<'db>,
+        body: &'a Body<'db>,
+        types: &'a TypeCheckResult<'db>,
     ) -> Self {
         Self {
             db,
@@ -73,7 +73,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         self.cfg.seal_block(entry_block_id);
 
         for &binding_handle in &body.parameter_handles {
-            let ty = self.types.local_binding_type(binding_handle);
+            let ty = self.types[binding_handle];
             if self.is_zero_sized(ty) {
                 continue;
             }
@@ -117,7 +117,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
     fn lower_expression(&mut self, expression_handle: ExpressionHandle) -> Option<ValueId> {
         let body = self.body;
-        let ty = self.types.expression_type(expression_handle);
+        let ty = self.types[expression_handle];
         match &body.store[expression_handle] {
             Expression::Error => {
                 unreachable!("MIR is only built for bodies without errors")
@@ -310,7 +310,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             return None;
         };
 
-        let base_ty = self.types.expression_type(base_handle);
+        let base_ty = self.types[base_handle];
         let block = self.current_block();
         let base_id = self.cfg.read_variable(binding_handle, base_ty, block);
         let new_base_id = self.insert_field(base_id, base_ty, &indices, value_id);

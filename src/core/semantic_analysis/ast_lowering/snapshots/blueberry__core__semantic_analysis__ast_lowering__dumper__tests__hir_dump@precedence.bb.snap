@@ -1,0 +1,34 @@
+---
+source: src/core/semantic_analysis/ast_lowering/dumper.rs
+expression: "HirBodyDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/precedence.bb
+---
+function main()
+└─ Block
+   └─ Expression ;
+      └─ Binary -
+         ├─ Binary +
+         │  ├─ Integer 1
+         │  └─ Binary *
+         │     ├─ Integer 2
+         │     └─ Integer 3
+         └─ Binary mod
+            ├─ Binary div
+            │  ├─ Integer 4
+            │  └─ Integer 2
+            └─ Integer 3
+
+function g()
+└─ Block
+   ├─ Expression ;
+   │  └─ Binary or
+   │     ├─ Binary <=
+   │     │  ├─ Path a
+   │     │  └─ Path b
+   │     └─ Binary >=
+   │        ├─ Path c
+   │        └─ Path d
+   └─ Expression ;
+      └─ Binary !=
+         ├─ Path a
+         └─ Path b

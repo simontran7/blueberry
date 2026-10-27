@@ -2,10 +2,10 @@ use crate::core::common::handle_collections::handle_impl;
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
 use crate::core::common::runs::{Run, RunList};
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::hir::nodes::{
-    DefinitionBody, Expression, ExpressionHandle, LocalBindingHandle, Statement,
+use crate::core::semantic_analysis::ast_lowering::nodes::{
+    Body, Expression, ExpressionHandle, LocalBindingHandle, Statement,
 };
-use crate::core::semantic_analysis::ids::keys::BlockKey;
+use crate::core::semantic_analysis::keys::BlockKey;
 use crate::core::semantic_analysis::name_resolution::resolver::Resolver;
 use crate::core::source_file_key::SourceFileKey;
 
@@ -46,7 +46,7 @@ struct Scope<'db> {
 
 impl<'db> ScopeTree<'db> {
     pub(in crate::core) fn new(
-        body: &DefinitionBody<'db>,
+        body: &Body<'db>,
         file: SourceFileKey,
         enclosing_block: Option<BlockKey<'db>>,
     ) -> Self {
@@ -106,7 +106,7 @@ impl<'db> ScopeTree<'db> {
 
     fn visit_expression(
         &mut self,
-        body: &DefinitionBody<'db>,
+        body: &Body<'db>,
         expression_handle: ExpressionHandle,
         parent_handle: ScopeHandle,
     ) {
@@ -255,7 +255,7 @@ impl<'a, 'db> ScopeView<'a, 'db> {
 impl<'db> ScopeViewMut<'_, 'db> {
     pub(in crate::core) fn add_entries(
         &mut self,
-        body: &DefinitionBody<'db>,
+        body: &Body<'db>,
         binding_handles: &[LocalBindingHandle],
     ) {
         let entries: Vec<ScopeEntry<'db>> = binding_handles

@@ -8,10 +8,10 @@ use crate::core::common::handle_collections::handle_map::SideHandleMap;
 use crate::core::mir_construction::mir::{
     BlockId, Cfg, Instruction, InstructionId, ValueId, ValueOrigin,
 };
-use crate::core::semantic_analysis::hir::nodes::{
+use crate::core::semantic_analysis::ast_lowering::nodes::{
     BinaryOperator, LocalBindingHandle, UnaryOperator,
 };
-use crate::core::semantic_analysis::ids::keys::{ConstantKey, FunctionKey};
+use crate::core::semantic_analysis::keys::{ConstantKey, FunctionKey};
 use crate::core::semantic_analysis::type_checking::types::Ty;
 
 pub(in crate::core) struct CfgBuilder<'db> {

@@ -1,0 +1,9 @@
+---
+source: src/core/semantic_analysis/ast_lowering/dumper.rs
+expression: "HirBodyDumper::dump_file(&db, file)"
+input_file: src/core/syntactic_analysis/snapshot_inputs/integer_literal.bb
+---
+function f()
+└─ Block
+   └─ Expression ;
+      └─ Integer 42

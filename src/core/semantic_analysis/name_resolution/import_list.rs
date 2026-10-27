@@ -1,5 +1,5 @@
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::hir::nodes::Path;
+use crate::core::semantic_analysis::ast_lowering::nodes::Path;
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
 pub(in crate::core) struct ImportList<'db> {
