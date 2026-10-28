@@ -4,14 +4,14 @@ use crate::core::semantic_analysis::keys::{BlockKey, ConstantKey, FunctionKey};
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeView;
 use crate::core::semantic_analysis::{
-    block_scoped_definitions_of, file_scoped_definitions_of, imports_of, module_file_of,
+    block_definitions_of, imports_of, module_file_of, top_level_definitions_of,
 };
 use crate::core::source_file_key::SourceFileKey;
 
 pub(in crate::core) struct Resolver<'a, 'db> {
-    pub(in crate::core) file: SourceFileKey,
-    pub(in crate::core) scope_view: ScopeView<'a, 'db>,
-    pub(in crate::core) enclosing_block: Option<BlockKey<'db>>,
+    pub(in crate::core::semantic_analysis::name_resolution) file: SourceFileKey,
+    pub(in crate::core::semantic_analysis::name_resolution) scope_view: ScopeView<'a, 'db>,
+    pub(in crate::core::semantic_analysis::name_resolution) enclosing_block: Option<BlockKey<'db>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
@@ -73,14 +73,14 @@ impl<'a, 'db> Resolver<'a, 'db> {
                 .entries()
                 .iter()
                 .rev()
-                .find(|entry| entry.name == name)
+                .find(|entry| entry.name() == name)
             {
-                return Some(Resolution::Local(entry.binding_handle));
+                return Some(Resolution::Local(entry.binding()));
             }
 
             // check whether `name` is a definition's name in the current block
             if let Some(block_key) = scope_view.block()
-                && let Some(definition) = block_scoped_definitions_of(db, block_key).find(db, name)
+                && let Some(definition) = block_definitions_of(db, block_key).find(db, name)
             {
                 return Some(definition.into());
             }
@@ -90,14 +90,14 @@ impl<'a, 'db> Resolver<'a, 'db> {
         // innermost first
         let mut ancestor = self.enclosing_block;
         while let Some(block) = ancestor {
-            if let Some(definition) = block_scoped_definitions_of(db, block).find(db, name) {
+            if let Some(definition) = block_definitions_of(db, block).find(db, name) {
                 return Some(definition.into());
             }
             ancestor = block.enclosing_block(db);
         }
 
         // check whether `name` is a top-level definition in the current file
-        if let Some(definition) = file_scoped_definitions_of(db, self.file).find(db, name) {
+        if let Some(definition) = top_level_definitions_of(db, self.file).find(db, name) {
             return Some(definition.into());
         }
 
@@ -129,7 +129,7 @@ fn resolve_in_module<'db>(
     file: SourceFileKey,
     name: Symbol<'db>,
 ) -> Option<Resolution<'db>> {
-    file_scoped_definitions_of(db, file)
+    top_level_definitions_of(db, file)
         .find(db, name)
         .map(Resolution::from)
 }

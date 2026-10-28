@@ -28,7 +28,7 @@ use crate::core::semantic_analysis::name_resolution::import_list::ImportList;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
 use crate::core::semantic_analysis::semantic_diagnostic::{OwnerSpans, SemanticDiagnostic};
 use crate::core::semantic_analysis::type_checking::type_checker::{
-    TypeCheckResult, check_constant, check_function,
+    BodySemantics, check_constant, check_function,
 };
 use crate::core::semantic_analysis::type_checking::type_expression_lowering::lower_type_expression;
 use crate::core::semantic_analysis::type_checking::types::Ty;
@@ -37,11 +37,13 @@ use crate::core::syntactic_analysis::cst::RedNode;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode, File};
 use crate::core::syntactic_analysis::cst_of;
 
+// ---- Type Checking ----
+
 #[salsa::tracked]
-pub(in crate::core) fn types_of<'db>(
+pub(in crate::core) fn semantics_of<'db>(
     db: &'db dyn crate::Db,
     definition: Definition<'db>,
-) -> Arc<TypeCheckResult<'db>> {
+) -> Arc<BodySemantics<'db>> {
     let body = body_of(db, definition);
     let scopes = scopes_of(db, definition);
     let signature_type = *signature_type_of(db, definition);
@@ -50,6 +52,8 @@ pub(in crate::core) fn types_of<'db>(
         Definition::Constant(_) => check_constant(db, body, scopes, signature_type),
     })
 }
+
+// ---- AST Lowering ----
 
 #[salsa::tracked]
 pub(in crate::core) fn body_of<'db>(
@@ -67,18 +71,6 @@ pub(in crate::core) fn body_source_map_of<'db>(
 }
 
 #[salsa::tracked]
-pub(in crate::core) fn scopes_of<'db>(
-    db: &'db dyn crate::Db,
-    definition: Definition<'db>,
-) -> Arc<ScopeTree<'db>> {
-    Arc::new(ScopeTree::new(
-        body_of(db, definition),
-        definition.file(db),
-        definition.source(db).block(),
-    ))
-}
-
-#[salsa::tracked]
 pub(in crate::core) fn signature_type_of<'db>(
     db: &'db dyn crate::Db,
     definition: Definition<'db>,
@@ -90,16 +82,16 @@ pub(in crate::core) fn signature_type_of<'db>(
     match &**signature {
         Signature::Function(function) => {
             let parameters = function
-                .parameter_annotation_handles
+                .parameter_annotations()
                 .iter()
                 .map(|&annotation_handle| lower(annotation_handle))
                 .collect();
             let return_type = function
-                .return_type_annotation
+                .return_type_annotation()
                 .map_or_else(|| Ty::unit(db), lower);
             Ty::function(db, parameters, return_type)
         }
-        Signature::Constant(constant) => constant.annotation.map_or_else(|| Ty::error(db), lower),
+        Signature::Constant(constant) => constant.annotation().map_or_else(|| Ty::error(db), lower),
     }
 }
 
@@ -118,8 +110,22 @@ pub(in crate::core) fn signature_source_map_of<'db>(
     signature_with_source_map_of(db, definition).1.clone()
 }
 
+// ---- Name Collecting ----
+
 #[salsa::tracked]
-pub(in crate::core) fn file_scoped_definitions_of<'db>(
+pub(in crate::core) fn scopes_of<'db>(
+    db: &'db dyn crate::Db,
+    definition: Definition<'db>,
+) -> Arc<ScopeTree<'db>> {
+    Arc::new(ScopeTree::new(
+        body_of(db, definition),
+        definition.file(db),
+        definition.source(db).block(),
+    ))
+}
+
+#[salsa::tracked]
+pub(in crate::core) fn top_level_definitions_of<'db>(
     db: &'db dyn crate::Db,
     file: SourceFileKey,
 ) -> Arc<DefinitionList<'db>> {
@@ -128,7 +134,7 @@ pub(in crate::core) fn file_scoped_definitions_of<'db>(
     collect_definitions(
         db,
         file,
-        DefinitionSource::File(file),
+        DefinitionSource::TopLevel(file),
         root.items().filter_map(|item| match item {
             ast::Item::Definition(definition) => Some(definition),
             ast::Item::Import(_) => None,
@@ -137,7 +143,7 @@ pub(in crate::core) fn file_scoped_definitions_of<'db>(
 }
 
 #[salsa::tracked]
-pub(in crate::core) fn block_scoped_definitions_of<'db>(
+pub(in crate::core) fn block_definitions_of<'db>(
     db: &'db dyn crate::Db,
     block: BlockKey<'db>,
 ) -> Arc<DefinitionList<'db>> {
@@ -154,10 +160,10 @@ pub(in crate::core) fn imports_of<'db>(
     db: &'db dyn crate::Db,
     file: SourceFileKey,
 ) -> Arc<ImportList<'db>> {
-    let root = RedNode::new(cst_of(db, file).clone());
-    let root = File::cast(root).unwrap();
+    let root_node = RedNode::new(cst_of(db, file).clone());
+    let root_file = File::cast(root_node).unwrap();
 
-    let paths = root
+    let paths = root_file
         .items()
         .filter_map(|item| match item {
             ast::Item::Import(import_declaration) => import_declaration.path(),
@@ -169,16 +175,23 @@ pub(in crate::core) fn imports_of<'db>(
     Arc::new(ImportList::new(paths))
 }
 
+/// Takes an import's path and returns that module's [`SourceFileKey`]
 #[salsa::tracked]
 pub(in crate::core) fn module_file_of<'db>(
     db: &'db dyn crate::Db,
     path: ast_lowering::nodes::Path<'db>,
 ) -> Option<SourceFileKey> {
     let modules = ModuleMap::try_get(db)?;
-    let path = ModulePath::from_path(db, path);
+    let path = ModulePath::new(
+        path.segments(db)
+            .iter()
+            .map(|segment| segment.text(db).to_string())
+            .collect(),
+    );
     modules.files(db).get(&path).copied()
 }
 
+// ---- Diagnostics ----
 #[salsa::tracked]
 pub(in crate::core) fn definition_diagnostics_of<'db>(
     db: &'db dyn crate::Db,
@@ -216,12 +229,12 @@ pub(in crate::core) fn definition_diagnostics_of<'db>(
     };
     let body = body_of(db, definition);
     let source_map = body_source_map_of(db, definition);
-    let types = types_of(db, definition);
+    let semantics = semantics_of(db, definition);
     diagnostics.extend(
-        types
+        semantics
             .diagnostics()
             .iter()
-            .map(|diagnostic| diagnostic.resolve(db, &body, &source_map, &types, &owner)),
+            .map(|diagnostic| diagnostic.resolve(db, body, &source_map, semantics, &owner)),
     );
     diagnostics.into()
 }
@@ -259,7 +272,7 @@ pub(in crate::core) fn entry_point_diagnostics_of(
     db: &dyn crate::Db,
     file: SourceFileKey,
 ) -> Vec<SemanticDiagnostic> {
-    let main = file_scoped_definitions_of(db, file)
+    let main = top_level_definitions_of(db, file)
         .definitions()
         .iter()
         .copied()
@@ -295,6 +308,8 @@ pub(in crate::core) fn entry_point_diagnostics_of(
     }]
 }
 
+// ---- Finding Definitions ----
+
 pub(in crate::core) fn definition_at<'db>(
     db: &'db dyn crate::Db,
     file: SourceFileKey,
@@ -317,13 +332,13 @@ pub(in crate::core) fn all_definitions_of<'db>(
     ) {
         definitions.push(definition);
         let body = body_of(db, definition);
-        for expression in body.store.expressions().map(|(_, expression)| expression) {
+        for expression in body.store().expressions().map(|(_, expression)| expression) {
             if let Expression::Block {
                 block_key: Some(block_key),
                 ..
             } = expression
             {
-                for nested in block_scoped_definitions_of(db, *block_key).definitions() {
+                for nested in block_definitions_of(db, *block_key).definitions() {
                     visit(db, *nested, definitions);
                 }
             }
@@ -331,11 +346,13 @@ pub(in crate::core) fn all_definitions_of<'db>(
     }
 
     let mut definitions = Vec::new();
-    for definition in file_scoped_definitions_of(db, file).definitions() {
+    for definition in top_level_definitions_of(db, file).definitions() {
         visit(db, *definition, &mut definitions);
     }
     definitions
 }
+
+// ---- Helpers ----
 
 #[salsa::tracked]
 fn body_with_source_map_of<'db>(
@@ -401,7 +418,8 @@ fn unknown_type_diagnostics<'db>(
             store,
             annotation_handle,
             &mut |type_expression_handle| {
-                let TypeExpression::Path(path) = &store[type_expression_handle] else {
+                let TypeExpression::Path(path) = store.type_expression(type_expression_handle)
+                else {
                     unreachable!("only path type expressions can be unknown")
                 };
                 diagnostics.push(SemanticDiagnostic::UnknownType {

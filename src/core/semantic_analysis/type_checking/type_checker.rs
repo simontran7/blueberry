@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::ops::Index;
 
 use crate::core::common::handle_collections::handle_map::SideHandleMap;
 use crate::core::common::symbol::Symbol;
@@ -23,7 +22,7 @@ use crate::core::semantic_analysis::type_checking::types::{
 };
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct TypeCheckResult<'db> {
+pub(in crate::core) struct BodySemantics<'db> {
     expressions: SideHandleMap<ExpressionHandle, Ty<'db>>,
     local_bindings: SideHandleMap<LocalBindingHandle, Ty<'db>>,
     path_resolutions: SideHandleMap<ExpressionHandle, Resolution<'db>>,
@@ -39,7 +38,7 @@ struct TypeChecker<'a, 'db> {
     diverges: Diverges,
     loop_frames: Vec<LoopFrame<'db>>,
     pending_negations: Vec<(ExpressionHandle, Ty<'db>)>,
-    result: TypeCheckResult<'db>,
+    result: BodySemantics<'db>,
 }
 
 #[derive(Clone, Copy)]
@@ -92,7 +91,7 @@ pub(in crate::core) fn check_function<'db>(
     body: &Body<'db>,
     scopes: &ScopeTree<'db>,
     signature_type: Ty<'db>,
-) -> TypeCheckResult<'db> {
+) -> BodySemantics<'db> {
     let TyKind::Function {
         parameters,
         r#return,
@@ -104,12 +103,12 @@ pub(in crate::core) fn check_function<'db>(
     let return_funnel = CoercionFunnel::new(*r#return);
     let mut checker = TypeChecker::new(db, body, scopes, Some(return_funnel));
 
-    let binding_handles = &body.parameter_handles;
+    let binding_handles = body.parameters();
     for (&binding_handle, &ty) in binding_handles.iter().zip(parameters) {
         checker.result.local_bindings.add(binding_handle, ty);
     }
 
-    checker.check_returned(body.root_handle);
+    checker.check_returned(body.root());
 
     checker.finish()
 }
@@ -119,17 +118,28 @@ pub(in crate::core) fn check_constant<'db>(
     body: &Body<'db>,
     scopes: &ScopeTree<'db>,
     declared_type: Ty<'db>,
-) -> TypeCheckResult<'db> {
+) -> BodySemantics<'db> {
     let mut checker = TypeChecker::new(db, body, scopes, None);
 
     let expectation = Expectation::of_type(db, declared_type);
-    let ty = checker.check_expression(body.root_handle, expectation);
-    checker.coerce_or_report(ty, expectation, body.root_handle);
+    let ty = checker.check_expression(body.root(), expectation);
+    checker.coerce_or_report(ty, expectation, body.root());
 
     checker.finish()
 }
 
-impl<'db> TypeCheckResult<'db> {
+impl<'db> BodySemantics<'db> {
+    pub(in crate::core) fn expression_type(&self, expression_handle: ExpressionHandle) -> Ty<'db> {
+        self.expressions[expression_handle]
+    }
+
+    pub(in crate::core) fn local_binding_type(
+        &self,
+        binding_handle: LocalBindingHandle,
+    ) -> Ty<'db> {
+        self.local_bindings[binding_handle]
+    }
+
     pub(in crate::core) fn path_resolution(
         &self,
         expression_handle: ExpressionHandle,
@@ -137,6 +147,10 @@ impl<'db> TypeCheckResult<'db> {
         self.path_resolutions.get(expression_handle).copied()
     }
 
+    #[expect(
+        dead_code,
+        reason = "type-check result accessors, for the language server"
+    )]
     pub(in crate::core) fn expressions(
         &self,
     ) -> impl Iterator<Item = (ExpressionHandle, Ty<'db>)> + '_ {
@@ -145,6 +159,10 @@ impl<'db> TypeCheckResult<'db> {
             .map(|(expression_handle, ty)| (expression_handle, *ty))
     }
 
+    #[expect(
+        dead_code,
+        reason = "type-check result accessors, for the language server"
+    )]
     pub(in crate::core) fn local_bindings(
         &self,
     ) -> impl Iterator<Item = (LocalBindingHandle, Ty<'db>)> + '_ {
@@ -177,22 +195,6 @@ impl<'db> TypeCheckResult<'db> {
     }
 }
 
-impl<'db> Index<ExpressionHandle> for TypeCheckResult<'db> {
-    type Output = Ty<'db>;
-
-    fn index(&self, expression_handle: ExpressionHandle) -> &Ty<'db> {
-        &self.expressions[expression_handle]
-    }
-}
-
-impl<'db> Index<LocalBindingHandle> for TypeCheckResult<'db> {
-    type Output = Ty<'db>;
-
-    fn index(&self, binding_handle: LocalBindingHandle) -> &Ty<'db> {
-        &self.local_bindings[binding_handle]
-    }
-}
-
 impl<'a, 'db> TypeChecker<'a, 'db> {
     fn new(
         db: &'db dyn crate::Db,
@@ -209,7 +211,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             diverges: Diverges::Maybe,
             loop_frames: Vec::new(),
             pending_negations: Vec::new(),
-            result: TypeCheckResult::new(),
+            result: BodySemantics::new(),
         }
     }
 
@@ -218,7 +220,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         expression_handle: ExpressionHandle,
         expectation: Expectation<'db>,
     ) -> Ty<'db> {
-        let ty = match &self.body.store[expression_handle] {
+        let ty = match self.body.store().expression(expression_handle) {
             Expression::If {
                 condition_handle,
                 then_branch_handle,
@@ -236,13 +238,14 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 ..
             } => self.check_block(
                 expression_handle,
-                &self.body.store[*statement_run],
+                self.body.store().statement_handles(*statement_run),
                 *tail_handle,
                 expectation,
             ),
-            Expression::Tuple { element_run } => {
-                self.check_tuple(&self.body.store[*element_run], expectation)
-            }
+            Expression::Tuple { element_run } => self.check_tuple(
+                self.body.store().expression_handles(*element_run),
+                expectation,
+            ),
             Expression::Field {
                 receiver_handle,
                 name,
@@ -257,7 +260,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             } => self.check_call(
                 expression_handle,
                 *callee_handle,
-                &self.body.store[*argument_run],
+                self.body.store().expression_handles(*argument_run),
             ),
             Expression::Continue => self.check_continue(expression_handle),
             Expression::Break { value_handle } => {
@@ -475,42 +478,39 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             TypeMismatchCause::General,
         );
 
-        match else_branch_handle {
-            Some(else_branch_handle) => {
-                // typecheck the else branch, and pour it into the funnel
-                let else_ty = self.check_expression(else_branch_handle, expectation);
-                let else_diverges = self.diverges; // saves the else branch's divergence
-                self.pour_or_report(
-                    &mut funnel,
-                    else_branch_handle,
-                    else_ty,
-                    TypeMismatchCause::IfElse { then_branch_handle },
-                );
+        if let Some(else_branch_handle) = else_branch_handle {
+            // typecheck the else branch, and pour it into the funnel
+            let else_ty = self.check_expression(else_branch_handle, expectation);
+            let else_diverges = self.diverges; // saves the else branch's divergence
+            self.pour_or_report(
+                &mut funnel,
+                else_branch_handle,
+                else_ty,
+                TypeMismatchCause::IfElse { then_branch_handle },
+            );
 
-                // with an `else`, one of the branches always runs, so the `if` diverges if the condition
-                // diverges, or if both branches do
-                self.diverges = if condition_diverges == Diverges::Always
-                    || (then_diverges == Diverges::Always && else_diverges == Diverges::Always)
-                {
-                    Diverges::Always
-                } else {
-                    Diverges::Maybe
-                };
-            }
-            None => {
-                // without an `else`, the `if` produces `()` when the condition is false, so `()` is
-                // poured as the missing branch
-                self.pour_or_report(
-                    &mut funnel,
-                    expression_handle,
-                    Ty::unit(self.db),
-                    TypeMismatchCause::IfWithoutElse,
-                );
+            // with an `else`, one of the branches always runs, so the `if` diverges if the condition
+            // diverges, or if both branches do
+            self.diverges = if condition_diverges == Diverges::Always
+                || (then_diverges == Diverges::Always && else_diverges == Diverges::Always)
+            {
+                Diverges::Always
+            } else {
+                Diverges::Maybe
+            };
+        } else {
+            // without an `else`, the `if` produces `()` when the condition is false, so `()` is
+            // poured as the missing branch
+            self.pour_or_report(
+                &mut funnel,
+                expression_handle,
+                Ty::unit(self.db),
+                TypeMismatchCause::IfWithoutElse,
+            );
 
-                // the then branch alone can't make the `if` diverge, since a false condition skips the
-                // then branch, so only the condition's divergence matters
-                self.diverges = condition_diverges;
-            }
+            // the then branch alone can't make the `if` diverge, since a false condition skips the
+            // then branch, so only the condition's divergence matters
+            self.diverges = condition_diverges;
         }
 
         funnel.drain(self.db)
@@ -529,7 +529,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         // check each statement in order.
         // A diverging one (e.g., `return 1;`) makes the rest of the block unreachable
         for statement_handle in statement_handles {
-            match &self.body.store[*statement_handle] {
+            match self.body.store().statement(*statement_handle) {
                 Statement::Let {
                     name_handle,
                     annotation_handle,
@@ -557,7 +557,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
 
         // The tail of a function's body is the function's result.
         let is_function_body =
-            self.return_funnel.is_some() && expression_handle == self.body.root_handle;
+            self.return_funnel.is_some() && expression_handle == self.body.root();
         match tail_handle {
             Some(tail_handle) => {
                 // typecheck tail
@@ -595,13 +595,13 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         let annotated_ty = match annotation_handle {
             Some(annotation_handle) => lower_type_expression(
                 self.db,
-                &self.body.store,
+                self.body.store(),
                 annotation_handle,
                 &mut |type_expression_handle| {
                     self.result
                         .add_diagnostic(UnresolvedSemanticDiagnostic::UnknownType {
                             type_expression_handle,
-                        })
+                        });
                 },
             ),
             None => self.inference.new_general_inference_variable(),
@@ -664,16 +664,13 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
 
         let value_ty = match value_handle {
             Some(value_handle) => {
-                let expectation = match loop_ty {
-                    Some(loop_ty) => Expectation::of_type(self.db, loop_ty),
-                    None => {
-                        self.result.add_diagnostic(
-                            UnresolvedSemanticDiagnostic::BreakWithValueFromWhile {
-                                expression_handle,
-                            },
-                        );
-                        Expectation::None
-                    }
+                let expectation = if let Some(loop_ty) = loop_ty {
+                    Expectation::of_type(self.db, loop_ty)
+                } else {
+                    self.result.add_diagnostic(
+                        UnresolvedSemanticDiagnostic::BreakWithValueFromWhile { expression_handle },
+                    );
+                    Expectation::None
                 };
                 Some((
                     value_handle,
@@ -784,25 +781,26 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         let callee_ty = self.check_expression(callee_handle, Expectation::None);
         let callee_ty = self.inference.shallow_resolve(callee_ty);
 
-        let (parameters, return_ty) =
-            match callee_ty.kind(self.db) {
-                TyKind::Function {
-                    parameters,
-                    r#return,
-                } => (parameters.clone(), *r#return),
-                _ => {
-                    if !self.inference.deep_resolve(callee_ty).is_poisoned(self.db) {
-                        let found = self.inference.deep_resolve(callee_ty);
-                        self.result.add_diagnostic(
-                            UnresolvedSemanticDiagnostic::ExpectedFunction { call_handle, found },
-                        );
-                    }
-                    for &argument_handle in argument_handles {
-                        self.check_expression(argument_handle, Expectation::None);
-                    }
-                    return Ty::error(self.db);
-                }
-            };
+        let (parameters, return_ty) = if let TyKind::Function {
+            parameters,
+            r#return,
+        } = callee_ty.kind(self.db)
+        {
+            (parameters.clone(), *r#return)
+        } else {
+            if !self.inference.deep_resolve(callee_ty).is_poisoned(self.db) {
+                let found = self.inference.deep_resolve(callee_ty);
+                self.result
+                    .add_diagnostic(UnresolvedSemanticDiagnostic::ExpectedFunction {
+                        call_handle,
+                        found,
+                    });
+            }
+            for &argument_handle in argument_handles {
+                self.check_expression(argument_handle, Expectation::None);
+            }
+            return Ty::error(self.db);
+        };
 
         if parameters.len() != argument_handles.len() {
             let function = match self.result.path_resolutions.get(callee_handle) {
@@ -972,7 +970,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
     }
 
     fn is_place(&self, expression_handle: ExpressionHandle) -> bool {
-        match &self.body.store[expression_handle] {
+        match self.body.store().expression(expression_handle) {
             // An unresolved name was already reported.
             Expression::Path(_) => !matches!(
                 self.result.path_resolutions.get(expression_handle),
@@ -986,14 +984,14 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         }
     }
 
-    fn finish(mut self) -> TypeCheckResult<'db> {
+    fn finish(mut self) -> BodySemantics<'db> {
         self.inference.fallback_integer_variables();
         self.inference.fallback_general_variables();
         self.check_pending_negations();
 
         let mut reported_variables = HashSet::new();
         let mut unknown_expressions = Vec::new();
-        for (expression_handle, ty) in self.result.expressions.iter_mut() {
+        for (expression_handle, ty) in &mut self.result.expressions {
             let mut unsolved = false;
             *ty = self
                 .inference
@@ -1010,7 +1008,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                     expression_handle,
                 });
         }
-        for (_, ty) in self.result.local_bindings.iter_mut() {
+        for (_, ty) in &mut self.result.local_bindings {
             *ty = self.inference.deep_resolve_with_poisoning(*ty, &mut |_| {});
         }
         self.check_literal_ranges();
@@ -1075,7 +1073,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
     fn check_literal_ranges(&mut self) {
         let body = self.body;
         let negations: HashMap<ExpressionHandle, ExpressionHandle> = body
-            .store
+            .store()
             .expressions()
             .filter_map(|(negation_handle, expression)| match expression {
                 Expression::UnaryOperation {
@@ -1089,12 +1087,12 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             .result
             .expressions
             .iter()
-            .filter_map(
-                |(expression_handle, ty)| match body.store[expression_handle] {
+            .filter_map(|(expression_handle, ty)| {
+                match body.store().expression(expression_handle) {
                     Expression::Integer(value) => Some((expression_handle, value, *ty)),
                     _ => None,
-                },
-            )
+                }
+            })
             .collect();
 
         for (literal_handle, value, ty) in literals {
@@ -1116,12 +1114,9 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 (min..=max).contains(&signed_value)
             });
             if !fits {
-                let suggested_ty = value
-                    .and_then(|value| {
-                        self.suggested_literal_type(ty, value, negation_handle.is_some())
-                    })
-                    .map(|suggested_ty| suggested_ty);
-                let ty = ty;
+                let suggested_ty = value.and_then(|value| {
+                    self.suggested_literal_type(ty, value, negation_handle.is_some())
+                });
                 self.result
                     .add_diagnostic(UnresolvedSemanticDiagnostic::LiteralOutOfRange {
                         expression_handle: negation_handle.unwrap_or(literal_handle),
@@ -1269,7 +1264,7 @@ mod tests {
             let db = BlueberryDatabase::default();
             let file = SourceFileKey::new(&db, path.to_path_buf(), input);
             insta::assert_snapshot!(HirBodyDumper::dump_file_with_types(&db, file));
-        })
+        });
     }
 
     #[test]
@@ -1280,6 +1275,6 @@ mod tests {
             let main = ModulePath::from_file_path(FilePath::new("main.bb"));
             let file = modules.files(&db)[&main];
             insta::assert_snapshot!(HirBodyDumper::dump_file_with_types(&db, file));
-        })
+        });
     }
 }

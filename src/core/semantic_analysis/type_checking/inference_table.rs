@@ -21,8 +21,8 @@ pub(in crate::core) struct TypeMismatch<'db> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct GeneralInferenceVariableSolution<'db> {
     ty: Option<Ty<'db>>,
-    /// Whether a value of type [TyKind::Bottom] was coerced to the set. If still unsolved at the
-    /// end, it falls back to [TyKind::Bottom].
+    /// Whether a value of type [`TyKind::Bottom`] was coerced to the set. If still unsolved at the
+    /// end, it falls back to [`TyKind::Bottom`].
     coerced_from_bottom: bool,
 }
 
@@ -47,10 +47,8 @@ impl<'db> InferenceTable<'db> {
         loop {
             match current.kind(self.db) {
                 TyKind::InferenceVariable(InferenceVariable::General(variable_handle)) => {
-                    if let Some(representative_value) = self
-                        .general_inference_variables
-                        .get_value(*variable_handle)
-                        .ty
+                    if let Some(representative_value) =
+                        self.general_inference_variables.value(*variable_handle).ty
                     {
                         current = representative_value;
                         continue;
@@ -58,10 +56,8 @@ impl<'db> InferenceTable<'db> {
                     return current;
                 }
                 TyKind::InferenceVariable(InferenceVariable::Integer(variable_handle)) => {
-                    if let Some(representative_value) = self
-                        .integer_inference_variables
-                        .get_value(*variable_handle)
-                        .ty
+                    if let Some(representative_value) =
+                        self.integer_inference_variables.value(*variable_handle).ty
                     {
                         current = representative_value;
                         continue;
@@ -130,6 +126,8 @@ impl<'db> InferenceTable<'db> {
         expected: Ty<'db>,
         found: Ty<'db>,
     ) -> Result<(), TypeMismatch<'db>> {
+        use InferenceVariable::{General, Integer};
+
         let expected = self.shallow_resolve(expected);
         let found = self.shallow_resolve(found);
 
@@ -137,7 +135,6 @@ impl<'db> InferenceTable<'db> {
             return Ok(());
         }
 
-        use InferenceVariable::{General, Integer};
         match (expected.kind(self.db), found.kind(self.db)) {
             // Two unsolved variables: merge their groups so they share one solution. Both sides
             // were shallow resolved, so neither group has a solution yet and `union` can't fail.

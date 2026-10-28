@@ -25,10 +25,10 @@ use crate::core::common::handle_collections::Handle;
 /// # Examples
 ///
 /// ```rust,ignore
-/// let mut allocator = HandleArrayListAllocator::<ValueId>::new();
-/// let mut list = HandleArrayList::<ValueId>::from(&mut allocator, &[ValueId::new(1), ValueId::new(2)]);
-/// list.add_last(&mut allocator, ValueId::new(3));
-/// assert_eq!(list.to_slice(&allocator), &[ValueId::new(1), ValueId::new(2), ValueId::new(3)]);
+/// let mut allocator = HandleArrayListAllocator::<ValueHandle>::new();
+/// let mut list = HandleArrayList::<ValueHandle>::from(&mut allocator, &[ValueHandle::new(1), ValueHandle::new(2)]);
+/// list.add_last(&mut allocator, ValueHandle::new(3));
+/// assert_eq!(list.to_slice(&allocator), &[ValueHandle::new(1), ValueHandle::new(2), ValueHandle::new(3)]);
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
 pub(in crate::core) struct HandleArrayList<H> {
@@ -96,14 +96,14 @@ impl<H: Handle> HandleArrayList<H> {
         allocator.data[block] = H::new(count);
         allocator.data[block + 1..=block + count].copy_from_slice(slice);
         Self {
-            start: (block + 1) as u32,
+            start: u32::try_from(block + 1).unwrap(),
             _marker: PhantomData,
         }
     }
 
     /// Returns the element at `index`, or `None` if out of bounds.
     pub(in crate::core) fn get(
-        &self,
+        self,
         allocator: &HandleArrayListAllocator<H>,
         index: usize,
     ) -> Option<H> {
@@ -121,7 +121,7 @@ impl<H: Handle> HandleArrayList<H> {
             let block = allocator.alloc(1);
             allocator.data[block] = H::new(1);
             allocator.data[block + 1] = value;
-            self.start = (block + 1) as u32;
+            self.start = u32::try_from(block + 1).unwrap();
         } else {
             let new_count = self.count(allocator) + 1;
             let block;
@@ -133,7 +133,7 @@ impl<H: Handle> HandleArrayList<H> {
                     new_count,
                     self.count(allocator) + 1,
                 );
-                self.start = (block + 1) as u32;
+                self.start = u32::try_from(block + 1).unwrap();
             } else {
                 block = start - 1;
             }
@@ -160,6 +160,10 @@ impl<H: Handle> HandleArrayList<H> {
     }
 
     /// Removes the last element, decrementing the header count in place.
+    #[expect(
+        dead_code,
+        reason = "general-purpose container API, kept complete ahead of its users"
+    )]
     pub(in crate::core) fn clear_last(&mut self, allocator: &mut HandleArrayListAllocator<H>) {
         // The backing block is not freed or reallocated — the slot is simply abandoned.
         let count = self.count(allocator);
@@ -168,6 +172,10 @@ impl<H: Handle> HandleArrayList<H> {
     }
 
     /// Frees the list's backing storage and resets it to empty.
+    #[expect(
+        dead_code,
+        reason = "general-purpose container API, kept complete ahead of its users"
+    )]
     pub(in crate::core) fn clear(&mut self, allocator: &mut HandleArrayListAllocator<H>) {
         // Any other `Copy` of this handle still has the old `start` and is left dangling,
         // so it may point at a block the allocator later hands out to a different list.
@@ -185,7 +193,7 @@ impl<H: Handle> HandleArrayList<H> {
         allocator
             .data
             .get((self.start as usize).wrapping_sub(1))
-            .map_or(0, |v| v.index())
+            .map_or(0, Handle::index)
     }
 
     /// Returns whether the list has no elements.
@@ -309,11 +317,11 @@ impl SizeClass {
     /// Constructs the smallest size class that can fit the desired `count` of handles (excluding the header slot).
     fn new(count: usize) -> Self {
         assert!(count > 0);
-        Self(((count | 3).ilog2() - 1) as u8)
+        Self(u8::try_from((count | 3).ilog2() - 1).unwrap())
     }
 
     /// Returns the number of slots that a size class may accomodate.
-    const fn capacity(&self) -> usize {
+    const fn capacity(self) -> usize {
         4 << self.0
     }
 

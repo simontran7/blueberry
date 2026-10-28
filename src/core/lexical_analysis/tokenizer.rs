@@ -140,7 +140,7 @@ impl<'src> Tokenizer<'src> {
     }
 
     fn eat_whitespace(&mut self) {
-        self.advance_while(|c| c.is_whitespace())
+        self.advance_while(char::is_whitespace);
     }
 
     fn eat_inline_comment(&mut self) {
@@ -152,7 +152,7 @@ impl<'src> Tokenizer<'src> {
     }
 
     fn eat_lexeme(&mut self) {
-        self.advance_while(|c| c.is_alphanumeric() || c == '_')
+        self.advance_while(|c| c.is_alphanumeric() || c == '_');
     }
 
     fn advance(&mut self) {
@@ -170,6 +170,7 @@ impl<'src> Tokenizer<'src> {
 mod tests {
     use super::super::token_stream_dumper::TokenDumper;
     use super::*;
+    use std::fmt::Write;
     use std::fs;
 
     #[test]
@@ -182,11 +183,11 @@ mod tests {
             if !diagnostics.is_empty() {
                 dump.push_str("\n--- diagnostics ---\n");
                 for diagnostic in &diagnostics {
-                    dump.push_str(&format!("{:?}\n", diagnostic));
+                    writeln!(dump, "{diagnostic:?}").unwrap();
                 }
             }
 
             insta::assert_snapshot!(dump);
-        })
+        });
     }
 }

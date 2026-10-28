@@ -13,21 +13,13 @@ pub(in crate::core) trait AstNode {
 
     fn red(&self) -> &RedNode;
 
+    #[expect(
+        dead_code,
+        reason = "typed AST accessor, kept complete ahead of its users"
+    )]
     fn span(&self) -> Span {
         self.red().span()
     }
-}
-
-pub(in crate::core) trait AstToken {
-    fn can_cast(kind: SyntaxKind) -> bool
-    where
-        Self: Sized;
-
-    fn cast(red: RedToken) -> Option<Self>
-    where
-        Self: Sized;
-
-    fn red(&self) -> &RedToken;
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -227,6 +219,10 @@ pub(in crate::core) struct Parameter {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+#[expect(
+    clippy::enum_variant_names,
+    reason = "each variant is named after the node type it wraps"
+)]
 pub(in crate::core) enum TypeExpression {
     PathType(PathType),
     TupleType(TupleType),
@@ -351,6 +347,10 @@ impl Path {
         child(self.red())
     }
 
+    #[expect(
+        dead_code,
+        reason = "typed AST accessor, kept complete ahead of its users"
+    )]
     pub(in crate::core) fn segments(&self) -> Vec<PathSegment> {
         let mut segments = Vec::new();
         let mut path = Some(self.clone());
@@ -868,6 +868,10 @@ impl Assignment {
         children(self.red()).next()
     }
 
+    #[expect(
+        dead_code,
+        reason = "typed AST accessor, kept complete ahead of its users"
+    )]
     pub(in crate::core) fn operator(&self) -> Option<RedToken> {
         token(self.red(), SyntaxKind::Equal)
     }

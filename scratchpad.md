@@ -10,11 +10,11 @@
 ### 0. The spine
 
 - [ ] ★ [semantic_analysis.rs](src/core/semantic_analysis.rs), top-down
-  - [ ] `types_of`
+  - [ ] `semantics_of`
   - [ ] `body_of`, `body_source_map_of`
   - [ ] `scopes_of`
   - [ ] `signature_type_of`, `signature_of`, `signature_source_map_of`
-  - [ ] `file_scoped_definitions_of`, `block_scoped_definitions_of`, `imports_of`, `module_file_of`
+  - [ ] `top_level_definitions_of`, `block_definitions_of`, `imports_of`, `module_file_of`
   - [ ] `definition_diagnostics_of`, `import_diagnostics_of`
   - [ ] `definition_at`, `all_definitions_of`
   - [ ] the private helpers at the bottom
@@ -44,7 +44,7 @@ Doc: [Type Checking a Body](docs/architecture/semantic-analysis.md#type-checking
 - [x] ★ [type_checking/inference_table.rs](src/core/semantic_analysis/type_checking/inference_table.rs): resolving, `unify`, `coerce`, `occurs`, the fallbacks
 - [] ◐ [type_checking/type_expression_lowering.rs](src/core/semantic_analysis/type_checking/type_expression_lowering.rs)
 - [ ] ★ [type_checking/type_checker.rs](src/core/semantic_analysis/type_checking/type_checker.rs)
-  - [x] the types at the top: `TypeCheckResult`, `TypeChecker`, `Expectation`, `CoercionFunnel`, `LoopFrame`, `Diverges`, `BinaryOperatorRule`
+  - [x] the types at the top: `BodySemantics`, `TypeChecker`, `Expectation`, `CoercionFunnel`, `LoopFrame`, `Diverges`, `BinaryOperatorRule`
   - [ ] `check_function`, `check_constant`, `check_expression`
   - [ ] `check_integer_literal`, `check_path`
   - [ ] `check_let`, `check_block`, `check_if`

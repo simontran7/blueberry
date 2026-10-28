@@ -8,7 +8,7 @@ use std::sync::Arc;
 use crate::core::mir_construction::lowerer::MirLowerer;
 use crate::core::mir_construction::mir::MirBody;
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
-use crate::core::semantic_analysis::{body_of, signature_type_of, types_of};
+use crate::core::semantic_analysis::{body_of, semantics_of, signature_type_of};
 
 #[salsa::tracked]
 pub(in crate::core) fn mir_of<'db>(
@@ -16,12 +16,12 @@ pub(in crate::core) fn mir_of<'db>(
     definition: Definition<'db>,
 ) -> Option<Arc<MirBody<'db>>> {
     let signature_type = *signature_type_of(db, definition);
-    let types = types_of(db, definition);
-    if signature_type.is_poisoned(db) || types.has_errors(db) {
+    let semantics = semantics_of(db, definition);
+    if signature_type.is_poisoned(db) || semantics.has_errors(db) {
         return None;
     }
     let body = body_of(db, definition);
-    let lowerer = MirLowerer::new(db, body, types);
+    let lowerer = MirLowerer::new(db, body, semantics);
     Some(Arc::new(match definition {
         Definition::Function(_) => lowerer.lower_function(signature_type),
         Definition::Constant(_) => lowerer.lower_constant(signature_type),

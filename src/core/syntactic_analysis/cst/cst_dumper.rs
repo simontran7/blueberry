@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use crate::core::syntactic_analysis::cst::{GreenChild, GreenNode};
 
 pub(in crate::core) struct CstDumper<'cst> {
@@ -16,13 +18,15 @@ impl<'cst> CstDumper<'cst> {
     }
 
     pub(in crate::core) fn dump(&mut self) -> String {
-        self.dump.push_str(&format!("{:?}\n", self.root.kind()));
+        writeln!(self.dump, "{:?}", self.root.kind()).unwrap();
         self.dump_children(self.root, "");
-        self.dump.push_str(&format!(
-            "Span: [{}, {})\n",
+        writeln!(
+            self.dump,
+            "Span: [{}, {})",
             0,
             usize::from(self.root.width())
-        ));
+        )
+        .unwrap();
         std::mem::take(&mut self.dump)
     }
 
@@ -42,23 +46,18 @@ impl<'cst> CstDumper<'cst> {
                     let start = self.offset;
                     let end = start + usize::from(child_node.width());
 
-                    self.dump
-                        .push_str(&format!("{indent}{connector}{:?}\n", child_node.kind()));
+                    writeln!(self.dump, "{indent}{connector}{:?}", child_node.kind()).unwrap();
                     self.dump_children(child_node, &child_indent);
-                    self.dump
-                        .push_str(&format!("{child_indent}Span: [{start}, {end})\n"));
+                    writeln!(self.dump, "{child_indent}Span: [{start}, {end})").unwrap();
                 }
                 GreenChild::Token(token) => {
                     let start = self.offset;
                     let end = start + usize::from(token.width());
                     self.offset = end;
 
-                    self.dump
-                        .push_str(&format!("{indent}{connector}{:?}\n", token.kind()));
-                    self.dump
-                        .push_str(&format!("{child_indent}  Lexeme: {:?}\n", token.lexeme()));
-                    self.dump
-                        .push_str(&format!("{child_indent}  Span: [{start}, {end})\n"));
+                    writeln!(self.dump, "{indent}{connector}{:?}", token.kind()).unwrap();
+                    writeln!(self.dump, "{child_indent}  Lexeme: {:?}", token.lexeme()).unwrap();
+                    writeln!(self.dump, "{child_indent}  Span: [{start}, {end})").unwrap();
                 }
             }
         }

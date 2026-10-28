@@ -7,7 +7,7 @@ use crate::core::syntactic_analysis::cst_of;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
 pub(in crate::core) enum DefinitionSource<'db> {
-    File(SourceFileKey),
+    TopLevel(SourceFileKey),
     Block(BlockKey<'db>),
 }
 
@@ -53,7 +53,7 @@ pub(in crate::core) struct BlockKey<'db> {
 impl<'db> DefinitionSource<'db> {
     pub(in crate::core) fn block(self) -> Option<BlockKey<'db>> {
         match self {
-            Self::File(_) => None,
+            Self::TopLevel(_) => None,
             Self::Block(block) => Some(block),
         }
     }

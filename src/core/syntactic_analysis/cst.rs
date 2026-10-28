@@ -284,10 +284,12 @@ impl RedNode {
         self.green.kind()
     }
 
+    #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
     pub(in crate::core) fn green(&self) -> &GreenNode {
         &self.green
     }
 
+    #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
     pub(in crate::core) fn offset(&self) -> TextSize {
         self.offset
     }
@@ -296,6 +298,7 @@ impl RedNode {
         Span::new(self.offset, self.offset + self.green.width())
     }
 
+    #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
     pub(in crate::core) fn parent(&self) -> Option<Arc<RedNode>> {
         self.parent.clone()
     }
@@ -315,7 +318,7 @@ impl RedNode {
                         RedChild::Node(RedNode {
                             parent: Some(Arc::clone(&parent)),
                             green: Arc::clone(node),
-                            index: index as u32,
+                            index: u32::try_from(index).unwrap(),
                             offset: child_offset,
                         })
                     }
@@ -324,7 +327,7 @@ impl RedNode {
                         RedChild::Token(RedToken {
                             parent: Arc::clone(&parent),
                             green: Arc::clone(token),
-                            index: index as u32,
+                            index: u32::try_from(index).unwrap(),
                             offset: child_offset,
                         })
                     }
@@ -332,12 +335,14 @@ impl RedNode {
             })
     }
 
+    #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
     pub(in crate::core) fn descendants(&self) -> DescendantsIter {
         DescendantsIter {
             stack: vec![self.clone()],
         }
     }
 
+    #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
     pub(in crate::core) fn siblings(&self) -> SiblingsIter {
         SiblingsIter {
             current: Some(RedChild::Node(self.clone())),
@@ -362,6 +367,7 @@ impl RedToken {
         self.green.lexeme()
     }
 
+    #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
     pub(in crate::core) fn offset(&self) -> TextSize {
         self.offset
     }
@@ -370,6 +376,7 @@ impl RedToken {
         Span::new(self.offset, self.offset + self.green.width())
     }
 
+    #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
     pub(in crate::core) fn parent(&self) -> &RedNode {
         &self.parent
     }

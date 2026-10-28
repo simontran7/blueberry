@@ -1,5 +1,4 @@
 use std::fmt;
-use std::ops::Index;
 
 use crate::core::common::handle_collections::handle_impl;
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
@@ -17,24 +16,27 @@ pub(in crate::core) enum Signature<'db> {
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(in crate::core) struct FunctionSignature<'db> {
-    pub(in crate::core) name: Symbol<'db>,
-    pub(in crate::core) store: HirNodeStore<'db>,
-    pub(in crate::core) parameter_annotation_handles: Box<[TypeExpressionHandle]>,
-    pub(in crate::core) return_type_annotation: Option<TypeExpressionHandle>,
+    pub(in crate::core::semantic_analysis::ast_lowering) name: Symbol<'db>,
+    pub(in crate::core::semantic_analysis::ast_lowering) store: HirNodeStore<'db>,
+    pub(in crate::core::semantic_analysis::ast_lowering) parameter_annotation_handles:
+        Box<[TypeExpressionHandle]>,
+    pub(in crate::core::semantic_analysis::ast_lowering) return_type_annotation:
+        Option<TypeExpressionHandle>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(in crate::core) struct ConstantSignature<'db> {
-    pub(in crate::core) name: Symbol<'db>,
-    pub(in crate::core) store: HirNodeStore<'db>,
-    pub(in crate::core) annotation: Option<TypeExpressionHandle>,
+    pub(in crate::core::semantic_analysis::ast_lowering) name: Symbol<'db>,
+    pub(in crate::core::semantic_analysis::ast_lowering) store: HirNodeStore<'db>,
+    pub(in crate::core::semantic_analysis::ast_lowering) annotation: Option<TypeExpressionHandle>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(in crate::core) struct Body<'db> {
-    pub(in crate::core) store: HirNodeStore<'db>,
-    pub(in crate::core) root_handle: ExpressionHandle,
-    pub(in crate::core) parameter_handles: Box<[LocalBindingHandle]>,
+    pub(in crate::core::semantic_analysis::ast_lowering) store: HirNodeStore<'db>,
+    pub(in crate::core::semantic_analysis::ast_lowering) root_handle: ExpressionHandle,
+    pub(in crate::core::semantic_analysis::ast_lowering) parameter_handles:
+        Box<[LocalBindingHandle]>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, salsa::SalsaValue)]
@@ -154,8 +156,8 @@ pub(in crate::core) enum Statement {
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
 pub(in crate::core) struct LocalBinding<'db> {
-    pub(in crate::core) name: Symbol<'db>,
-    pub(in crate::core) mutable: bool,
+    pub(in crate::core::semantic_analysis::ast_lowering) name: Symbol<'db>,
+    pub(in crate::core::semantic_analysis::ast_lowering) mutable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
@@ -246,6 +248,42 @@ impl<'db> HirNodeStore<'db> {
     }
 }
 
+impl<'db> FunctionSignature<'db> {
+    pub(in crate::core) fn parameter_annotations(&self) -> &[TypeExpressionHandle] {
+        &self.parameter_annotation_handles
+    }
+
+    pub(in crate::core) fn return_type_annotation(&self) -> Option<TypeExpressionHandle> {
+        self.return_type_annotation
+    }
+}
+
+impl<'db> ConstantSignature<'db> {
+    pub(in crate::core) fn annotation(&self) -> Option<TypeExpressionHandle> {
+        self.annotation
+    }
+}
+
+impl<'db> Body<'db> {
+    pub(in crate::core) fn store(&self) -> &HirNodeStore<'db> {
+        &self.store
+    }
+
+    pub(in crate::core) fn root(&self) -> ExpressionHandle {
+        self.root_handle
+    }
+
+    pub(in crate::core) fn parameters(&self) -> &[LocalBindingHandle] {
+        &self.parameter_handles
+    }
+}
+
+impl<'db> LocalBinding<'db> {
+    pub(in crate::core) fn name(&self) -> Symbol<'db> {
+        self.name
+    }
+}
+
 impl<'db> Signature<'db> {
     pub(in crate::core) fn name(&self) -> Symbol<'db> {
         match self {
@@ -322,58 +360,44 @@ impl TryFrom<SyntaxKind> for BinaryOperator {
     }
 }
 
-impl<'db> Index<ExpressionHandle> for HirNodeStore<'db> {
-    type Output = Expression<'db>;
-
-    fn index(&self, handle: ExpressionHandle) -> &Expression<'db> {
+impl<'db> HirNodeStore<'db> {
+    pub(in crate::core) fn expression(&self, handle: ExpressionHandle) -> &Expression<'db> {
         &self.expressions[handle]
     }
-}
 
-impl<'db> Index<StatementHandle> for HirNodeStore<'db> {
-    type Output = Statement;
-
-    fn index(&self, handle: StatementHandle) -> &Statement {
+    pub(in crate::core) fn statement(&self, handle: StatementHandle) -> &Statement {
         &self.statements[handle]
     }
-}
 
-impl<'db> Index<LocalBindingHandle> for HirNodeStore<'db> {
-    type Output = LocalBinding<'db>;
-
-    fn index(&self, handle: LocalBindingHandle) -> &LocalBinding<'db> {
+    pub(in crate::core) fn local_binding(&self, handle: LocalBindingHandle) -> &LocalBinding<'db> {
         &self.local_bindings[handle]
     }
-}
 
-impl<'db> Index<TypeExpressionHandle> for HirNodeStore<'db> {
-    type Output = TypeExpression<'db>;
-
-    fn index(&self, handle: TypeExpressionHandle) -> &TypeExpression<'db> {
+    pub(in crate::core) fn type_expression(
+        &self,
+        handle: TypeExpressionHandle,
+    ) -> &TypeExpression<'db> {
         &self.type_expressions[handle]
     }
-}
 
-impl<'db> Index<Run<ExpressionHandle>> for HirNodeStore<'db> {
-    type Output = [ExpressionHandle];
-
-    fn index(&self, run: Run<ExpressionHandle>) -> &[ExpressionHandle] {
+    pub(in crate::core) fn expression_handles(
+        &self,
+        run: Run<ExpressionHandle>,
+    ) -> &[ExpressionHandle] {
         &self.expression_children[run]
     }
-}
 
-impl<'db> Index<Run<StatementHandle>> for HirNodeStore<'db> {
-    type Output = [StatementHandle];
-
-    fn index(&self, run: Run<StatementHandle>) -> &[StatementHandle] {
+    pub(in crate::core) fn statement_handles(
+        &self,
+        run: Run<StatementHandle>,
+    ) -> &[StatementHandle] {
         &self.statement_children[run]
     }
-}
 
-impl<'db> Index<Run<TypeExpressionHandle>> for HirNodeStore<'db> {
-    type Output = [TypeExpressionHandle];
-
-    fn index(&self, run: Run<TypeExpressionHandle>) -> &[TypeExpressionHandle] {
+    pub(in crate::core) fn type_expression_handles(
+        &self,
+        run: Run<TypeExpressionHandle>,
+    ) -> &[TypeExpressionHandle] {
         &self.type_expression_children[run]
     }
 }

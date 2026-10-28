@@ -6,7 +6,7 @@ use crate::core::semantic_analysis::ast_lowering::nodes::{
 };
 use crate::core::semantic_analysis::keys::FunctionKey;
 use crate::core::semantic_analysis::name_resolution::resolver::{Resolution, ResolveError};
-use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckResult;
+use crate::core::semantic_analysis::type_checking::type_checker::BodySemantics;
 use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::source_file_key::SourceFileKey;
 
@@ -556,13 +556,16 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
         db: &'db dyn crate::Db,
         body: &Body<'db>,
         source_map: &HirNodeSourceMap,
-        types: &TypeCheckResult<'db>,
+        semantics: &BodySemantics<'db>,
         owner: &OwnerSpans,
     ) -> SemanticDiagnostic {
         let span_of = |expression_handle: ExpressionHandle| {
             source_map.expression_span(expression_handle, owner.anchor)
         };
-        let path_text = |expression_handle: ExpressionHandle| match &body.store[expression_handle] {
+        let path_text = |expression_handle: ExpressionHandle| match body
+            .store()
+            .expression(expression_handle)
+        {
             Expression::Path(path) => Some(path.display(db).to_string()),
             _ => None,
         };
@@ -611,7 +614,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 expression_handle,
                 error,
             } => {
-                let Expression::Path(path) = &body.store[*expression_handle] else {
+                let Expression::Path(path) = body.store().expression(*expression_handle) else {
                     unreachable!("reported on paths")
                 };
                 let segments = path.segments(db);
@@ -664,7 +667,9 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
             Self::UnknownType {
                 type_expression_handle,
             } => {
-                let TypeExpression::Path(path) = &body.store[*type_expression_handle] else {
+                let TypeExpression::Path(path) =
+                    body.store().type_expression(*type_expression_handle)
+                else {
                     unreachable!("only path type expressions can be unknown")
                 };
                 SemanticDiagnostic::UnknownType {
@@ -679,7 +684,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
             } => {
                 let Expression::Field {
                     name: Some(name), ..
-                } = &body.store[*expression_handle]
+                } = body.store().expression(*expression_handle)
                 else {
                     unreachable!("reported on named fields")
                 };
@@ -700,7 +705,8 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 }
             }
             Self::ExpectedFunction { call_handle, found } => {
-                let Expression::Call { callee_handle, .. } = &body.store[*call_handle] else {
+                let Expression::Call { callee_handle, .. } = body.store().expression(*call_handle)
+                else {
                     unreachable!("reported on calls")
                 };
                 SemanticDiagnostic::ExpectedFunction {
@@ -718,16 +724,16 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 let Expression::Call {
                     callee_handle,
                     argument_run,
-                } = &body.store[*call_handle]
+                } = body.store().expression(*call_handle)
                 else {
                     unreachable!("reported on calls")
                 };
-                let argument_handles = &body.store[*argument_run];
+                let argument_handles = body.store().expression_handles(*argument_run);
                 let argument_labels = if argument_handles.len() > parameters.len() {
                     (parameters.len()..argument_handles.len())
                         .map(|index| {
                             let argument_handle = argument_handles[index];
-                            let ty = types[argument_handle].display(db);
+                            let ty = semantics.expression_type(argument_handle).display(db);
                             (
                                 span_of(argument_handle),
                                 format!("unexpected argument #{} of type `{ty}`", index + 1),
@@ -782,7 +788,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                     lhs_handle,
                     rhs_handle,
                     ..
-                } = &body.store[*expression_handle]
+                } = body.store().expression(*expression_handle)
                 else {
                     unreachable!("reported on binary operations")
                 };
@@ -844,7 +850,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
 }
 
 fn value_expression(body: &Body<'_>, expression_handle: ExpressionHandle) -> ExpressionHandle {
-    match &body.store[expression_handle] {
+    match body.store().expression(expression_handle) {
         Expression::Block {
             tail_handle: Some(tail_handle),
             ..
@@ -854,7 +860,7 @@ fn value_expression(body: &Body<'_>, expression_handle: ExpressionHandle) -> Exp
 }
 
 fn value_kind(body: &Body<'_>, expression_handle: ExpressionHandle) -> &'static str {
-    let is_callee = body.store.expressions().map(|(_, expression)| expression).any(|other| {
+    let is_callee = body.store().expressions().map(|(_, expression)| expression).any(|other| {
         matches!(other, Expression::Call { callee_handle, .. } if *callee_handle == expression_handle)
     });
     if is_callee { "function" } else { "value" }

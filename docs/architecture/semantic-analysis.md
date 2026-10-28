@@ -28,7 +28,7 @@ Every function, constant and block is given a **key** (`FunctionKey`, `ConstantK
 
 Each key also records where its node currently is (its kind and span, a `RedNodeTag`), so that its syntax node can be found again (`.to_ast_node(db)`). This field is _tracked_: when text only moves, it changes without changing the key's identity, and only the queries reading it (e.g., lowering) re-run. Their results come out identical, so nothing after them is recomputed.
 
-_In the code:_ `keys.rs`; keys are created while collecting definitions (`file_scoped_definitions_of`, `block_scoped_definitions_of`) and while lowering bodies (blocks)
+_In the code:_ `keys.rs`; keys are created while collecting definitions (`top_level_definitions_of`, `block_definitions_of`) and while lowering bodies (blocks)
 
 ### Signatures
 
@@ -46,7 +46,7 @@ This only works because blueberry requires every signature to be fully annotated
 
 _In the code:_ `signature_of(d)`, a `Signature` (either a `FunctionSignature` or a `ConstantSignature`, lowered by `lower_function_signature` and `lower_constant_signature` in `ast_lowering.rs`), its source map `signature_source_map_of(d)`, and as a type, `signature_type_of(d)`; annotations are lowered by `lower_type_expression` (`type_checking/type_expression_lowering.rs`)
 
-Every query here and below takes a `Definition` (a function or a constant), rather than having one query per kind of definition: `Definition` is a salsa **supertype** (an enum of the two salsa keys, `FunctionKey` and `ConstantKey`), so a single query can be keyed by either, and only matches on the kind where the two genuinely differ (e.g., `types_of` checks a function body against its return type, and a constant body against its declared type).
+Every query here and below takes a `Definition` (a function or a constant), rather than having one query per kind of definition: `Definition` is a salsa **supertype** (an enum of the two salsa keys, `FunctionKey` and `ConstantKey`), so a single query can be keyed by either, and only matches on the kind where the two genuinely differ (e.g., `semantics_of` checks a function body against its return type, and a constant body against its declared type).
 
 ### Bodies
 
@@ -112,8 +112,8 @@ Bindings let us tell declarations apart, but they don't say _how_ to choose betw
 2. **resolving**: each use of a name is looked up in them by the `Resolver`, at the moment the type checker reaches it (see [Resolving a Path](#resolving-a-path))
 
 Each data structure below is built by its own query, separately, the first time something needs it:
-- one `DefinitionList` for the file's top-level definitions (`file_scoped_definitions_of`): built first, since it's how the compiler finds out which definitions exist.
-- one `DefinitionList` per block, for the definitions declared inside that block (`block_scoped_definitions_of`): built the first time the `Resolver` searches that block's scope.
+- one `DefinitionList` for the file's top-level definitions (`top_level_definitions_of`): built first, since it's how the compiler finds out which definitions exist.
+- one `DefinitionList` per block, for the definitions declared inside that block (`block_definitions_of`): built the first time the `Resolver` searches that block's scope.
 - one `ImportList` for the file's import declarations (`imports_of`): built the first time the `Resolver` doesn't find a name locally, in a block, or at the file's top level. So if every name in a file resolves before reaching imports, its `ImportList` is never built.
 - one `ScopeTree` per function or constant definition, for its parameters and `let` bindings (`scopes_of`): built right before that body is type checked.
 
@@ -131,11 +131,11 @@ main's body (HIR)
 └─ Expression::Block { block_key: Some(B), statements: [Definition, Let x, …], tail }
                                    │
                                    ▼
-        block_scoped_definitions_of(B)  →  DefinitionList [ FunctionKey(is_ready) ]
+        block_definitions_of(B)  →  DefinitionList [ FunctionKey(is_ready) ]
                                                                │
                          ┌─────────────────────────────────────┼──────────────────────────────┐
                          ▼                                     ▼                              ▼
-                signature_of(is_ready)                body_of(is_ready)              types_of(is_ready)
+                signature_of(is_ready)                body_of(is_ready)              semantics_of(is_ready)
             (name, parameters, return type)          its own HIR                    its own type check
 ```
 
@@ -513,7 +513,7 @@ const LIMIT: I64 = 5;   // 5 is checked with I64 → 5: I64
 const FLAG: Bool = 5;   // Bool isn't an integer type → 5: ?0; unify(Bool, ?0) → mismatch
 ```
 
-_In the code:_ `types_of(d)`
+_In the code:_ `semantics_of(d)`
 
 ### Finishing a Body
 
@@ -524,7 +524,7 @@ Once the walk is over, every unknown is replaced with its solution:
 4. every expression's and binding's type is deep resolved; an inference variable still unsolved becomes the `Error` type, and a "type annotations needed" diagnostic is reported (once per variable)
 5. every integer literal is checked to fit in its now-known type
 
-The result, a `TypeCheckResult`, holds each expression's type, each binding's type, and the body's diagnostics.
+The result, a `BodySemantics`, holds the body's semantics: each expression's type, each binding's type, what each path refers to, and the body's diagnostics.
 
 ### Resilience
 
@@ -557,7 +557,7 @@ Only the unresolved name is reported. After type checking, a body with any diagn
 
 ### Diagnostics
 
-While walking a body, the type checker records each problem as an `UnresolvedSemanticDiagnostic`, which points at HIR handles rather than positions in the text, so that the `TypeCheckResult` stays unchanged when text only moves. A type mismatch records the expected and found types, and a **cause**: why that type was required (e.g., an `if` and `else` disagreeing, or a missing `else`).
+While walking a body, the type checker records each problem as an `UnresolvedSemanticDiagnostic`, which points at HIR handles rather than positions in the text, so that the `BodySemantics` stays unchanged when text only moves. A type mismatch records the expected and found types, and a **cause**: why that type was required (e.g., an `if` and `else` disagreeing, or a missing `else`).
 
 Each expression is checked against its context exactly once (its parent either coerces it, or pours it into a funnel), so an expression never gets two mismatches.
 

@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use crate::core::lexical_analysis::token_stream::TokenStream;
 
 pub(in crate::core) struct TokenDumper<'src> {
@@ -16,7 +18,7 @@ impl<'src> TokenDumper<'src> {
         // dump header
         dump.push_str(&"-".repeat(32));
         dump.push('\n');
-        dump.push_str(&format!("{:<8} {:<15} {:<15}\n", "Index", "Kind", "Span"));
+        writeln!(dump, "{:<8} {:<15} {:<15}", "Index", "Kind", "Span").unwrap();
         dump.push_str(&"-".repeat(32));
         dump.push('\n');
 
@@ -31,12 +33,14 @@ impl<'src> TokenDumper<'src> {
                 kind.to_string()
             };
 
-            dump.push_str(&format!(
-                "{:<8} {:<15} {:<15}\n",
+            writeln!(
+                dump,
+                "{:<8} {:<15} {:<15}",
                 format!("#{}", i),
                 format!("`{}`", kind),
                 format!("[{}, {})", start, end),
-            ));
+            )
+            .unwrap();
         }
 
         dump

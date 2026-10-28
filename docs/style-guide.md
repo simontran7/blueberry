@@ -31,6 +31,13 @@ A field of a finished value is a `Box<[T]>` (e.g., a `Body`'s `parameter_handles
 
 Lay data out flat (arenas of nodes referred to by handle, with their children in a `RunList`), but expose it through methods and views rather than raw fields, so that callers never have to know the layout. An arena and its children always travel together, so they're bundled into one type (e.g., the `HirNodeStore`), and only a node's own children go into it: what an owner does with nodes (its root, its parameters, its annotations) is kept on the owner.
 
+How a value is reached depends on what it is:
+
+- **No public fields.** A domain type exposes its contents through methods, named after what they return (e.g., `body.root()`, `body.parameters()`, `body.store()`), so a field can change without its callers changing. Its fields are visible only to the module that builds it. The exception is a plain record, whose only job is to carry values from one place to another (e.g., a `DiagnosticDescription`, a `TypeMismatch`): its fields are public, so that it can be built with a struct literal.
+- **Generic collections are indexed.** A collection that holds one kind of thing, with no meaning of its own (`HandleMap`, `SideHandleMap`, `RunList`, the parser's `Sink`), implements `Index`, like a `Vec`: `map[handle]` when the value must be there, `map.get(handle)` (returning an `Option`) when it might not be.
+- **Domain stores have named methods.** A store with meaning of its own (the `HirNodeStore`, `BodySemantics`, a `ScopeTree`, the MIR's `Cfg`) never implements `Index`: each lookup is a method named after what it returns (e.g., `store.expression(handle)`, `semantics.expression_type(handle)`, `cfg.block(handle)`), returning plain data or a view, with a `_mut` twin when it needs one (e.g., `cfg.block_mut(handle)`). A lookup that might find nothing returns an `Option` (e.g., `semantics.path_resolution(handle)`).
+- **No `get_` prefix.** Following Rust's API guidelines, a getter is named after what it returns, and `get` is kept for a collection's lookup that might find nothing.
+
 ## Layout
 
 ### Directory Layout

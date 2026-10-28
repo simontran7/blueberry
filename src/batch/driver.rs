@@ -1,30 +1,29 @@
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Instant;
 
 use crate::batch::arg_parser::EmitKind;
 use crate::batch::diagnostic_render::render_diagnostic;
 use crate::core::compiler::{BlueberryDatabase, Compiler, DiagnosticDescription, SourceFileKey};
 
-pub fn build(path: PathBuf, emit: &HashSet<EmitKind>) {
+pub fn build(_path: &Path, _emit: &[EmitKind]) {
     todo!();
 }
 
-pub fn run(path: PathBuf, emit: &HashSet<EmitKind>) {
+pub fn run(_path: &Path, _emit: &[EmitKind]) {
     todo!()
 }
 
-pub fn check(path: PathBuf, emit: &HashSet<EmitKind>) {
+pub fn check(path: &Path, emit: &[EmitKind]) {
     compile(path, emit);
 }
 
-fn compile(path: PathBuf, emit: &HashSet<EmitKind>) {
+fn compile(path: &Path, emit: &[EmitKind]) {
     // intialize
     let start = Instant::now();
-    let file_stem = path
-        .file_stem()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.to_string_lossy().into_owned());
+    let file_stem = path.file_stem().map_or_else(
+        || path.to_string_lossy().into_owned(),
+        |s| s.to_string_lossy().into_owned(),
+    );
     let db = BlueberryDatabase::default();
 
     // ---- Stage 0: Scanning ----

@@ -23,15 +23,23 @@ impl<T> Run<T> {
         Self::new(0, 0)
     }
 
-    pub(super) fn bounds(&self) -> Range<usize> {
+    pub(super) fn bounds(self) -> Range<usize> {
         self.start as usize..(self.start + self.len) as usize
     }
 
-    pub(in crate::core) fn len(&self) -> usize {
+    #[expect(
+        dead_code,
+        reason = "general-purpose container API, kept complete ahead of its users"
+    )]
+    pub(in crate::core) fn len(self) -> usize {
         self.len as usize
     }
 
-    pub(in crate::core) fn is_empty(&self) -> bool {
+    #[expect(
+        dead_code,
+        reason = "general-purpose container API, kept complete ahead of its users"
+    )]
+    pub(in crate::core) fn is_empty(self) -> bool {
         self.len == 0
     }
 }

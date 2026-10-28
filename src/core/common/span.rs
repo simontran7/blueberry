@@ -14,23 +14,23 @@ impl Span {
         Self { start, end }
     }
 
-    pub(crate) fn start(&self) -> TextSize {
+    pub(crate) fn start(self) -> TextSize {
         self.start
     }
 
-    pub(crate) fn end(&self) -> TextSize {
+    pub(crate) fn end(self) -> TextSize {
         self.end
     }
 
-    pub(in crate::core) fn contains(&self, other: Span) -> bool {
+    pub(in crate::core) fn contains(self, other: Span) -> bool {
         self.start <= other.start && other.end <= self.end
     }
 
-    pub(in crate::core) fn contains_offset(&self, offset: TextSize) -> bool {
+    pub(in crate::core) fn contains_offset(self, offset: TextSize) -> bool {
         self.start <= offset && offset < self.end
     }
 
-    pub(in crate::core) fn len(&self) -> TextSize {
+    pub(in crate::core) fn len(self) -> TextSize {
         self.end - self.start
     }
 
@@ -57,7 +57,7 @@ impl From<&Span> for Range<usize> {
 
 impl TextSize {
     pub(crate) fn new(size: usize) -> Self {
-        TextSize(size as u32)
+        TextSize(u32::try_from(size).unwrap())
     }
 }
 
@@ -69,7 +69,7 @@ impl From<TextSize> for usize {
 
 impl AddAssign for TextSize {
     fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0
+        self.0 += rhs.0;
     }
 }
 

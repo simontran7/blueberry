@@ -1,24 +1,24 @@
 use crate::core::mir_construction::cfg_builder::CfgBuilder;
-use crate::core::mir_construction::mir::{BlockId, Cfg, MirBody, Signature, ValueId};
+use crate::core::mir_construction::mir::{BlockHandle, Cfg, MirBody, Signature, ValueHandle};
 use crate::core::semantic_analysis::ast_lowering::nodes::{
     BinaryOperator, Body, Expression, ExpressionHandle, LocalBindingHandle, Statement,
     StatementHandle, UnaryOperator,
 };
 use crate::core::semantic_analysis::name_resolution::resolver::Resolution;
-use crate::core::semantic_analysis::type_checking::type_checker::TypeCheckResult;
+use crate::core::semantic_analysis::type_checking::type_checker::BodySemantics;
 use crate::core::semantic_analysis::type_checking::types::{Ty, TyKind};
 
 pub(in crate::core) struct MirLowerer<'a, 'db> {
     db: &'db dyn crate::Db,
     body: &'a Body<'db>,
-    types: &'a TypeCheckResult<'db>,
+    semantics: &'a BodySemantics<'db>,
     cfg: CfgBuilder<'db>,
     loop_frames: Vec<LoopFrame>,
 }
 
 struct LoopFrame {
-    header_id: BlockId,
-    exit_id: BlockId,
+    header_handle: BlockHandle,
+    exit_handle: BlockHandle,
     exit_is_branched_to: bool,
 }
 
@@ -26,12 +26,12 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     pub(in crate::core) fn new(
         db: &'db dyn crate::Db,
         body: &'a Body<'db>,
-        types: &'a TypeCheckResult<'db>,
+        semantics: &'a BodySemantics<'db>,
     ) -> Self {
         Self {
             db,
             body,
-            types,
+            semantics,
             cfg: CfgBuilder::new(),
             loop_frames: Vec::new(),
         }
@@ -68,25 +68,25 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
     fn lower_body(&mut self) -> Cfg<'db> {
         let body = self.body;
-        let entry_block_id = self.cfg.create_block();
-        self.cfg.add_block(entry_block_id);
-        self.cfg.seal_block(entry_block_id);
+        let entry_block_handle = self.cfg.create_block();
+        self.cfg.add_block(entry_block_handle);
+        self.cfg.seal_block(entry_block_handle);
 
-        for &binding_handle in &body.parameter_handles {
-            let ty = self.types[binding_handle];
+        for &binding_handle in body.parameters() {
+            let ty = self.semantics.local_binding_type(binding_handle);
             if self.is_zero_sized(ty) {
                 continue;
             }
-            let value_id = self.cfg.append_block_parameter(entry_block_id, ty);
+            let lowered_value_handle = self.cfg.append_block_parameter(entry_block_handle, ty);
             self.cfg
-                .write_variable(binding_handle, entry_block_id, value_id);
+                .write_variable(binding_handle, entry_block_handle, lowered_value_handle);
         }
 
-        let tail_id = self.lower_expression(body.root_handle);
+        let tail_value_handle = self.lower_expression(body.root());
 
         if !self.cfg.is_filled_here() {
-            match tail_id {
-                Some(value_id) => self.cfg.emit_return(&[value_id]),
+            match tail_value_handle {
+                Some(lowered_value_handle) => self.cfg.emit_return(&[lowered_value_handle]),
                 None => self.cfg.emit_return(&[]),
             };
         }
@@ -95,7 +95,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     }
 
     fn lower_statement(&mut self, statement_handle: StatementHandle) {
-        match &self.body.store[statement_handle] {
+        match self.body.store().statement(statement_handle) {
             Statement::Expression {
                 expression_handle, ..
             } => {
@@ -106,8 +106,8 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 initializer_handle,
                 ..
             } => {
-                let value_id = self.lower_expression(*initializer_handle);
-                self.write_local(*name_handle, value_id);
+                let lowered_value_handle = self.lower_expression(*initializer_handle);
+                self.write_local(*name_handle, lowered_value_handle);
             }
             Statement::Definition => {
                 // nested definitions are lowered as separate MIR bodies
@@ -115,14 +115,16 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         }
     }
 
-    fn lower_expression(&mut self, expression_handle: ExpressionHandle) -> Option<ValueId> {
+    fn lower_expression(&mut self, expression_handle: ExpressionHandle) -> Option<ValueHandle> {
         let body = self.body;
-        let ty = self.types[expression_handle];
-        match &body.store[expression_handle] {
+        let ty = self.semantics.expression_type(expression_handle);
+        match body.store().expression(expression_handle) {
             Expression::Error => {
                 unreachable!("MIR is only built for bodies without errors")
             }
-            Expression::Tuple { element_run } => self.lower_tuple(&body.store[*element_run], ty),
+            Expression::Tuple { element_run } => {
+                self.lower_tuple(body.store().expression_handles(*element_run), ty)
+            }
             Expression::Field {
                 receiver_handle,
                 name,
@@ -154,12 +156,16 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             Expression::Call {
                 callee_handle,
                 argument_run,
-            } => self.lower_call(*callee_handle, &body.store[*argument_run], ty),
+            } => self.lower_call(
+                *callee_handle,
+                body.store().expression_handles(*argument_run),
+                ty,
+            ),
             Expression::Block {
                 statement_run,
                 tail_handle,
                 ..
-            } => self.lower_block(&body.store[*statement_run], *tail_handle),
+            } => self.lower_block(body.store().statement_handles(*statement_run), *tail_handle),
             Expression::If {
                 condition_handle,
                 then_branch_handle,
@@ -180,19 +186,19 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         &mut self,
         element_handles: &[ExpressionHandle],
         ty: Ty<'db>,
-    ) -> Option<ValueId> {
-        let mut element_ids = Vec::with_capacity(element_handles.len());
+    ) -> Option<ValueHandle> {
+        let mut element_value_handles = Vec::with_capacity(element_handles.len());
         for &element_handle in element_handles {
-            let element_id = self.lower_expression(element_handle);
+            let element_value_handle = self.lower_expression(element_handle);
             if self.cfg.is_filled_here() {
                 return None;
             }
-            element_ids.extend(element_id);
+            element_value_handles.extend(element_value_handle);
         }
         if self.is_zero_sized(ty) {
             return None;
         }
-        Some(self.cfg.emit_tuple(&element_ids, ty))
+        Some(self.cfg.emit_tuple(&element_value_handles, ty))
     }
 
     fn lower_field(
@@ -200,12 +206,15 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         receiver_handle: ExpressionHandle,
         index: u32,
         ty: Ty<'db>,
-    ) -> Option<ValueId> {
-        let receiver_id = self.lower_expression(receiver_handle);
+    ) -> Option<ValueHandle> {
+        let receiver_value_handle = self.lower_expression(receiver_handle);
         if self.cfg.is_filled_here() || self.is_zero_sized(ty) {
             return None;
         }
-        Some(self.cfg.emit_extract_field(receiver_id.unwrap(), index, ty))
+        Some(
+            self.cfg
+                .emit_extract_field(receiver_value_handle.unwrap(), index, ty),
+        )
     }
 
     fn lower_unary_operation(
@@ -213,9 +222,9 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         operator: UnaryOperator,
         operand_handle: ExpressionHandle,
         ty: Ty<'db>,
-    ) -> Option<ValueId> {
-        let operand_id = self.lower_expression(operand_handle)?;
-        Some(self.cfg.emit_unary(operator, operand_id, ty))
+    ) -> Option<ValueHandle> {
+        let operand_value_handle = self.lower_expression(operand_handle)?;
+        Some(self.cfg.emit_unary(operator, operand_value_handle, ty))
     }
 
     fn lower_binary_operation(
@@ -224,38 +233,44 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         lhs_handle: ExpressionHandle,
         rhs_handle: ExpressionHandle,
         ty: Ty<'db>,
-    ) -> Option<ValueId> {
+    ) -> Option<ValueHandle> {
         match operator {
             BinaryOperator::And | BinaryOperator::Or => {
                 self.lower_short_circuiting_expression(operator, lhs_handle, rhs_handle, ty)
             }
             _ => {
-                let lhs_id = self.lower_expression(lhs_handle);
+                let lhs_value_handle = self.lower_expression(lhs_handle);
                 if self.cfg.is_filled_here() {
                     return None;
                 }
-                let rhs_id = self.lower_expression(rhs_handle);
+                let rhs_value_handle = self.lower_expression(rhs_handle);
                 if self.cfg.is_filled_here() {
                     return None;
                 }
-                match (lhs_id, rhs_id) {
-                    (Some(lhs_id), Some(rhs_id)) => {
-                        Some(self.cfg.emit_binary(operator, lhs_id, rhs_id, ty))
-                    }
-                    _ => {
-                        let value = matches!(
-                            operator,
-                            BinaryOperator::Eq | BinaryOperator::Le | BinaryOperator::Ge
-                        );
-                        Some(self.cfg.emit_boolean_literal(value, ty))
-                    }
+                if let (Some(lhs_value_handle), Some(rhs_value_handle)) =
+                    (lhs_value_handle, rhs_value_handle)
+                {
+                    Some(
+                        self.cfg
+                            .emit_binary(operator, lhs_value_handle, rhs_value_handle, ty),
+                    )
+                } else {
+                    let value = matches!(
+                        operator,
+                        BinaryOperator::Eq | BinaryOperator::Le | BinaryOperator::Ge
+                    );
+                    Some(self.cfg.emit_boolean_literal(value, ty))
                 }
             }
         }
     }
 
-    fn lower_path(&mut self, expression_handle: ExpressionHandle, ty: Ty<'db>) -> Option<ValueId> {
-        match self.types.path_resolution(expression_handle).unwrap() {
+    fn lower_path(
+        &mut self,
+        expression_handle: ExpressionHandle,
+        ty: Ty<'db>,
+    ) -> Option<ValueHandle> {
+        match self.semantics.path_resolution(expression_handle).unwrap() {
             Resolution::Local(binding_handle) => {
                 if self.is_zero_sized(ty) {
                     return None;
@@ -283,70 +298,70 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         &mut self,
         target_handle: ExpressionHandle,
         value_handle: ExpressionHandle,
-    ) -> Option<ValueId> {
+    ) -> Option<ValueHandle> {
         let mut indices = Vec::new();
         let mut base_handle = target_handle;
         while let Expression::Field {
             receiver_handle,
             name,
-        } = &self.body.store[base_handle]
+        } = self.body.store().expression(base_handle)
         {
             indices.push(name.unwrap().as_tuple_index(self.db).unwrap());
             base_handle = *receiver_handle;
         }
         indices.reverse();
 
-        let Some(Resolution::Local(binding_handle)) = self.types.path_resolution(base_handle)
+        let Some(Resolution::Local(binding_handle)) = self.semantics.path_resolution(base_handle)
         else {
             unreachable!(
                 "semantic analysis already rejects assignments whose target isn't a local binding"
             );
         };
-        let value_id = self.lower_expression(value_handle);
+        let lowered_value_handle = self.lower_expression(value_handle);
         if self.cfg.is_filled_here() {
             return None;
         }
-        let Some(value_id) = value_id else {
-            return None;
-        };
+        let lowered_value_handle = lowered_value_handle?;
 
-        let base_ty = self.types[base_handle];
+        let base_ty = self.semantics.expression_type(base_handle);
         let block = self.current_block();
-        let base_id = self.cfg.read_variable(binding_handle, base_ty, block);
-        let new_base_id = self.insert_field(base_id, base_ty, &indices, value_id);
-        self.write_local(binding_handle, Some(new_base_id));
+        let base_value_handle = self.cfg.read_variable(binding_handle, base_ty, block);
+        let new_base_handle =
+            self.insert_field(base_value_handle, base_ty, &indices, lowered_value_handle);
+        self.write_local(binding_handle, Some(new_base_handle));
         None
     }
 
     fn insert_field(
         &mut self,
-        tuple_id: ValueId,
+        tuple_handle: ValueHandle,
         tuple_ty: Ty<'db>,
         indices: &[u32],
-        value_id: ValueId,
-    ) -> ValueId {
+        lowered_value_handle: ValueHandle,
+    ) -> ValueHandle {
         let Some((&index, rest)) = indices.split_first() else {
-            return value_id;
+            return lowered_value_handle;
         };
         let TyKind::Tuple(elements) = tuple_ty.kind(self.db) else {
             unreachable!("semantic analysis already rejects fields of non-tuples");
         };
         let element_ty = elements[index as usize];
-        let element_id = if rest.is_empty() {
-            value_id
+        let element_value_handle = if rest.is_empty() {
+            lowered_value_handle
         } else {
-            let element_id = self.cfg.emit_extract_field(tuple_id, index, element_ty);
-            self.insert_field(element_id, element_ty, rest, value_id)
+            let element_value_handle = self.cfg.emit_extract_field(tuple_handle, index, element_ty);
+            self.insert_field(element_value_handle, element_ty, rest, lowered_value_handle)
         };
         self.cfg
-            .emit_insert_field(tuple_id, element_id, index, tuple_ty)
+            .emit_insert_field(tuple_handle, element_value_handle, index, tuple_ty)
     }
 
-    fn lower_return(&mut self, value_handle: Option<ExpressionHandle>) -> Option<ValueId> {
-        let value_id = value_handle.and_then(|value_handle| self.lower_expression(value_handle));
+    fn lower_return(&mut self, value_handle: Option<ExpressionHandle>) -> Option<ValueHandle> {
+        let lowered_value_handle =
+            value_handle.and_then(|value_handle| self.lower_expression(value_handle));
         if !self.cfg.is_filled_here() {
-            match value_id {
-                Some(value_id) => self.cfg.emit_return(&[value_id]),
+            match lowered_value_handle {
+                Some(lowered_value_handle) => self.cfg.emit_return(&[lowered_value_handle]),
                 None => self.cfg.emit_return(&[]),
             };
         }
@@ -358,9 +373,9 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         callee_handle: ExpressionHandle,
         argument_handles: &[ExpressionHandle],
         ty: Ty<'db>,
-    ) -> Option<ValueId> {
-        let function = match &self.body.store[callee_handle] {
-            Expression::Path(_) => match self.types.path_resolution(callee_handle).unwrap() {
+    ) -> Option<ValueHandle> {
+        let function = match self.body.store().expression(callee_handle) {
+            Expression::Path(_) => match self.semantics.path_resolution(callee_handle).unwrap() {
                 Resolution::Function(function) => Some(function),
                 Resolution::Local(_)
                 | Resolution::Constant(_)
@@ -370,20 +385,20 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             _ => None,
         };
 
-        let mut operand_ids = Vec::new();
+        let mut operand_value_handles = Vec::new();
         if function.is_none() {
-            let callee_id = self.lower_expression(callee_handle);
+            let callee_value_handle = self.lower_expression(callee_handle);
             if self.cfg.is_filled_here() {
                 return None;
             }
-            operand_ids.push(callee_id.unwrap());
+            operand_value_handles.push(callee_value_handle.unwrap());
         }
         for &argument_handle in argument_handles {
-            let argument_id = self.lower_expression(argument_handle);
+            let argument_value_handle = self.lower_expression(argument_handle);
             if self.cfg.is_filled_here() {
                 return None;
             }
-            operand_ids.extend(argument_id);
+            operand_value_handles.extend(argument_value_handle);
         }
 
         let result_types = if self.is_zero_sized(ty) || self.is_bottom(ty) {
@@ -391,9 +406,13 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         } else {
             vec![ty]
         };
-        let call_id = match function {
-            Some(function) => self.cfg.emit_call(function, &operand_ids, &result_types),
-            None => self.cfg.emit_call_indirect(&operand_ids, &result_types),
+        let call_handle = match function {
+            Some(function) => self
+                .cfg
+                .emit_call(function, &operand_value_handles, &result_types),
+            None => self
+                .cfg
+                .emit_call_indirect(&operand_value_handles, &result_types),
         };
 
         if self.is_bottom(ty) {
@@ -401,14 +420,14 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             return None;
         }
 
-        self.cfg.first_result(call_id)
+        self.cfg.first_result(call_handle)
     }
 
     fn lower_block(
         &mut self,
         statement_handles: &[StatementHandle],
         tail_handle: Option<ExpressionHandle>,
-    ) -> Option<ValueId> {
+    ) -> Option<ValueHandle> {
         for &statement_handle in statement_handles {
             self.lower_statement(statement_handle);
             if self.cfg.is_filled_here() {
@@ -441,57 +460,59 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         then_branch_handle: ExpressionHandle,
         else_branch_handle: Option<ExpressionHandle>,
         ty: Ty<'db>,
-    ) -> Option<ValueId> {
-        let condition_id = self.lower_expression(condition_handle)?;
+    ) -> Option<ValueHandle> {
+        let condition_value_handle = self.lower_expression(condition_handle)?;
         if self.cfg.is_filled_here() {
             return None;
         }
 
         let produces_value = !self.is_zero_sized(ty) && !self.is_bottom(ty);
 
-        let then_block_id = self.cfg.create_block();
-        let else_block_id = else_branch_handle.map(|_| self.cfg.create_block());
-        let merge_block_id = self.cfg.create_block();
+        let then_block_handle = self.cfg.create_block();
+        let else_block_handle = else_branch_handle.map(|_| self.cfg.create_block());
+        let merge_block_handle = self.cfg.create_block();
 
-        let block_parameter_id =
-            produces_value.then(|| self.cfg.append_block_parameter(merge_block_id, ty));
+        let block_parameter_handle =
+            produces_value.then(|| self.cfg.append_block_parameter(merge_block_handle, ty));
 
         self.cfg.emit_conditional_branch(
-            condition_id,
-            then_block_id,
+            condition_value_handle,
+            then_block_handle,
             &[],
-            else_block_id.unwrap_or(merge_block_id),
+            else_block_handle.unwrap_or(merge_block_handle),
             &[],
         );
 
-        self.cfg.add_block(then_block_id);
-        self.cfg.seal_block(then_block_id);
+        self.cfg.add_block(then_block_handle);
+        self.cfg.seal_block(then_block_handle);
 
-        let then_value_id = self.lower_expression(then_branch_handle);
+        let then_value_handle = self.lower_expression(then_branch_handle);
 
         let mut merge_has_predecessor = false;
         if !self.cfg.is_filled_here() {
-            let block_argument_ids = match then_value_id {
-                Some(then_value_id) if produces_value => vec![then_value_id],
+            let block_argument_handles = match then_value_handle {
+                Some(then_value_handle) if produces_value => vec![then_value_handle],
                 _ => vec![],
             };
-            self.cfg.emit_jump(merge_block_id, &block_argument_ids);
+            self.cfg
+                .emit_jump(merge_block_handle, &block_argument_handles);
             merge_has_predecessor = true;
         }
 
-        if let (Some(else_block_id), Some(else_branch_handle)) = (else_block_id, else_branch_handle)
+        if let (Some(else_block_handle), Some(else_branch_handle)) =
+            (else_block_handle, else_branch_handle)
         {
-            self.cfg.add_block(else_block_id);
-            self.cfg.seal_block(else_block_id);
+            self.cfg.add_block(else_block_handle);
+            self.cfg.seal_block(else_block_handle);
 
-            let else_value_id = self.lower_expression(else_branch_handle);
+            let else_value_handle = self.lower_expression(else_branch_handle);
 
             if !self.cfg.is_filled_here() {
-                match else_value_id {
-                    Some(else_value_id) if produces_value => {
-                        self.cfg.emit_jump(merge_block_id, &[else_value_id])
+                match else_value_handle {
+                    Some(else_value_handle) if produces_value => {
+                        self.cfg.emit_jump(merge_block_handle, &[else_value_handle])
                     }
-                    _ => self.cfg.emit_jump(merge_block_id, &[]),
+                    _ => self.cfg.emit_jump(merge_block_handle, &[]),
                 };
                 merge_has_predecessor = true;
             }
@@ -504,10 +525,10 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             return None;
         }
 
-        self.cfg.add_block(merge_block_id);
-        self.cfg.seal_block(merge_block_id);
+        self.cfg.add_block(merge_block_handle);
+        self.cfg.seal_block(merge_block_handle);
 
-        block_parameter_id
+        block_parameter_handle
     }
 
     //             [lhs block]
@@ -523,51 +544,51 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         lhs_handle: ExpressionHandle,
         rhs_handle: ExpressionHandle,
         ty: Ty<'db>,
-    ) -> Option<ValueId> {
-        let lhs_id = self.lower_expression(lhs_handle)?;
+    ) -> Option<ValueHandle> {
+        let lhs_value_handle = self.lower_expression(lhs_handle)?;
         if self.cfg.is_filled_here() {
             return None;
         }
 
-        let rhs_block_id = self.cfg.create_block();
-        let merge_block_id = self.cfg.create_block();
+        let rhs_block_handle = self.cfg.create_block();
+        let merge_block_handle = self.cfg.create_block();
 
-        let block_parameter_id = self.cfg.append_block_parameter(merge_block_id, ty);
+        let block_parameter_handle = self.cfg.append_block_parameter(merge_block_handle, ty);
 
         match operator {
             // `lhs and rhs` desugars to `if lhs { rhs } else { lhs }`
             BinaryOperator::And => self.cfg.emit_conditional_branch(
-                lhs_id,
-                rhs_block_id,
+                lhs_value_handle,
+                rhs_block_handle,
                 &[],
-                merge_block_id,
-                &[lhs_id],
+                merge_block_handle,
+                &[lhs_value_handle],
             ),
             // `lhs or rhs` desugars to `if lhs { lhs } else { rhs }`
             BinaryOperator::Or => self.cfg.emit_conditional_branch(
-                lhs_id,
-                merge_block_id,
-                &[lhs_id],
-                rhs_block_id,
+                lhs_value_handle,
+                merge_block_handle,
+                &[lhs_value_handle],
+                rhs_block_handle,
                 &[],
             ),
             _ => unreachable!("short-circuit expressions can only contain `and` or `or` operators"),
         };
 
-        self.cfg.add_block(rhs_block_id);
-        self.cfg.seal_block(rhs_block_id);
+        self.cfg.add_block(rhs_block_handle);
+        self.cfg.seal_block(rhs_block_handle);
 
-        let rhs_id = self.lower_expression(rhs_handle);
+        let rhs_value_handle = self.lower_expression(rhs_handle);
 
         if !self.cfg.is_filled_here() {
-            let rhs_id = rhs_id.unwrap();
-            self.cfg.emit_jump(merge_block_id, &[rhs_id]);
+            let rhs_value_handle = rhs_value_handle.unwrap();
+            self.cfg.emit_jump(merge_block_handle, &[rhs_value_handle]);
         }
 
-        self.cfg.add_block(merge_block_id);
-        self.cfg.seal_block(merge_block_id);
+        self.cfg.add_block(merge_block_handle);
+        self.cfg.seal_block(merge_block_handle);
 
-        Some(block_parameter_id)
+        Some(block_parameter_handle)
     }
 
     // [pre-loop block]
@@ -580,27 +601,27 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     //           |              \     |
     //           v                +---+
     //      [exit block]
-    fn lower_loop(&mut self, body_handle: ExpressionHandle, ty: Ty<'db>) -> Option<ValueId> {
-        let body_block_id = self.cfg.create_block();
-        let exit_block_id = self.cfg.create_block();
+    fn lower_loop(&mut self, body_handle: ExpressionHandle, ty: Ty<'db>) -> Option<ValueHandle> {
+        let body_block_handle = self.cfg.create_block();
+        let exit_block_handle = self.cfg.create_block();
 
         // jump into the body from the preceding block, then switch into the body itself
         // must happen in this order, since emitting the jump moves nothing, so emitting it
-        // after switching would append it as body_block_id's own first instruction (a
+        // after switching would append it as body_block_handle's own first instruction (a
         // self-jump) instead of the preceding block's terminator
-        self.cfg.emit_jump(body_block_id, &[]);
-        self.cfg.add_block(body_block_id);
+        self.cfg.emit_jump(body_block_handle, &[]);
+        self.cfg.add_block(body_block_handle);
 
-        // do NOT seal body_block_id here, as the back-edge hasn't been emitted yet
+        // do NOT seal body_block_handle here, as the back-edge hasn't been emitted yet
 
         let produces_value = !self.is_zero_sized(ty) && !self.is_bottom(ty);
 
-        let result_parameter_id =
-            produces_value.then(|| self.cfg.append_block_parameter(exit_block_id, ty));
+        let result_parameter_handle =
+            produces_value.then(|| self.cfg.append_block_parameter(exit_block_handle, ty));
 
         self.loop_frames.push(LoopFrame {
-            header_id: body_block_id,
-            exit_id: exit_block_id,
+            header_handle: body_block_handle,
+            exit_handle: exit_block_handle,
             exit_is_branched_to: false, // only a `break` can make exit reachable
         });
 
@@ -608,10 +629,10 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
         // back-edge (only if the body's end isn't already filled by e.g. a `return`)
         if !self.cfg.is_filled_here() {
-            self.cfg.emit_jump(body_block_id, &[]);
+            self.cfg.emit_jump(body_block_handle, &[]);
         }
 
-        self.cfg.seal_block(body_block_id);
+        self.cfg.seal_block(body_block_handle);
 
         let frame = self.loop_frames.pop().unwrap();
 
@@ -619,54 +640,60 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             return None;
         }
 
-        self.cfg.add_block(exit_block_id);
-        self.cfg.seal_block(exit_block_id);
+        self.cfg.add_block(exit_block_handle);
+        self.cfg.seal_block(exit_block_handle);
 
-        result_parameter_id
+        result_parameter_handle
     }
 
-    fn lower_break(&mut self, value_handle: Option<ExpressionHandle>) -> Option<ValueId> {
-        let value_id = value_handle.and_then(|value_handle| self.lower_expression(value_handle));
+    fn lower_break(&mut self, value_handle: Option<ExpressionHandle>) -> Option<ValueHandle> {
+        let lowered_value_handle =
+            value_handle.and_then(|value_handle| self.lower_expression(value_handle));
         if self.cfg.is_filled_here() {
             return None;
         }
 
         let frame = self.loop_frames.last_mut().unwrap();
-        let exit_id = frame.exit_id;
+        let exit_handle = frame.exit_handle;
         frame.exit_is_branched_to = true;
 
-        let block_argument_ids: &[ValueId] = match &value_id {
-            Some(value_id) => std::slice::from_ref(value_id),
+        let block_argument_handles: &[ValueHandle] = match &lowered_value_handle {
+            Some(lowered_value_handle) => std::slice::from_ref(lowered_value_handle),
             None => &[],
         };
 
-        self.cfg.emit_jump(exit_id, block_argument_ids);
+        self.cfg.emit_jump(exit_handle, block_argument_handles);
 
         None
     }
 
-    fn lower_continue(&mut self) -> Option<ValueId> {
+    fn lower_continue(&mut self) -> Option<ValueHandle> {
         if self.cfg.is_filled_here() {
             return None;
         }
 
-        let header_id = self.loop_frames.last().unwrap().header_id;
+        let header_handle = self.loop_frames.last().unwrap().header_handle;
 
-        self.cfg.emit_jump(header_id, &[]);
+        self.cfg.emit_jump(header_handle, &[]);
 
         None
     }
 
-    fn write_local(&mut self, binding_handle: LocalBindingHandle, value_id: Option<ValueId>) {
-        if let Some(value_id) = value_id
+    fn write_local(
+        &mut self,
+        binding_handle: LocalBindingHandle,
+        lowered_value_handle: Option<ValueHandle>,
+    ) {
+        if let Some(lowered_value_handle) = lowered_value_handle
             && !self.cfg.is_filled_here()
         {
             let block = self.current_block();
-            self.cfg.write_variable(binding_handle, block, value_id);
+            self.cfg
+                .write_variable(binding_handle, block, lowered_value_handle);
         }
     }
 
-    fn current_block(&self) -> BlockId {
+    fn current_block(&self) -> BlockHandle {
         self.cfg.current_block().unwrap()
     }
 

@@ -20,20 +20,20 @@ pub(in crate::core) struct ScopeTree<'db> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
 pub(in crate::core) struct ScopeEntry<'db> {
-    pub(in crate::core) name: Symbol<'db>,
-    pub(in crate::core) binding_handle: LocalBindingHandle,
+    name: Symbol<'db>,
+    binding_handle: LocalBindingHandle,
 }
 
 handle_impl!(pub(in crate::core) ScopeHandle);
 
 #[derive(Clone, Copy)]
 pub(in crate::core) struct ScopeView<'a, 'db> {
-    store: &'a ScopeTree<'db>,
+    tree: &'a ScopeTree<'db>,
     scope_handle: ScopeHandle,
 }
 
 pub(in crate::core) struct ScopeViewMut<'a, 'db> {
-    store: &'a mut ScopeTree<'db>,
+    tree: &'a mut ScopeTree<'db>,
     scope_handle: ScopeHandle,
 }
 
@@ -64,10 +64,10 @@ impl<'db> ScopeTree<'db> {
             entries: Run::empty(),
         });
         scope_tree
-            .get_scope_mut(root_handle)
-            .add_entries(body, &body.parameter_handles);
+            .scope_mut(root_handle)
+            .add_entries(body, body.parameters());
 
-        scope_tree.visit_expression(body, body.root_handle, root_handle);
+        scope_tree.visit_expression(body, body.root(), root_handle);
 
         scope_tree
     }
@@ -76,7 +76,7 @@ impl<'db> ScopeTree<'db> {
         &self,
         expression_handle: ExpressionHandle,
     ) -> ScopeView<'_, 'db> {
-        self.get_scope(self.containing_scopes[expression_handle])
+        self.scope(self.containing_scopes[expression_handle])
     }
 
     pub(in crate::core) fn resolver_for(
@@ -90,16 +90,16 @@ impl<'db> ScopeTree<'db> {
         }
     }
 
-    fn get_scope(&self, scope_handle: ScopeHandle) -> ScopeView<'_, 'db> {
+    fn scope(&self, scope_handle: ScopeHandle) -> ScopeView<'_, 'db> {
         ScopeView {
-            store: self,
+            tree: self,
             scope_handle,
         }
     }
 
-    fn get_scope_mut(&mut self, scope_handle: ScopeHandle) -> ScopeViewMut<'_, 'db> {
+    fn scope_mut(&mut self, scope_handle: ScopeHandle) -> ScopeViewMut<'_, 'db> {
         ScopeViewMut {
-            store: self,
+            tree: self,
             scope_handle,
         }
     }
@@ -112,7 +112,7 @@ impl<'db> ScopeTree<'db> {
     ) {
         self.containing_scopes.add(expression_handle, parent_handle);
 
-        match &body.store[expression_handle] {
+        match body.store().expression(expression_handle) {
             Expression::Integer(_)
             | Expression::Boolean(_)
             | Expression::Path(_)
@@ -140,8 +140,8 @@ impl<'db> ScopeTree<'db> {
                     entries: Run::empty(),
                 });
 
-                for statement_handle in &body.store[*statement_run] {
-                    match &body.store[*statement_handle] {
+                for statement_handle in body.store().statement_handles(*statement_run) {
+                    match body.store().statement(*statement_handle) {
                         Statement::Let {
                             name_handle,
                             initializer_handle,
@@ -153,7 +153,7 @@ impl<'db> ScopeTree<'db> {
                                 block_key: None,
                                 entries: Run::empty(),
                             });
-                            self.get_scope_mut(parent_handle)
+                            self.scope_mut(parent_handle)
                                 .add_entries(body, &[*name_handle]);
                         }
                         Statement::Expression {
@@ -170,7 +170,7 @@ impl<'db> ScopeTree<'db> {
                 }
             }
             Expression::Tuple { element_run } => {
-                for element_handle in &body.store[*element_run] {
+                for element_handle in body.store().expression_handles(*element_run) {
                     self.visit_expression(body, *element_handle, parent_handle);
                 }
             }
@@ -186,7 +186,7 @@ impl<'db> ScopeTree<'db> {
                 argument_run,
             } => {
                 self.visit_expression(body, *callee_handle, parent_handle);
-                for argument_handle in &body.store[*argument_run] {
+                for argument_handle in body.store().expression_handles(*argument_run) {
                     self.visit_expression(body, *argument_handle, parent_handle);
                 }
             }
@@ -196,7 +196,7 @@ impl<'db> ScopeTree<'db> {
                 }
             }
             Expression::UnaryOperation { operand_handle, .. } => {
-                self.visit_expression(body, *operand_handle, parent_handle)
+                self.visit_expression(body, *operand_handle, parent_handle);
             }
             Expression::BinaryOperation {
                 lhs_handle,
@@ -217,27 +217,38 @@ impl<'db> ScopeTree<'db> {
     }
 }
 
+impl<'db> ScopeEntry<'db> {
+    pub(in crate::core) fn name(&self) -> Symbol<'db> {
+        self.name
+    }
+
+    pub(in crate::core) fn binding(&self) -> LocalBindingHandle {
+        self.binding_handle
+    }
+}
+
 impl<'a, 'db> ScopeView<'a, 'db> {
     pub(in crate::core) fn block(&self) -> Option<BlockKey<'db>> {
-        self.store.scopes[self.scope_handle].block_key
+        self.tree.scopes[self.scope_handle].block_key
     }
 
     pub(in crate::core) fn entries(&self) -> &'a [ScopeEntry<'db>] {
-        let entry_run = self.store.scopes[self.scope_handle].entries;
-        &self.store.scope_entries[entry_run]
+        let entry_run = self.tree.scopes[self.scope_handle].entries;
+        &self.tree.scope_entries[entry_run]
     }
 
     pub(in crate::core) fn parent(&self) -> Option<Self> {
-        self.store.scopes[self.scope_handle]
+        self.tree.scopes[self.scope_handle]
             .parent_handle
-            .map(|parent_handle| self.store.get_scope(parent_handle))
+            .map(|parent_handle| self.tree.scope(parent_handle))
     }
 
     pub(in crate::core) fn chain(self) -> impl Iterator<Item = Self> {
         std::iter::successors(Some(self), Self::parent)
     }
 
-    pub(in crate::core) fn get_local_binding(
+    #[expect(dead_code, reason = "scope lookup API, for the language server")]
+    pub(in crate::core) fn find_local_binding(
         self,
         name: Symbol<'db>,
     ) -> Option<LocalBindingHandle> {
@@ -261,10 +272,10 @@ impl<'db> ScopeViewMut<'_, 'db> {
         let entries: Vec<ScopeEntry<'db>> = binding_handles
             .iter()
             .map(|binding_handle| ScopeEntry {
-                name: body.store[*binding_handle].name,
+                name: body.store().local_binding(*binding_handle).name(),
                 binding_handle: *binding_handle,
             })
             .collect();
-        self.store.scopes[self.scope_handle].entries = self.store.scope_entries.add_many(&entries);
+        self.tree.scopes[self.scope_handle].entries = self.tree.scope_entries.add_many(&entries);
     }
 }

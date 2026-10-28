@@ -18,6 +18,8 @@ func main() {
 }
 ```
 
+A module is a named group of definitions that other code can import.
+
 The filesystem _is_ the module tree! Every `.bb` file is a module, named after its path from the project root (the directory of the file being compiled): `shapes/circle.bb` is `shapes::circle`. A directory is a namespace just by containing files.
 
 `import shapes::circle;` brings the module in under its last name, `circle`, and you reach its definitions through it: `circle::area`. You can only import a module, never a single definition, so `circle::area` reads the same wherever it's used.

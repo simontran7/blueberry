@@ -3,7 +3,7 @@ use std::fmt::{self, Write};
 
 use crate::core::common::handle_collections::Handle;
 use crate::core::mir_construction::mir::{
-    BlockId, InstructionId, InstructionRef, MirBody, ValueId,
+    BlockHandle, InstructionHandle, InstructionRef, MirBody, ValueHandle,
 };
 use crate::core::mir_construction::mir_of;
 use crate::core::semantic_analysis::all_definitions_of;
@@ -21,7 +21,7 @@ pub(in crate::core) trait BodyWriter {
         &mut self,
         dumper: &MirBodyDumper,
         out: &mut String,
-        block: BlockId,
+        block: BlockHandle,
         indent: usize,
     ) -> fmt::Result {
         dumper.block_header(out, block, indent)
@@ -31,7 +31,7 @@ pub(in crate::core) trait BodyWriter {
         &mut self,
         dumper: &MirBodyDumper,
         out: &mut String,
-        instruction: InstructionId,
+        instruction: InstructionHandle,
         indent: usize,
     ) -> fmt::Result {
         dumper.instruction(out, instruction, indent)
@@ -104,17 +104,17 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
     pub(in crate::core) fn block_header(
         &self,
         out: &mut String,
-        block: BlockId,
+        block: BlockHandle,
         indent: usize,
     ) -> fmt::Result {
         write!(out, "{:1$}Block{2}", "", indent - 4, block.index())?;
 
-        let parameters = self.body.cfg.get_block(block).parameters();
+        let parameters = self.body.cfg.block(block).parameters();
         if !parameters.is_empty() {
             let rendered = parameters
                 .iter()
                 .map(|&parameter| {
-                    let ty = self.body.cfg.get_value(parameter).ty();
+                    let ty = self.body.cfg.value(parameter).ty();
                     format!("v{}: {}", parameter.index(), ty.display(self.db))
                 })
                 .collect::<Vec<_>>()
@@ -127,12 +127,12 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
     pub(in crate::core) fn instruction(
         &self,
         out: &mut String,
-        instruction: InstructionId,
+        instruction: InstructionHandle,
         indent: usize,
     ) -> fmt::Result {
         write!(out, "{:indent$}", "")?;
 
-        let view = self.body.cfg.get_instruction(instruction);
+        let view = self.body.cfg.instruction(instruction);
 
         let results = view.results();
         if !results.is_empty() {
@@ -142,37 +142,43 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
         match view.as_instruction_ref() {
             InstructionRef::Binary {
                 operator,
-                operand_ids,
+                operand_handles,
             } => {
                 write!(
                     out,
                     "Binary {:?} v{}, v{}",
                     operator,
-                    operand_ids[0].index(),
-                    operand_ids[1].index()
+                    operand_handles[0].index(),
+                    operand_handles[1].index()
                 )?;
             }
             InstructionRef::Unary {
                 operator,
-                operand_id,
+                operand_handle,
             } => {
-                write!(out, "Unary {:?} v{}", operator, operand_id.index())?;
+                write!(out, "Unary {:?} v{}", operator, operand_handle.index())?;
             }
             InstructionRef::IntegerLiteral { value } => {
                 write!(out, "IntegerLiteral {value}")?;
             }
-            InstructionRef::Tuple { element_ids } => {
-                write!(out, "Tuple({})", join_values(element_ids))?;
+            InstructionRef::Tuple { element_handles } => {
+                write!(out, "Tuple({})", join_values(element_handles))?;
             }
-            InstructionRef::ExtractField { operand_id, index } => {
-                write!(out, "ExtractField v{}.{index}", operand_id.index())?;
+            InstructionRef::ExtractField {
+                operand_handle,
+                index,
+            } => {
+                write!(out, "ExtractField v{}.{index}", operand_handle.index())?;
             }
-            InstructionRef::InsertField { operand_ids, index } => {
+            InstructionRef::InsertField {
+                operand_handles,
+                index,
+            } => {
                 write!(
                     out,
                     "InsertField v{}.{index}, v{}",
-                    operand_ids[0].index(),
-                    operand_ids[1].index()
+                    operand_handles[0].index(),
+                    operand_handles[1].index()
                 )?;
             }
             InstructionRef::BooleanLiteral { value } => {
@@ -188,46 +194,47 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
             }
             InstructionRef::Call {
                 function,
-                argument_ids,
+                argument_handles,
             } => {
                 let name = name(self.db, Definition::Function(function));
-                write!(out, "Call {name}({})", join_values(argument_ids))?;
+                write!(out, "Call {name}({})", join_values(argument_handles))?;
             }
             InstructionRef::CallIndirect {
-                callee_and_argument_ids,
+                callee_and_argument_handles,
             } => {
-                let (callee_id, argument_ids) = callee_and_argument_ids.split_first().unwrap();
+                let (callee_handle, argument_handles) =
+                    callee_and_argument_handles.split_first().unwrap();
                 write!(
                     out,
                     "CallIndirect v{}({})",
-                    callee_id.index(),
-                    join_values(argument_ids)
+                    callee_handle.index(),
+                    join_values(argument_handles)
                 )?;
             }
             InstructionRef::Jump {
-                destination_id,
-                block_argument_ids,
+                destination_handle,
+                block_argument_handles,
             } => {
                 write!(out, "Jump ")?;
-                self.block_call(out, destination_id, block_argument_ids)?;
+                self.block_call(out, destination_handle, block_argument_handles)?;
             }
             InstructionRef::ConditionalBranch {
-                operand_id,
-                true_block_id,
-                true_block_argument_ids,
-                false_block_id,
-                false_block_argument_ids,
+                operand_handle,
+                true_block_handle,
+                true_block_argument_handles,
+                false_block_handle,
+                false_block_argument_handles,
             } => {
-                write!(out, "ConditionalBranch v{}, ", operand_id.index())?;
-                self.block_call(out, true_block_id, true_block_argument_ids)?;
+                write!(out, "ConditionalBranch v{}, ", operand_handle.index())?;
+                self.block_call(out, true_block_handle, true_block_argument_handles)?;
                 write!(out, ", ")?;
-                self.block_call(out, false_block_id, false_block_argument_ids)?;
+                self.block_call(out, false_block_handle, false_block_argument_handles)?;
             }
-            InstructionRef::Return { output_ids } => {
-                if output_ids.is_empty() {
+            InstructionRef::Return { output_handles } => {
+                if output_handles.is_empty() {
                     write!(out, "Return")?;
                 } else {
-                    write!(out, "Return {}", join_values(output_ids))?;
+                    write!(out, "Return {}", join_values(output_handles))?;
                 }
             }
             InstructionRef::Unreachable => write!(out, "Unreachable")?,
@@ -253,7 +260,7 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
         // Iterate the layout, not the dfg — block order is the layout's
         // business.
         let mut first = true;
-        for block in self.body.cfg.block_ids() {
+        for block in self.body.cfg.block_handles() {
             if !first {
                 writeln!(out)?;
             }
@@ -271,8 +278,8 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
                 "",
                 indent.saturating_sub(4)
             )?;
-            let mut targets: Vec<ValueId> = aliases.keys().copied().collect();
-            targets.sort_by_key(|value| value.index());
+            let mut targets: Vec<ValueHandle> = aliases.keys().copied().collect();
+            targets.sort_by_key(Handle::index);
             for target in targets {
                 self.write_value_aliases(out, &mut aliases, target, indent)?;
             }
@@ -285,26 +292,31 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
         &self,
         writer: &mut FW,
         out: &mut String,
-        aliases: &mut HashMap<ValueId, Vec<ValueId>>,
-        block: BlockId,
+        aliases: &mut HashMap<ValueHandle, Vec<ValueHandle>>,
+        block: BlockHandle,
         indent: usize,
     ) -> fmt::Result {
         writer.write_block_header(self, out, block, indent)?;
 
-        for &parameter in self.body.cfg.get_block(block).parameters() {
+        for &parameter in self.body.cfg.block(block).parameters() {
             self.write_value_aliases(out, aliases, parameter, indent)?;
         }
 
-        for instruction in self.body.cfg.get_block(block).instructions() {
+        for instruction in self.body.cfg.block(block).instructions() {
             writer.write_instruction(self, out, instruction, indent)?;
-            for &result in self.body.cfg.get_instruction(instruction).results() {
+            for &result in self.body.cfg.instruction(instruction).results() {
                 self.write_value_aliases(out, aliases, result, indent)?;
             }
         }
         Ok(())
     }
 
-    fn block_call(&self, out: &mut String, block: BlockId, args: &[ValueId]) -> fmt::Result {
+    fn block_call(
+        &self,
+        out: &mut String,
+        block: BlockHandle,
+        args: &[ValueHandle],
+    ) -> fmt::Result {
         write!(out, "Block{}", block.index())?;
         if !args.is_empty() {
             write!(out, "({})", join_values(args))?;
@@ -312,10 +324,10 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
         Ok(())
     }
 
-    fn alias_map(&self) -> HashMap<ValueId, Vec<ValueId>> {
-        let mut map: HashMap<ValueId, Vec<ValueId>> = HashMap::new();
-        for value in self.body.cfg.ssa_ids() {
-            if let Some(target) = self.body.cfg.get_value(value).alias_target() {
+    fn alias_map(&self) -> HashMap<ValueHandle, Vec<ValueHandle>> {
+        let mut map: HashMap<ValueHandle, Vec<ValueHandle>> = HashMap::new();
+        for value in self.body.cfg.ssa_handles() {
+            if let Some(target) = self.body.cfg.value(value).alias_target() {
                 map.entry(target).or_default().push(value);
             }
         }
@@ -325,8 +337,8 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
     fn write_value_aliases(
         &self,
         out: &mut String,
-        aliases: &mut HashMap<ValueId, Vec<ValueId>>,
-        target: ValueId,
+        aliases: &mut HashMap<ValueHandle, Vec<ValueHandle>>,
+        target: ValueHandle,
         indent: usize,
     ) -> fmt::Result {
         let mut todo_stack = vec![target];
@@ -362,7 +374,7 @@ fn name<'db>(db: &'db dyn crate::Db, definition: Definition<'db>) -> &'db str {
     definition.name(db).text(db)
 }
 
-fn join_values(values: &[ValueId]) -> String {
+fn join_values(values: &[ValueHandle]) -> String {
     values
         .iter()
         .map(|value| format!("v{}", value.index()))
@@ -384,6 +396,6 @@ mod tests {
             let db = BlueberryDatabase::default();
             let file = SourceFileKey::new(&db, path.to_path_buf(), input);
             insta::assert_snapshot!(MirBodyDumper::dump_file(&db, file).unwrap());
-        })
+        });
     }
 }

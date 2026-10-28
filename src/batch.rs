@@ -2,20 +2,18 @@ pub mod arg_parser;
 pub mod diagnostic_render;
 pub mod driver;
 
-use std::collections::HashSet;
-
 use arg_parser::Command;
 
 pub fn main() {
     match Command::parse() {
         Command::Build(flags) => {
-            driver::build(flags.path, &flags.emit.into_iter().collect::<HashSet<_>>());
+            driver::build(&flags.path, &flags.emit);
         }
         Command::Run(flags) => {
-            driver::run(flags.path, &flags.emit.into_iter().collect::<HashSet<_>>());
+            driver::run(&flags.path, &flags.emit);
         }
         Command::Check(flags) => {
-            driver::check(flags.path, &flags.emit.into_iter().collect::<HashSet<_>>());
+            driver::check(&flags.path, &flags.emit);
         }
     }
 }

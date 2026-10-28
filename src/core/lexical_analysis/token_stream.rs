@@ -224,6 +224,6 @@ impl fmt::Display for TokenKind {
             Self::Eof => "end of file",
             Self::Error => "error token",
         };
-        write!(f, "{}", output)
+        write!(f, "{output}")
     }
 }

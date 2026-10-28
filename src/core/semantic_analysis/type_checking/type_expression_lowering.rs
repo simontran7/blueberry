@@ -9,7 +9,7 @@ pub(in crate::core) fn lower_type_expression<'db>(
     type_expression_handle: TypeExpressionHandle,
     on_unknown: &mut impl FnMut(TypeExpressionHandle),
 ) -> Ty<'db> {
-    match &store[type_expression_handle] {
+    match store.type_expression(type_expression_handle) {
         TypeExpression::Path(path) => match path.segments(db) {
             [name] => Ty::to_primitive(db, name.text(db)),
             _ => None,
@@ -19,7 +19,8 @@ pub(in crate::core) fn lower_type_expression<'db>(
             Ty::error(db)
         }),
         TypeExpression::Tuple(element_run) => {
-            let elements = store[*element_run]
+            let elements = store
+                .type_expression_handles(*element_run)
                 .iter()
                 .map(|&element_handle| lower_type_expression(db, store, element_handle, on_unknown))
                 .collect();

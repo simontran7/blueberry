@@ -25,6 +25,10 @@ pub(in crate::core) struct IntoIter<K, V> {
     _marker: PhantomData<K>,
 }
 
+#[expect(
+    dead_code,
+    reason = "general-purpose container API, kept complete ahead of its users"
+)]
 impl<K: Handle, V> SideHandleMap<K, V> {
     pub(in crate::core) fn new() -> Self {
         Self {
@@ -106,7 +110,7 @@ impl<K: Handle, V> SideHandleMap<K, V> {
     }
 
     pub(in crate::core) fn clear(&mut self) {
-        self.data.clear()
+        self.data.clear();
     }
 }
 

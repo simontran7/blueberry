@@ -17,7 +17,7 @@ use crate::core::semantic_analysis::name_resolution::definition_list::Definition
 use crate::core::semantic_analysis::name_resolution::resolver::Resolution;
 use crate::core::semantic_analysis::{
     all_definitions_of, body_source_map_of, definition_at, definition_diagnostics_of,
-    entry_point_diagnostics_of, import_diagnostics_of, imports_of, module_file_of, types_of,
+    entry_point_diagnostics_of, import_diagnostics_of, imports_of, module_file_of, semantics_of,
 };
 use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
 use crate::core::syntactic_analysis::cst_of;
@@ -109,19 +109,27 @@ impl<'db> Compiler<'db> {
             .collect()
     }
 
+    #[expect(
+        dead_code,
+        reason = "language-server API; the language server isn't written yet"
+    )]
     pub(crate) fn type_at(&self, file: SourceFileKey, offset: TextSize) -> Option<String> {
         let (definition, expression_handle) = self.expression_at(file, offset)?;
-        let ty = types_of(self.db, definition)[expression_handle];
+        let ty = semantics_of(self.db, definition).expression_type(expression_handle);
         Some(ty.display(self.db).to_string())
     }
 
+    #[expect(
+        dead_code,
+        reason = "language-server API; the language server isn't written yet"
+    )]
     pub(crate) fn goto_definition(
         &self,
         file: SourceFileKey,
         offset: TextSize,
     ) -> Option<(SourceFileKey, Span)> {
         let (definition, expression_handle) = self.expression_at(file, offset)?;
-        match types_of(self.db, definition).path_resolution(expression_handle)? {
+        match semantics_of(self.db, definition).path_resolution(expression_handle)? {
             Resolution::Local(binding_handle) => {
                 let span = body_source_map_of(self.db, definition)
                     .local_binding_span(binding_handle, definition.anchor(self.db));

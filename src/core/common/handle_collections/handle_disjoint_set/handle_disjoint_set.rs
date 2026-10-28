@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::core::common::handle_collections::Handle;
 use crate::core::common::handle_collections::handle_disjoint_set::MergeValue;
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
@@ -19,6 +21,10 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
     }
 
     /// Returns every handle made so far, in creation order.
+    #[expect(
+        dead_code,
+        reason = "general-purpose container API, kept complete ahead of its users"
+    )]
     pub(in crate::core) fn handles(&self) -> impl Iterator<Item = H> + '_ {
         self.parent.keys()
     }
@@ -59,16 +65,20 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
 
         let rep_value = V::merge(&self.value[a_rep], &self.value[b_rep])?;
 
-        let rep = if self.rank[a_rep] < self.rank[b_rep] {
-            self.parent[a_rep] = b_rep;
-            b_rep
-        } else if self.rank[b_rep] < self.rank[a_rep] {
-            self.parent[b_rep] = a_rep;
-            a_rep
-        } else {
-            self.parent[a_rep] = b_rep;
-            self.rank[b_rep] += 1;
-            b_rep
+        let rep = match self.rank[a_rep].cmp(&self.rank[b_rep]) {
+            Ordering::Less => {
+                self.parent[a_rep] = b_rep;
+                b_rep
+            }
+            Ordering::Greater => {
+                self.parent[b_rep] = a_rep;
+                a_rep
+            }
+            Ordering::Equal => {
+                self.parent[a_rep] = b_rep;
+                self.rank[b_rep] += 1;
+                b_rep
+            }
         };
 
         self.value[rep] = rep_value;
@@ -81,7 +91,7 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
     }
 
     /// Returns the value of the set containing `a`.
-    pub(in crate::core) fn get_value(&mut self, a: H) -> V {
+    pub(in crate::core) fn value(&mut self, a: H) -> V {
         let rep = self.find(a);
         self.value[rep].clone()
     }
@@ -115,9 +125,9 @@ mod tests {
         let a = ds.make_set(());
         let b = ds.make_set(());
         let c = ds.make_set(());
-        assert!(a != b);
-        assert!(b != c);
-        assert!(a != c);
+        assert_ne!(a, b);
+        assert_ne!(b, c);
+        assert_ne!(a, c);
     }
 
     #[test]
@@ -189,7 +199,7 @@ mod tests {
         ds.union(a, b).unwrap();
         ds.union(a, c).unwrap();
 
-        assert_eq!(ds.get_value(c), TestValue(Some(7)));
+        assert_eq!(ds.value(c), TestValue(Some(7)));
     }
 
     #[test]
@@ -202,8 +212,8 @@ mod tests {
         assert_eq!(ds.union(a, b), Err(TestMismatch));
 
         assert!(!ds.is_connected(a, b));
-        assert_eq!(ds.get_value(a), TestValue(Some(1)));
-        assert_eq!(ds.get_value(b), TestValue(Some(2)));
+        assert_eq!(ds.value(a), TestValue(Some(1)));
+        assert_eq!(ds.value(b), TestValue(Some(2)));
     }
 
     #[test]
@@ -216,6 +226,6 @@ mod tests {
         ds.union(a, b).unwrap();
         ds.update_value(a, |value| *value = TestValue(Some(5)));
 
-        assert_eq!(ds.get_value(b), TestValue(Some(5)));
+        assert_eq!(ds.value(b), TestValue(Some(5)));
     }
 }

@@ -225,7 +225,7 @@ impl Parser {
                 TokenKind::Func | TokenKind::Const => self.parse_definition_statement(),
                 _ => {
                     if self.cursor.at_any(Self::EXPRESSION_STARTERS) {
-                        self.parse_expression_statement()
+                        self.parse_expression_statement();
                     } else {
                         self.advance_with_error("statement");
                     }
@@ -683,9 +683,7 @@ impl SourceCursor {
     }
 
     fn peek_ahead(&self, n: usize) -> TokenKind {
-        if self.fuel.get() == 0 {
-            panic!("parser is stuck");
-        }
+        assert!(self.fuel.get() != 0, "parser is stuck");
         self.fuel.set(self.fuel.get() - 1);
         self.source.kind_at(self.index + n)
     }
@@ -699,14 +697,17 @@ impl SourceCursor {
 
 impl Drop for OpenMarker {
     fn drop(&mut self) {
-        if !self.closed {
-            panic!("The event associated with this marker needs to be closed.")
-        }
+        assert!(
+            self.closed,
+            "The event associated with this marker needs to be closed."
+        );
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Write;
+
     use super::*;
     use crate::core::lexical_analysis::tokenizer::Tokenizer;
     use crate::core::syntactic_analysis::cst::cst_builder::CstBuilder;
@@ -726,11 +727,11 @@ mod tests {
             if !diagnostics.is_empty() {
                 dump.push_str("\n--- diagnostics ---\n");
                 for diagnostic in &diagnostics {
-                    dump.push_str(&format!("{:?}\n", diagnostic));
+                    writeln!(dump, "{diagnostic:?}").unwrap();
                 }
             }
 
             insta::assert_snapshot!(dump);
-        })
+        });
     }
 }
