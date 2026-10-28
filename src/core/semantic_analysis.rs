@@ -22,7 +22,7 @@ use crate::core::semantic_analysis::name_resolution::definition_list::{
 use crate::core::semantic_analysis::name_resolution::import_list::ImportList;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
 use crate::core::semantic_analysis::semantic_diagnostic::{OwnerSpans, SemanticDiagnostic};
-use crate::core::semantic_analysis::type_checking::type_expression_lowering::lower_type_expression;
+use crate::core::semantic_analysis::type_checking::type_expression_resolution::resolve_type_expression;
 use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::RedNode;
@@ -34,11 +34,9 @@ pub(crate) mod signature {
     use std::sync::Arc;
 
     use crate::core::semantic_analysis::ast_lowering::nodes::{HirNodeSourceMap, Signature};
-    use crate::core::semantic_analysis::ast_lowering::{
-        lower_constant_signature, lower_function_signature,
-    };
+    use crate::core::semantic_analysis::ast_lowering::signature_lowerer::SignatureLowerer;
     use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
-    use crate::core::semantic_analysis::type_checking::type_expression_lowering::lower_type_expression;
+    use crate::core::semantic_analysis::type_checking::type_expression_resolution::resolve_type_expression;
     use crate::core::semantic_analysis::type_checking::types::Ty;
 
     /// Returns the type of `definition`, from its signature's annotations alone.
@@ -46,7 +44,7 @@ pub(crate) mod signature {
     pub(crate) fn type_of<'db>(db: &'db dyn crate::Db, definition: Definition<'db>) -> Ty<'db> {
         let signature = hir_of(db, definition);
         let lower = |annotation_handle| {
-            lower_type_expression(db, signature.store(), annotation_handle, &mut |_| {})
+            resolve_type_expression(db, signature.store(), annotation_handle, &mut |_| {})
         };
         match &**signature {
             Signature::Function(function) => {
@@ -88,17 +86,10 @@ pub(crate) mod signature {
         db: &'db dyn crate::Db,
         definition: Definition<'db>,
     ) -> (Arc<Signature<'db>>, Arc<HirNodeSourceMap>) {
+        let lowerer = SignatureLowerer::new(db, definition);
         let (signature, source_map) = match definition {
-            Definition::Function(key) => {
-                let (function, source_map) =
-                    lower_function_signature(db, &key.to_ast_node(db), definition.anchor(db));
-                (Signature::Function(function), source_map)
-            }
-            Definition::Constant(key) => {
-                let (constant, source_map) =
-                    lower_constant_signature(db, &key.to_ast_node(db), definition.anchor(db));
-                (Signature::Constant(constant), source_map)
-            }
+            Definition::Function(key) => lowerer.lower_function(&key.to_ast_node(db)),
+            Definition::Constant(key) => lowerer.lower_constant(&key.to_ast_node(db)),
         };
         (Arc::new(signature), Arc::new(source_map))
     }
@@ -218,7 +209,7 @@ pub(crate) fn imports_of<'db>(db: &'db dyn crate::Db, file: SourceFileKey) -> Ar
             ast::Item::Import(import_declaration) => import_declaration.path(),
             ast::Item::Definition(_) => None,
         })
-        .filter_map(|path| ast_lowering::lower_path(db, &path))
+        .filter_map(|path| ast_lowering::path_lowering::lower_path(db, &path))
         .collect();
 
     Arc::new(ImportList::new(paths))
@@ -300,7 +291,7 @@ pub(crate) fn import_diagnostics_of(
             ast::Item::Definition(_) => None,
         })
         .filter_map(|path| {
-            let lowered = ast_lowering::lower_path(db, &path)?;
+            let lowered = ast_lowering::path_lowering::lower_path(db, &path)?;
             module_file_of(db, lowered)
                 .is_none()
                 .then(|| SemanticDiagnostic::UnresolvedImport {
@@ -410,7 +401,7 @@ fn collect_definitions<'db>(
         let Some(name) = definition.name() else {
             continue;
         };
-        let name = ast_lowering::lower_name(db, &name);
+        let name = ast_lowering::path_lowering::lower_name(db, &name);
         definition_list.add_definition(db, file, source, name, definition);
     }
     Arc::new(definition_list)
@@ -425,7 +416,7 @@ fn unknown_type_diagnostics<'db>(
 ) -> Vec<SemanticDiagnostic> {
     let mut diagnostics = Vec::new();
     for annotation_handle in annotation_handles {
-        lower_type_expression(
+        resolve_type_expression(
             db,
             store,
             annotation_handle,

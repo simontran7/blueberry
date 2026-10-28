@@ -4,6 +4,7 @@ use crate::core::semantic_analysis::ast_lowering::nodes::{
     self, ExpressionHandle, HirNodeSourceMap, LocalBindingHandle, StatementHandle,
     TypeExpressionHandle,
 };
+use crate::core::semantic_analysis::ast_lowering::{path_lowering, type_expression_lowering};
 use crate::core::semantic_analysis::keys::BlockKey;
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::source_file_key::SourceFileKey;
@@ -54,7 +55,7 @@ impl<'db> BodyLowerer<'db> {
                 let receiver_handle = self.lower_optional_expression(field.receiver(), field.red());
                 let name = field
                     .field()
-                    .map(|token| super::lower_name(self.db, &token));
+                    .map(|token| path_lowering::lower_name(self.db, &token));
                 self.builder.add_expression(
                     nodes::Expression::Field {
                         receiver_handle,
@@ -241,7 +242,7 @@ impl<'db> BodyLowerer<'db> {
     }
 
     fn lower_path(&self, path: &ast::Path) -> Option<nodes::Path<'db>> {
-        super::lower_path(self.db, path)
+        path_lowering::lower_path(self.db, path)
     }
 
     fn lower_statement(&mut self, statement: ast::Statement) -> StatementHandle {
@@ -433,6 +434,6 @@ impl<'db> BodyLowerer<'db> {
         &mut self,
         type_expression: &ast::TypeExpression,
     ) -> TypeExpressionHandle {
-        super::lower_type_expression(self.db, &mut self.builder, type_expression)
+        type_expression_lowering::lower_type_expression(self.db, &mut self.builder, type_expression)
     }
 }

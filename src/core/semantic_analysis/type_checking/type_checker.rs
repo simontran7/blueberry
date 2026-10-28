@@ -15,7 +15,7 @@ use crate::core::semantic_analysis::signature;
 use crate::core::semantic_analysis::type_checking::inference_table::{
     InferenceTable, TypeMismatch,
 };
-use crate::core::semantic_analysis::type_checking::type_expression_lowering::lower_type_expression;
+use crate::core::semantic_analysis::type_checking::type_expression_resolution::resolve_type_expression;
 use crate::core::semantic_analysis::type_checking::types::{
     InferenceVariable, SignedIntTy, Ty, TyKind, UnsignedIntTy,
 };
@@ -595,7 +595,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         initializer_handle: ExpressionHandle,
     ) {
         let annotated_ty = match annotation_handle {
-            Some(annotation_handle) => lower_type_expression(
+            Some(annotation_handle) => resolve_type_expression(
                 self.db,
                 self.body.store(),
                 annotation_handle,

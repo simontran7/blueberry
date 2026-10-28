@@ -36,7 +36,7 @@ Every definition's header is lowered into a `FunctionSignature` (its name, param
 
 An annotation is a **type expression**: a term in the language of types, which denotes a type (a `Ty`) the way an expression denotes a value. Type expressions nest (e.g., `(I32, (Bool, U64))`), so every type expression gets its own handle in a `HirNodeStore` (see [Bodies](#bodies)), and a tuple type expression refers to its elements by handle. A signature has its own store, and so does each body, and both are built by the same `HirNodeStoreBuilder`, which also records in a source map where each type expression came from, so that an unknown name inside a tuple (e.g., `Foo` in `(I32, Foo)`) is reported at the name itself. An unknown name is found the same way in a signature and in a body: by lowering the annotation to a type, which reports every name it can't resolve.
 
-Turning an annotation into a type is done by `lower_type_expression`, the same function for signatures and for a `let` in a body. It belongs to type checking rather than to the HIR, since it's resolution: today, a name can only be a primitive, but once blueberry has user-defined types, `Point` will need to be looked up the same way as a value path.
+Turning an annotation into a type is done by `resolve_type_expression`, the same function for signatures and for a `let` in a body. It belongs to type checking rather than to the HIR, since it's resolution: today, a name can only be a primitive, but once blueberry has user-defined types, `Point` will need to be looked up the same way as a value path.
 
 A signature is kept separate from its body, so that `f` can call `g` using only `g`'s signature, without `g`'s body being checked first. This matters for two reasons:
 - **stability**: editing inside `g`'s body doesn't change `g`'s signature, so `f`'s cached result stays valid and `f` isn't checked again
@@ -44,7 +44,7 @@ A signature is kept separate from its body, so that `f` can call `g` using only 
 
 This only works because blueberry requires every signature to be fully annotated, and so the header alone says what the type is.
 
-_In the code:_ `signature::hir_of(d)`, a `Signature` (either a `FunctionSignature` or a `ConstantSignature`, lowered by `lower_function_signature` and `lower_constant_signature` in `ast_lowering.rs`), its source map `signature::source_map_of(d)`, and as a type, `signature::type_of(d)`; annotations are lowered by `lower_type_expression` (`type_checking/type_expression_lowering.rs`)
+_In the code:_ `signature::hir_of(d)`, a `Signature` (either a `FunctionSignature` or a `ConstantSignature`, lowered by the `SignatureLowerer` in `ast_lowering/signature_lowerer.rs`), its source map `signature::source_map_of(d)`, and as a type, `signature::type_of(d)`; annotations are lowered into the HIR by `lower_type_expression` (`ast_lowering/type_expression_lowering.rs`), then turned into types by `resolve_type_expression` (`type_checking/type_expression_resolution.rs`)
 
 Every query here and below takes a `Definition` (a function or a constant), rather than having one query per kind of definition: `Definition` is a salsa **supertype** (an enum of the two salsa keys, `FunctionKey` and `ConstantKey`), so a single query can be keyed by either, and only matches on the kind where the two genuinely differ (e.g., `body::types_of` checks a function body against its return type, and a constant body against its declared type).
 

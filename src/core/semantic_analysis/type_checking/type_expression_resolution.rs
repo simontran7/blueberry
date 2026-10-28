@@ -3,7 +3,7 @@ use crate::core::semantic_analysis::ast_lowering::nodes::{
 };
 use crate::core::semantic_analysis::type_checking::types::Ty;
 
-pub(crate) fn lower_type_expression<'db>(
+pub(crate) fn resolve_type_expression<'db>(
     db: &'db dyn crate::Db,
     store: &HirNodeStore<'db>,
     type_expression_handle: TypeExpressionHandle,
@@ -22,7 +22,9 @@ pub(crate) fn lower_type_expression<'db>(
             let elements = store
                 .type_expression_handles(*element_run)
                 .iter()
-                .map(|&element_handle| lower_type_expression(db, store, element_handle, on_unknown))
+                .map(|&element_handle| {
+                    resolve_type_expression(db, store, element_handle, on_unknown)
+                })
                 .collect();
             Ty::tuple(db, elements)
         }
