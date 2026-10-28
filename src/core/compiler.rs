@@ -16,8 +16,8 @@ use crate::core::semantic_analysis::ast_lowering::nodes::ExpressionHandle;
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::semantic_analysis::name_resolution::resolver::Resolution;
 use crate::core::semantic_analysis::{
-    all_definitions_of, body_source_map_of, definition_at, definition_diagnostics_of,
-    entry_point_diagnostics_of, import_diagnostics_of, imports_of, module_file_of, semantics_of,
+    all_definitions_of, body, definition_at, definition_diagnostics_of, entry_point_diagnostics_of,
+    import_diagnostics_of, imports_of, module_file_of,
 };
 use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
 use crate::core::syntactic_analysis::cst_of;
@@ -115,7 +115,7 @@ impl<'db> Compiler<'db> {
     )]
     pub(crate) fn type_at(&self, file: SourceFileKey, offset: TextSize) -> Option<String> {
         let (definition, expression_handle) = self.expression_at(file, offset)?;
-        let ty = semantics_of(self.db, definition).expression_type(expression_handle);
+        let ty = body::types_of(self.db, definition).expression_type(expression_handle);
         Some(ty.display(self.db).to_string())
     }
 
@@ -129,9 +129,9 @@ impl<'db> Compiler<'db> {
         offset: TextSize,
     ) -> Option<(SourceFileKey, Span)> {
         let (definition, expression_handle) = self.expression_at(file, offset)?;
-        match semantics_of(self.db, definition).path_resolution(expression_handle)? {
+        match body::types_of(self.db, definition).path_resolution(expression_handle)? {
             Resolution::Local(binding_handle) => {
-                let span = body_source_map_of(self.db, definition)
+                let span = body::source_map_of(self.db, definition)
                     .local_binding_span(binding_handle, definition.anchor(self.db));
                 Some((file, span))
             }
@@ -174,7 +174,7 @@ impl<'db> Compiler<'db> {
         let definition = definition_at(self.db, file, offset)?;
         let relative_offset = offset - definition.anchor(self.db);
         let expression_handle =
-            body_source_map_of(self.db, definition).expression_at(relative_offset)?;
+            body::source_map_of(self.db, definition).expression_at(relative_offset)?;
         Some((definition, expression_handle))
     }
 }

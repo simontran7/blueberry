@@ -1,16 +1,16 @@
 use crate::core::semantic_analysis::ast_lowering::nodes::{
-    HirNodeStore, TypeExpression, TypeExpressionHandle,
+    self, HirNodeStore, TypeExpressionHandle,
 };
 use crate::core::semantic_analysis::type_checking::types::Ty;
 
-pub(in crate::core) fn lower_type_expression<'db>(
+pub(crate) fn lower_type_expression<'db>(
     db: &'db dyn crate::Db,
     store: &HirNodeStore<'db>,
     type_expression_handle: TypeExpressionHandle,
     on_unknown: &mut impl FnMut(TypeExpressionHandle),
 ) -> Ty<'db> {
     match store.type_expression(type_expression_handle) {
-        TypeExpression::Path(path) => match path.segments(db) {
+        nodes::TypeExpression::Path(path) => match path.segments(db) {
             [name] => Ty::to_primitive(db, name.text(db)),
             _ => None,
         }
@@ -18,7 +18,7 @@ pub(in crate::core) fn lower_type_expression<'db>(
             on_unknown(type_expression_handle);
             Ty::error(db)
         }),
-        TypeExpression::Tuple(element_run) => {
+        nodes::TypeExpression::Tuple(element_run) => {
             let elements = store
                 .type_expression_handles(*element_run)
                 .iter()
@@ -27,6 +27,6 @@ pub(in crate::core) fn lower_type_expression<'db>(
             Ty::tuple(db, elements)
         }
         // A syntax error, already reported by the parser.
-        TypeExpression::Error => Ty::error(db),
+        nodes::TypeExpression::Error => Ty::error(db),
     }
 }

@@ -3,13 +3,13 @@ use core::fmt;
 use crate::core::common::span::{Span, TextSize};
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct TokenStream {
+pub(crate) struct TokenStream {
     kinds: Vec<TokenKind>,
     starts: Vec<TextSize>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(in crate::core) enum TokenKind {
+pub(crate) enum TokenKind {
     // literals
     Identifier,
     Integer,
@@ -69,36 +69,36 @@ pub(in crate::core) enum TokenKind {
 }
 
 impl TokenStream {
-    pub(in crate::core) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             kinds: Vec::new(),
             starts: vec![TextSize::new(0)],
         }
     }
 
-    pub(in crate::core) fn count(&self) -> usize {
+    pub(crate) fn count(&self) -> usize {
         self.kinds.len()
     }
 
-    pub(in crate::core) fn kind_at(&self, index: usize) -> Option<TokenKind> {
+    pub(crate) fn kind_at(&self, index: usize) -> Option<TokenKind> {
         self.kinds.get(index).copied()
     }
 
-    pub(in crate::core) fn span_at(&self, index: usize) -> Span {
+    pub(crate) fn span_at(&self, index: usize) -> Span {
         Span::new(self.starts[index], self.starts[index + 1])
     }
 
-    pub(in crate::core) fn kinds(&self) -> impl Iterator<Item = TokenKind> {
+    pub(crate) fn kinds(&self) -> impl Iterator<Item = TokenKind> {
         self.kinds.iter().copied()
     }
 
-    pub(in crate::core) fn spans(&self) -> impl Iterator<Item = Span> {
+    pub(crate) fn spans(&self) -> impl Iterator<Item = Span> {
         (0..self.count()).map(|index| self.span_at(index))
     }
 
-    pub(in crate::core) fn add(&mut self, kind: TokenKind, end: TextSize) {
+    pub(crate) fn add(&mut self, kind: TokenKind, end: TextSize) {
         assert!(
-            end >= *self.starts.last().unwrap(),
+            *self.starts.last().unwrap() <= end,
             "a token can't end before it starts"
         );
         self.kinds.push(kind);
@@ -107,7 +107,7 @@ impl TokenStream {
 }
 
 impl TokenKind {
-    pub(in crate::core) fn classify(lexeme: &str) -> Self {
+    pub(crate) fn classify(lexeme: &str) -> Self {
         match lexeme {
             "let" => Self::Let,
             "mut" => Self::Mut,
@@ -132,22 +132,22 @@ impl TokenKind {
         }
     }
 
-    pub(in crate::core) fn has_lexeme(self) -> bool {
+    pub(crate) fn has_lexeme(self) -> bool {
         matches!(self, TokenKind::Identifier | TokenKind::Integer)
     }
 
-    pub(in crate::core) fn is_trivia(self) -> bool {
+    pub(crate) fn is_trivia(self) -> bool {
         matches!(self, TokenKind::Whitespace | TokenKind::InlineComment)
     }
 
-    pub(in crate::core) const fn postfix_binding_power(self) -> Option<(u8, ())> {
+    pub(crate) const fn postfix_binding_power(self) -> Option<(u8, ())> {
         match self {
             Self::OpenParen | Self::Dot => Some((15, ())),
             _ => None,
         }
     }
 
-    pub(in crate::core) const fn infix_binding_power(self) -> Option<(u8, u8)> {
+    pub(crate) const fn infix_binding_power(self) -> Option<(u8, u8)> {
         match self {
             Self::Equal => Some((2, 1)),
             Self::LogicalOr => Some((3, 4)),
@@ -162,7 +162,7 @@ impl TokenKind {
         }
     }
 
-    pub(in crate::core) const fn prefix_binding_power(self) -> Option<((), u8)> {
+    pub(crate) const fn prefix_binding_power(self) -> Option<((), u8)> {
         match self {
             Self::LogicalNot | Self::Minus => Some(((), 15)),
             _ => None,

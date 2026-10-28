@@ -1,5 +1,5 @@
-pub(in crate::core) mod cst;
-pub(in crate::core) mod parser;
+pub(crate) mod cst;
+pub(crate) mod parser;
 
 use std::sync::Arc;
 
@@ -13,7 +13,7 @@ use crate::core::syntactic_analysis::cst::cst_builder::CstBuilder;
 use crate::core::syntactic_analysis::parser::Parser;
 
 #[salsa::tracked]
-pub(in crate::core) fn cst_of(db: &dyn crate::Db, file: SourceFileKey) -> Arc<GreenNode> {
+pub(crate) fn cst_of(db: &dyn crate::Db, file: SourceFileKey) -> Arc<GreenNode> {
     let tokens = tokens_of(db, file);
     let (sink, unresolved_diagnostics) = Parser::new(tokens).parse();
     let (cst, diagnostics) =

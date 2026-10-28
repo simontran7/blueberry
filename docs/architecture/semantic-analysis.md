@@ -44,9 +44,9 @@ A signature is kept separate from its body, so that `f` can call `g` using only 
 
 This only works because blueberry requires every signature to be fully annotated, and so the header alone says what the type is.
 
-_In the code:_ `signature_of(d)`, a `Signature` (either a `FunctionSignature` or a `ConstantSignature`, lowered by `lower_function_signature` and `lower_constant_signature` in `ast_lowering.rs`), its source map `signature_source_map_of(d)`, and as a type, `signature_type_of(d)`; annotations are lowered by `lower_type_expression` (`type_checking/type_expression_lowering.rs`)
+_In the code:_ `signature::hir_of(d)`, a `Signature` (either a `FunctionSignature` or a `ConstantSignature`, lowered by `lower_function_signature` and `lower_constant_signature` in `ast_lowering.rs`), its source map `signature::source_map_of(d)`, and as a type, `signature::type_of(d)`; annotations are lowered by `lower_type_expression` (`type_checking/type_expression_lowering.rs`)
 
-Every query here and below takes a `Definition` (a function or a constant), rather than having one query per kind of definition: `Definition` is a salsa **supertype** (an enum of the two salsa keys, `FunctionKey` and `ConstantKey`), so a single query can be keyed by either, and only matches on the kind where the two genuinely differ (e.g., `semantics_of` checks a function body against its return type, and a constant body against its declared type).
+Every query here and below takes a `Definition` (a function or a constant), rather than having one query per kind of definition: `Definition` is a salsa **supertype** (an enum of the two salsa keys, `FunctionKey` and `ConstantKey`), so a single query can be keyed by either, and only matches on the kind where the two genuinely differ (e.g., `body::types_of` checks a function body against its return type, and a constant body against its declared type).
 
 ### Bodies
 
@@ -70,13 +70,13 @@ func b() {                      func b() {          ← anchor moves: 13 → 26
 }                               }
 ```
 
-Lowering produces the HIR and its source map together (`body_with_source_map_of`), but they're cached separately: `body_of` returns only the HIR, so when an edit changes only the source map, salsa sees that `body_of`'s result didn't change, and doesn't recompute anything that depends on it.
+Lowering produces the HIR and its source map together (`body::hir_and_source_map_of`), but they're cached separately: `body::hir_of` returns only the HIR, so when an edit changes only the source map, salsa sees that `body::hir_of`'s result didn't change, and doesn't recompute anything that depends on it.
 
 The source map is the bridge between the two:
 - **HIR to text**, for diagnostics: a diagnostic stores the handle of the node it's about (e.g. an `ExpressionHandle`), and its span is only looked up through the source map when it's reported
 - **text to HIR**, for editor features such as hover or go-to-definition: the syntax node under the cursor is mapped back to its handle, whose type can then be looked up (not built yet)
 
-_In the code:_ `body_of(d)`, `body_source_map_of(d)`
+_In the code:_ `body::hir_of(d)`, `body::source_map_of(d)`
 
 ## Name Collecting
 
@@ -135,8 +135,8 @@ main's body (HIR)
                                                                │
                          ┌─────────────────────────────────────┼──────────────────────────────┐
                          ▼                                     ▼                              ▼
-                signature_of(is_ready)                body_of(is_ready)              semantics_of(is_ready)
-            (name, parameters, return type)          its own HIR                    its own type check
+            signature::hir_of(is_ready)             body::hir_of(is_ready)      body::types_of(is_ready)
+          (name, parameters, return type)                 its own HIR                its own type check
 ```
 
 ### Import Lists
@@ -513,7 +513,7 @@ const LIMIT: I64 = 5;   // 5 is checked with I64 → 5: I64
 const FLAG: Bool = 5;   // Bool isn't an integer type → 5: ?0; unify(Bool, ?0) → mismatch
 ```
 
-_In the code:_ `semantics_of(d)`
+_In the code:_ `body::types_of(d)`
 
 ### Finishing a Body
 

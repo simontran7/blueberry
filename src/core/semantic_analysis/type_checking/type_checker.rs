@@ -3,8 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::core::common::handle_collections::handle_map::SideHandleMap;
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::ast_lowering::nodes::{
-    BinaryOperator, Body, Expression, ExpressionHandle, LocalBindingHandle, LoopSource, Path,
-    Statement, StatementHandle, TypeExpressionHandle, UnaryOperator,
+    self, ExpressionHandle, LocalBindingHandle, StatementHandle, TypeExpressionHandle,
 };
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::semantic_analysis::name_resolution::resolver::Resolution;
@@ -12,7 +11,7 @@ use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
 use crate::core::semantic_analysis::semantic_diagnostic::{
     TypeMismatchCause, UnresolvedSemanticDiagnostic,
 };
-use crate::core::semantic_analysis::signature_type_of;
+use crate::core::semantic_analysis::signature;
 use crate::core::semantic_analysis::type_checking::inference_table::{
     InferenceTable, TypeMismatch,
 };
@@ -22,7 +21,7 @@ use crate::core::semantic_analysis::type_checking::types::{
 };
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct BodySemantics<'db> {
+pub(crate) struct BodySemantics<'db> {
     expressions: SideHandleMap<ExpressionHandle, Ty<'db>>,
     local_bindings: SideHandleMap<LocalBindingHandle, Ty<'db>>,
     path_resolutions: SideHandleMap<ExpressionHandle, Resolution<'db>>,
@@ -31,7 +30,7 @@ pub(in crate::core) struct BodySemantics<'db> {
 
 struct TypeChecker<'a, 'db> {
     db: &'db dyn crate::Db,
-    body: &'a Body<'db>,
+    body: &'a nodes::Body<'db>,
     scopes: &'a ScopeTree<'db>,
     inference: InferenceTable<'db>,
     return_funnel: Option<CoercionFunnel<'db>>,
@@ -86,9 +85,9 @@ enum ResultType {
     Operand,
 }
 
-pub(in crate::core) fn check_function<'db>(
+pub(crate) fn check_function<'db>(
     db: &'db dyn crate::Db,
-    body: &Body<'db>,
+    body: &nodes::Body<'db>,
     scopes: &ScopeTree<'db>,
     signature_type: Ty<'db>,
 ) -> BodySemantics<'db> {
@@ -113,9 +112,9 @@ pub(in crate::core) fn check_function<'db>(
     checker.finish()
 }
 
-pub(in crate::core) fn check_constant<'db>(
+pub(crate) fn check_constant<'db>(
     db: &'db dyn crate::Db,
-    body: &Body<'db>,
+    body: &nodes::Body<'db>,
     scopes: &ScopeTree<'db>,
     declared_type: Ty<'db>,
 ) -> BodySemantics<'db> {
@@ -129,18 +128,15 @@ pub(in crate::core) fn check_constant<'db>(
 }
 
 impl<'db> BodySemantics<'db> {
-    pub(in crate::core) fn expression_type(&self, expression_handle: ExpressionHandle) -> Ty<'db> {
+    pub(crate) fn expression_type(&self, expression_handle: ExpressionHandle) -> Ty<'db> {
         self.expressions[expression_handle]
     }
 
-    pub(in crate::core) fn local_binding_type(
-        &self,
-        binding_handle: LocalBindingHandle,
-    ) -> Ty<'db> {
+    pub(crate) fn local_binding_type(&self, binding_handle: LocalBindingHandle) -> Ty<'db> {
         self.local_bindings[binding_handle]
     }
 
-    pub(in crate::core) fn path_resolution(
+    pub(crate) fn path_resolution(
         &self,
         expression_handle: ExpressionHandle,
     ) -> Option<Resolution<'db>> {
@@ -151,9 +147,7 @@ impl<'db> BodySemantics<'db> {
         dead_code,
         reason = "type-check result accessors, for the language server"
     )]
-    pub(in crate::core) fn expressions(
-        &self,
-    ) -> impl Iterator<Item = (ExpressionHandle, Ty<'db>)> + '_ {
+    pub(crate) fn expressions(&self) -> impl Iterator<Item = (ExpressionHandle, Ty<'db>)> + '_ {
         self.expressions
             .iter()
             .map(|(expression_handle, ty)| (expression_handle, *ty))
@@ -163,7 +157,7 @@ impl<'db> BodySemantics<'db> {
         dead_code,
         reason = "type-check result accessors, for the language server"
     )]
-    pub(in crate::core) fn local_bindings(
+    pub(crate) fn local_bindings(
         &self,
     ) -> impl Iterator<Item = (LocalBindingHandle, Ty<'db>)> + '_ {
         self.local_bindings
@@ -171,11 +165,11 @@ impl<'db> BodySemantics<'db> {
             .map(|(binding_handle, ty)| (binding_handle, *ty))
     }
 
-    pub(in crate::core) fn diagnostics(&self) -> &[UnresolvedSemanticDiagnostic<'db>] {
+    pub(crate) fn diagnostics(&self) -> &[UnresolvedSemanticDiagnostic<'db>] {
         &self.diagnostics
     }
 
-    pub(in crate::core) fn has_errors(&self, db: &'db dyn crate::Db) -> bool {
+    pub(crate) fn has_errors(&self, db: &'db dyn crate::Db) -> bool {
         !self.diagnostics.is_empty()
             || self.expressions.values().any(|ty| ty.is_poisoned(db))
             || self.local_bindings.values().any(|ty| ty.is_poisoned(db))
@@ -198,7 +192,7 @@ impl<'db> BodySemantics<'db> {
 impl<'a, 'db> TypeChecker<'a, 'db> {
     fn new(
         db: &'db dyn crate::Db,
-        body: &'a Body<'db>,
+        body: &'a nodes::Body<'db>,
         scopes: &'a ScopeTree<'db>,
         return_funnel: Option<CoercionFunnel<'db>>,
     ) -> Self {
@@ -221,7 +215,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         expectation: Expectation<'db>,
     ) -> Ty<'db> {
         let ty = match self.body.store().expression(expression_handle) {
-            Expression::If {
+            nodes::Expression::If {
                 condition_handle,
                 then_branch_handle,
                 else_branch_handle,
@@ -232,7 +226,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 *else_branch_handle,
                 expectation,
             ),
-            Expression::Block {
+            nodes::Expression::Block {
                 statement_run,
                 tail_handle,
                 ..
@@ -242,19 +236,19 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 *tail_handle,
                 expectation,
             ),
-            Expression::Tuple { element_run } => self.check_tuple(
+            nodes::Expression::Tuple { element_run } => self.check_tuple(
                 self.body.store().expression_handles(*element_run),
                 expectation,
             ),
-            Expression::Field {
+            nodes::Expression::Field {
                 receiver_handle,
                 name,
             } => self.check_field(expression_handle, *receiver_handle, *name),
-            Expression::Loop {
+            nodes::Expression::Loop {
                 source,
                 body_handle,
             } => self.check_loop(*source, *body_handle, expectation),
-            Expression::Call {
+            nodes::Expression::Call {
                 callee_handle,
                 argument_run,
             } => self.check_call(
@@ -262,14 +256,14 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 *callee_handle,
                 self.body.store().expression_handles(*argument_run),
             ),
-            Expression::Continue => self.check_continue(expression_handle),
-            Expression::Break { value_handle } => {
+            nodes::Expression::Continue => self.check_continue(expression_handle),
+            nodes::Expression::Break { value_handle } => {
                 self.check_break(expression_handle, *value_handle)
             }
-            Expression::Return { value_handle } => {
+            nodes::Expression::Return { value_handle } => {
                 self.check_return(expression_handle, *value_handle)
             }
-            Expression::UnaryOperation {
+            nodes::Expression::UnaryOperation {
                 operator,
                 operand_handle,
             } => self.check_unary_operation(
@@ -278,22 +272,22 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 *operand_handle,
                 expectation,
             ),
-            Expression::BinaryOperation {
+            nodes::Expression::BinaryOperation {
                 lhs_handle,
                 operator,
                 rhs_handle,
             } => {
                 self.check_binary_operation(expression_handle, *operator, *lhs_handle, *rhs_handle)
             }
-            Expression::Assignment {
+            nodes::Expression::Assignment {
                 target_handle,
                 value_handle,
             } => self.check_assignment(expression_handle, *target_handle, *value_handle),
-            Expression::Boolean(_) => Ty::bool(self.db),
-            Expression::Integer(_) => self.check_integer_literal(expectation),
-            Expression::Path(path) => self.check_path(expression_handle, *path),
+            nodes::Expression::Boolean(_) => Ty::bool(self.db),
+            nodes::Expression::Integer(_) => self.check_integer_literal(expectation),
+            nodes::Expression::Path(path) => self.check_path(expression_handle, *path),
             // A syntax error, already reported by the parser.
-            Expression::Error => Ty::error(self.db),
+            nodes::Expression::Error => Ty::error(self.db),
         };
 
         self.result.expressions.add(expression_handle, ty);
@@ -321,7 +315,11 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         self.inference.make_integer_inference_variable()
     }
 
-    fn check_path(&mut self, expression_handle: ExpressionHandle, path: Path<'db>) -> Ty<'db> {
+    fn check_path(
+        &mut self,
+        expression_handle: ExpressionHandle,
+        path: nodes::Path<'db>,
+    ) -> Ty<'db> {
         // resolve path
         let resolution = self
             .scopes
@@ -336,8 +334,12 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         // return the path's type (if any)
         match resolution {
             Ok(Resolution::Local(binding_handle)) => self.result.local_bindings[binding_handle],
-            Ok(Resolution::Function(key)) => *signature_type_of(self.db, Definition::Function(key)),
-            Ok(Resolution::Constant(key)) => *signature_type_of(self.db, Definition::Constant(key)),
+            Ok(Resolution::Function(key)) => {
+                *signature::type_of(self.db, Definition::Function(key))
+            }
+            Ok(Resolution::Constant(key)) => {
+                *signature::type_of(self.db, Definition::Constant(key))
+            }
             Ok(Resolution::Error) => Ty::error(self.db),
             Ok(Resolution::Module(_)) => {
                 self.result.add_diagnostic(
@@ -530,12 +532,12 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         // A diverging one (e.g., `return 1;`) makes the rest of the block unreachable
         for statement_handle in statement_handles {
             match self.body.store().statement(*statement_handle) {
-                Statement::Let {
+                nodes::Statement::Let {
                     name_handle,
                     annotation_handle,
                     initializer_handle,
                 } => self.check_let(*name_handle, *annotation_handle, *initializer_handle),
-                Statement::Expression {
+                nodes::Statement::Expression {
                     expression_handle,
                     has_semicolon,
                 } => {
@@ -551,7 +553,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 // a nested definition isn't part of this body, but rather, it's listed in its block's
                 // `DefinitionList`, and checked as a body of its own,
                 // like a top-level definition
-                Statement::Definition => {}
+                nodes::Statement::Definition => {}
             }
         }
 
@@ -614,16 +616,16 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
 
     fn check_loop(
         &mut self,
-        source: LoopSource,
+        source: nodes::LoopSource,
         loop_body_handle: ExpressionHandle,
         expectation: Expectation<'db>,
     ) -> Ty<'db> {
         let funnel = match source {
-            LoopSource::Loop => Some(CoercionFunnel::from_expectation(
+            nodes::LoopSource::Loop => Some(CoercionFunnel::from_expectation(
                 expectation,
                 &mut self.inference,
             )),
-            LoopSource::While => None,
+            nodes::LoopSource::While => None,
         };
         self.loop_frames.push(LoopFrame {
             may_break: false,
@@ -837,12 +839,12 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
     fn check_unary_operation(
         &mut self,
         expression_handle: ExpressionHandle,
-        operator: UnaryOperator,
+        operator: nodes::UnaryOperator,
         operand_handle: ExpressionHandle,
         expectation: Expectation<'db>,
     ) -> Ty<'db> {
         match operator {
-            UnaryOperator::Negation => {
+            nodes::UnaryOperator::Negation => {
                 let operand_ty = self.check_expression(operand_handle, expectation);
                 let resolved = self.inference.shallow_resolve(operand_ty);
                 match resolved.kind(self.db) {
@@ -866,7 +868,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                     }
                 }
             }
-            UnaryOperator::Not => {
+            nodes::UnaryOperator::Not => {
                 let expectation = Expectation::of_type(self.db, Ty::bool(self.db));
                 let operand_ty = self.check_expression(operand_handle, expectation);
                 self.coerce_or_report(operand_ty, expectation, operand_handle);
@@ -878,7 +880,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
     fn check_binary_operation(
         &mut self,
         expression_handle: ExpressionHandle,
-        operator: Option<BinaryOperator>,
+        operator: Option<nodes::BinaryOperator>,
         lhs_handle: ExpressionHandle,
         rhs_handle: ExpressionHandle,
     ) -> Ty<'db> {
@@ -972,14 +974,14 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
     fn is_place(&self, expression_handle: ExpressionHandle) -> bool {
         match self.body.store().expression(expression_handle) {
             // An unresolved name was already reported.
-            Expression::Path(_) => !matches!(
+            nodes::Expression::Path(_) => !matches!(
                 self.result.path_resolutions.get(expression_handle),
                 Some(Resolution::Function(_) | Resolution::Constant(_))
             ),
-            Expression::Field {
+            nodes::Expression::Field {
                 receiver_handle, ..
             } => self.is_place(*receiver_handle),
-            Expression::Error => true,
+            nodes::Expression::Error => true,
             _ => false,
         }
     }
@@ -1024,7 +1026,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 self.result.add_diagnostic(
                     UnresolvedSemanticDiagnostic::UnaryOperatorCannotBeApplied {
                         expression_handle,
-                        operator: UnaryOperator::Negation,
+                        operator: nodes::UnaryOperator::Negation,
                         found,
                         is_unsigned: true,
                     },
@@ -1076,8 +1078,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             .store()
             .expressions()
             .filter_map(|(negation_handle, expression)| match expression {
-                Expression::UnaryOperation {
-                    operator: UnaryOperator::Negation,
+                nodes::Expression::UnaryOperation {
+                    operator: nodes::UnaryOperator::Negation,
                     operand_handle,
                 } => Some((*operand_handle, negation_handle)),
                 _ => None,
@@ -1089,7 +1091,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             .iter()
             .filter_map(|(expression_handle, ty)| {
                 match body.store().expression(expression_handle) {
-                    Expression::Integer(value) => Some((expression_handle, value, *ty)),
+                    nodes::Expression::Integer(value) => Some((expression_handle, value, *ty)),
                     _ => None,
                 }
             })
@@ -1168,7 +1170,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
     }
 }
 
-impl BinaryOperator {
+impl nodes::BinaryOperator {
     /// The types the operator accepts and produces.
     // Once blueberry has traits, these become the built-in `impl`s of each operator's trait.
     fn rule(self) -> BinaryOperatorRule {

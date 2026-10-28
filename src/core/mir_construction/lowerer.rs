@@ -1,16 +1,15 @@
 use crate::core::mir_construction::cfg_builder::CfgBuilder;
 use crate::core::mir_construction::mir::{BlockHandle, Cfg, MirBody, Signature, ValueHandle};
 use crate::core::semantic_analysis::ast_lowering::nodes::{
-    BinaryOperator, Body, Expression, ExpressionHandle, LocalBindingHandle, Statement,
-    StatementHandle, UnaryOperator,
+    self, ExpressionHandle, LocalBindingHandle, StatementHandle,
 };
 use crate::core::semantic_analysis::name_resolution::resolver::Resolution;
 use crate::core::semantic_analysis::type_checking::type_checker::BodySemantics;
 use crate::core::semantic_analysis::type_checking::types::{Ty, TyKind};
 
-pub(in crate::core) struct MirLowerer<'a, 'db> {
+pub(crate) struct MirLowerer<'a, 'db> {
     db: &'db dyn crate::Db,
-    body: &'a Body<'db>,
+    body: &'a nodes::Body<'db>,
     semantics: &'a BodySemantics<'db>,
     cfg: CfgBuilder<'db>,
     loop_frames: Vec<LoopFrame>,
@@ -23,9 +22,9 @@ struct LoopFrame {
 }
 
 impl<'a, 'db> MirLowerer<'a, 'db> {
-    pub(in crate::core) fn new(
+    pub(crate) fn new(
         db: &'db dyn crate::Db,
-        body: &'a Body<'db>,
+        body: &'a nodes::Body<'db>,
         semantics: &'a BodySemantics<'db>,
     ) -> Self {
         Self {
@@ -37,7 +36,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         }
     }
 
-    pub(in crate::core) fn lower_function(mut self, signature_type: Ty<'db>) -> MirBody<'db> {
+    pub(crate) fn lower_function(mut self, signature_type: Ty<'db>) -> MirBody<'db> {
         let TyKind::Function {
             parameters,
             r#return,
@@ -57,7 +56,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         MirBody { signature, cfg }
     }
 
-    pub(in crate::core) fn lower_constant(mut self, declared_type: Ty<'db>) -> MirBody<'db> {
+    pub(crate) fn lower_constant(mut self, declared_type: Ty<'db>) -> MirBody<'db> {
         let signature = Signature {
             parameter_types: Box::new([]),
             return_type: declared_type,
@@ -96,12 +95,12 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
     fn lower_statement(&mut self, statement_handle: StatementHandle) {
         match self.body.store().statement(statement_handle) {
-            Statement::Expression {
+            nodes::Statement::Expression {
                 expression_handle, ..
             } => {
                 self.lower_expression(*expression_handle);
             }
-            Statement::Let {
+            nodes::Statement::Let {
                 name_handle,
                 initializer_handle,
                 ..
@@ -109,7 +108,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 let lowered_value_handle = self.lower_expression(*initializer_handle);
                 self.write_local(*name_handle, lowered_value_handle);
             }
-            Statement::Definition => {
+            nodes::Statement::Definition => {
                 // nested definitions are lowered as separate MIR bodies
             }
         }
@@ -119,13 +118,13 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         let body = self.body;
         let ty = self.semantics.expression_type(expression_handle);
         match body.store().expression(expression_handle) {
-            Expression::Error => {
+            nodes::Expression::Error => {
                 unreachable!("MIR is only built for bodies without errors")
             }
-            Expression::Tuple { element_run } => {
+            nodes::Expression::Tuple { element_run } => {
                 self.lower_tuple(body.store().expression_handles(*element_run), ty)
             }
-            Expression::Field {
+            nodes::Expression::Field {
                 receiver_handle,
                 name,
             } => self.lower_field(
@@ -133,13 +132,15 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 name.unwrap().as_tuple_index(self.db).unwrap(),
                 ty,
             ),
-            Expression::Boolean(value) => Some(self.cfg.emit_boolean_literal(*value, ty)),
-            Expression::Integer(value) => Some(self.cfg.emit_integer_literal(ty, value.unwrap())),
-            Expression::UnaryOperation {
+            nodes::Expression::Boolean(value) => Some(self.cfg.emit_boolean_literal(*value, ty)),
+            nodes::Expression::Integer(value) => {
+                Some(self.cfg.emit_integer_literal(ty, value.unwrap()))
+            }
+            nodes::Expression::UnaryOperation {
                 operator,
                 operand_handle,
             } => self.lower_unary_operation(*operator, *operand_handle, ty),
-            Expression::BinaryOperation {
+            nodes::Expression::BinaryOperation {
                 lhs_handle,
                 operator,
                 rhs_handle,
@@ -147,13 +148,13 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 let operator = operator.unwrap();
                 self.lower_binary_operation(operator, *lhs_handle, *rhs_handle, ty)
             }
-            Expression::Path(_) => self.lower_path(expression_handle, ty),
-            Expression::Assignment {
+            nodes::Expression::Path(_) => self.lower_path(expression_handle, ty),
+            nodes::Expression::Assignment {
                 target_handle,
                 value_handle,
             } => self.lower_assign(*target_handle, *value_handle),
-            Expression::Return { value_handle } => self.lower_return(*value_handle),
-            Expression::Call {
+            nodes::Expression::Return { value_handle } => self.lower_return(*value_handle),
+            nodes::Expression::Call {
                 callee_handle,
                 argument_run,
             } => self.lower_call(
@@ -161,12 +162,12 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 body.store().expression_handles(*argument_run),
                 ty,
             ),
-            Expression::Block {
+            nodes::Expression::Block {
                 statement_run,
                 tail_handle,
                 ..
             } => self.lower_block(body.store().statement_handles(*statement_run), *tail_handle),
-            Expression::If {
+            nodes::Expression::If {
                 condition_handle,
                 then_branch_handle,
                 else_branch_handle,
@@ -176,9 +177,9 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 *else_branch_handle,
                 ty,
             ),
-            Expression::Loop { body_handle, .. } => self.lower_loop(*body_handle, ty),
-            Expression::Break { value_handle } => self.lower_break(*value_handle),
-            Expression::Continue => self.lower_continue(),
+            nodes::Expression::Loop { body_handle, .. } => self.lower_loop(*body_handle, ty),
+            nodes::Expression::Break { value_handle } => self.lower_break(*value_handle),
+            nodes::Expression::Continue => self.lower_continue(),
         }
     }
 
@@ -219,7 +220,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
     fn lower_unary_operation(
         &mut self,
-        operator: UnaryOperator,
+        operator: nodes::UnaryOperator,
         operand_handle: ExpressionHandle,
         ty: Ty<'db>,
     ) -> Option<ValueHandle> {
@@ -229,13 +230,13 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
     fn lower_binary_operation(
         &mut self,
-        operator: BinaryOperator,
+        operator: nodes::BinaryOperator,
         lhs_handle: ExpressionHandle,
         rhs_handle: ExpressionHandle,
         ty: Ty<'db>,
     ) -> Option<ValueHandle> {
         match operator {
-            BinaryOperator::And | BinaryOperator::Or => {
+            nodes::BinaryOperator::And | nodes::BinaryOperator::Or => {
                 self.lower_short_circuiting_expression(operator, lhs_handle, rhs_handle, ty)
             }
             _ => {
@@ -257,7 +258,9 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 } else {
                     let value = matches!(
                         operator,
-                        BinaryOperator::Eq | BinaryOperator::Le | BinaryOperator::Ge
+                        nodes::BinaryOperator::Eq
+                            | nodes::BinaryOperator::Le
+                            | nodes::BinaryOperator::Ge
                     );
                     Some(self.cfg.emit_boolean_literal(value, ty))
                 }
@@ -301,7 +304,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     ) -> Option<ValueHandle> {
         let mut indices = Vec::new();
         let mut base_handle = target_handle;
-        while let Expression::Field {
+        while let nodes::Expression::Field {
             receiver_handle,
             name,
         } = self.body.store().expression(base_handle)
@@ -375,13 +378,15 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         ty: Ty<'db>,
     ) -> Option<ValueHandle> {
         let function = match self.body.store().expression(callee_handle) {
-            Expression::Path(_) => match self.semantics.path_resolution(callee_handle).unwrap() {
-                Resolution::Function(function) => Some(function),
-                Resolution::Local(_)
-                | Resolution::Constant(_)
-                | Resolution::Module(_)
-                | Resolution::Error => None,
-            },
+            nodes::Expression::Path(_) => {
+                match self.semantics.path_resolution(callee_handle).unwrap() {
+                    Resolution::Function(function) => Some(function),
+                    Resolution::Local(_)
+                    | Resolution::Constant(_)
+                    | Resolution::Module(_)
+                    | Resolution::Error => None,
+                }
+            }
             _ => None,
         };
 
@@ -540,7 +545,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     //           [merge block]
     fn lower_short_circuiting_expression(
         &mut self,
-        operator: BinaryOperator,
+        operator: nodes::BinaryOperator,
         lhs_handle: ExpressionHandle,
         rhs_handle: ExpressionHandle,
         ty: Ty<'db>,
@@ -557,7 +562,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
         match operator {
             // `lhs and rhs` desugars to `if lhs { rhs } else { lhs }`
-            BinaryOperator::And => self.cfg.emit_conditional_branch(
+            nodes::BinaryOperator::And => self.cfg.emit_conditional_branch(
                 lhs_value_handle,
                 rhs_block_handle,
                 &[],
@@ -565,7 +570,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 &[lhs_value_handle],
             ),
             // `lhs or rhs` desugars to `if lhs { lhs } else { rhs }`
-            BinaryOperator::Or => self.cfg.emit_conditional_branch(
+            nodes::BinaryOperator::Or => self.cfg.emit_conditional_branch(
                 lhs_value_handle,
                 merge_block_handle,
                 &[lhs_value_handle],

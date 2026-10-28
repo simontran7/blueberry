@@ -1,4 +1,4 @@
-pub(in crate::core) trait Handle: Copy + Eq {
+pub(crate) trait Handle: Copy + Eq {
     fn new(index: usize) -> Self;
     fn index(&self) -> usize;
 }
@@ -19,4 +19,4 @@ macro_rules! handle_impl {
         }
     };
 }
-pub(in crate::core) use handle_impl;
+pub(crate) use handle_impl;

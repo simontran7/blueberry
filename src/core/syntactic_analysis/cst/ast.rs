@@ -2,7 +2,7 @@ use crate::core::common::span::Span;
 use crate::core::syntactic_analysis::cst::ast::support::{child, children, nth_child, token};
 use crate::core::syntactic_analysis::cst::{RedChild, RedNode, RedToken, SyntaxKind};
 
-pub(in crate::core) trait AstNode {
+pub(crate) trait AstNode {
     fn can_cast(kind: SyntaxKind) -> bool
     where
         Self: Sized;
@@ -23,86 +23,86 @@ pub(in crate::core) trait AstNode {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct File {
+pub(crate) struct File {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) enum Definition {
+pub(crate) enum Definition {
     FunctionDefinition(FunctionDefinition),
     ConstantDefinition(ConstantDefinition),
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) enum Item {
+pub(crate) enum Item {
     Definition(Definition),
     Import(ImportDeclaration),
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct ImportDeclaration {
+pub(crate) struct ImportDeclaration {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct Path {
+pub(crate) struct Path {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct PathSegment {
+pub(crate) struct PathSegment {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct FunctionDefinition {
+pub(crate) struct FunctionDefinition {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct ConstantDefinition {
+pub(crate) struct ConstantDefinition {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) enum Statement {
+pub(crate) enum Statement {
     Let(LetStatement),
     Definition(DefinitionStatement),
     Expression(ExpressionStatement),
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct LetStatement {
+pub(crate) struct LetStatement {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct DefinitionStatement {
+pub(crate) struct DefinitionStatement {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct ExpressionStatement {
+pub(crate) struct ExpressionStatement {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct Return {
+pub(crate) struct Return {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct Break {
+pub(crate) struct Break {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct Continue {
+pub(crate) struct Continue {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) enum Expression {
+pub(crate) enum Expression {
     IntegerLiteral(IntegerLiteral),
     BooleanLiteral(BooleanLiteral),
     PathExpression(PathExpression),
@@ -123,98 +123,98 @@ pub(in crate::core) enum Expression {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct IfExpression {
+pub(crate) struct IfExpression {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) enum ElseBranch {
+pub(crate) enum ElseBranch {
     Block(Block),
     IfExpression(IfExpression),
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct WhileLoop {
+pub(crate) struct WhileLoop {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct InfiniteLoop {
+pub(crate) struct InfiniteLoop {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct BinaryOperation {
+pub(crate) struct BinaryOperation {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct UnaryOperation {
+pub(crate) struct UnaryOperation {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct Assignment {
+pub(crate) struct Assignment {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct Call {
+pub(crate) struct Call {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct ArgumentList {
+pub(crate) struct ArgumentList {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct Argument {
+pub(crate) struct Argument {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct FieldExpression {
+pub(crate) struct FieldExpression {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct ParenthesizedExpression {
+pub(crate) struct ParenthesizedExpression {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct TupleExpression {
+pub(crate) struct TupleExpression {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct PathExpression {
+pub(crate) struct PathExpression {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct IntegerLiteral {
+pub(crate) struct IntegerLiteral {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct BooleanLiteral {
+pub(crate) struct BooleanLiteral {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct Block {
+pub(crate) struct Block {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct ParameterList {
+pub(crate) struct ParameterList {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct Parameter {
+pub(crate) struct Parameter {
     red: RedNode,
 }
 
@@ -223,29 +223,29 @@ pub(in crate::core) struct Parameter {
     clippy::enum_variant_names,
     reason = "each variant is named after the node type it wraps"
 )]
-pub(in crate::core) enum TypeExpression {
+pub(crate) enum TypeExpression {
     PathType(PathType),
     TupleType(TupleType),
     ParenthesizedType(ParenthesizedType),
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct PathType {
+pub(crate) struct PathType {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct TupleType {
+pub(crate) struct TupleType {
     red: RedNode,
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(in crate::core) struct ParenthesizedType {
+pub(crate) struct ParenthesizedType {
     red: RedNode,
 }
 
 impl File {
-    pub(in crate::core) fn items(&self) -> impl Iterator<Item = Item> {
+    pub(crate) fn items(&self) -> impl Iterator<Item = Item> {
         children(self.red())
     }
 }
@@ -265,7 +265,7 @@ impl AstNode for File {
 }
 
 impl Definition {
-    pub(in crate::core) fn name(&self) -> Option<RedToken> {
+    pub(crate) fn name(&self) -> Option<RedToken> {
         match self {
             Self::FunctionDefinition(n) => n.name(),
             Self::ConstantDefinition(n) => n.name(),
@@ -319,7 +319,7 @@ impl AstNode for Item {
 }
 
 impl ImportDeclaration {
-    pub(in crate::core) fn path(&self) -> Option<Path> {
+    pub(crate) fn path(&self) -> Option<Path> {
         child(self.red())
     }
 }
@@ -339,11 +339,11 @@ impl AstNode for ImportDeclaration {
 }
 
 impl Path {
-    pub(in crate::core) fn qualifier(&self) -> Option<Path> {
+    pub(crate) fn qualifier(&self) -> Option<Path> {
         child(self.red())
     }
 
-    pub(in crate::core) fn segment(&self) -> Option<PathSegment> {
+    pub(crate) fn segment(&self) -> Option<PathSegment> {
         child(self.red())
     }
 
@@ -351,7 +351,7 @@ impl Path {
         dead_code,
         reason = "typed AST accessor, kept complete ahead of its users"
     )]
-    pub(in crate::core) fn segments(&self) -> Vec<PathSegment> {
+    pub(crate) fn segments(&self) -> Vec<PathSegment> {
         let mut segments = Vec::new();
         let mut path = Some(self.clone());
         while let Some(current) = path {
@@ -378,7 +378,7 @@ impl AstNode for Path {
 }
 
 impl PathSegment {
-    pub(in crate::core) fn name(&self) -> Option<RedToken> {
+    pub(crate) fn name(&self) -> Option<RedToken> {
         token(self.red(), SyntaxKind::Identifier)
     }
 }
@@ -398,19 +398,19 @@ impl AstNode for PathSegment {
 }
 
 impl FunctionDefinition {
-    pub(in crate::core) fn name(&self) -> Option<RedToken> {
+    pub(crate) fn name(&self) -> Option<RedToken> {
         token(self.red(), SyntaxKind::Identifier)
     }
 
-    pub(in crate::core) fn parameter_list(&self) -> Option<ParameterList> {
+    pub(crate) fn parameter_list(&self) -> Option<ParameterList> {
         child(self.red())
     }
 
-    pub(in crate::core) fn return_type_annotation(&self) -> Option<TypeExpression> {
+    pub(crate) fn return_type_annotation(&self) -> Option<TypeExpression> {
         child(self.red())
     }
 
-    pub(in crate::core) fn body(&self) -> Option<Block> {
+    pub(crate) fn body(&self) -> Option<Block> {
         child(self.red())
     }
 }
@@ -430,15 +430,15 @@ impl AstNode for FunctionDefinition {
 }
 
 impl ConstantDefinition {
-    pub(in crate::core) fn name(&self) -> Option<RedToken> {
+    pub(crate) fn name(&self) -> Option<RedToken> {
         token(self.red(), SyntaxKind::Identifier)
     }
 
-    pub(in crate::core) fn type_annotation(&self) -> Option<TypeExpression> {
+    pub(crate) fn type_annotation(&self) -> Option<TypeExpression> {
         child(self.red())
     }
 
-    pub(in crate::core) fn value(&self) -> Option<Expression> {
+    pub(crate) fn value(&self) -> Option<Expression> {
         child(self.red())
     }
 }
@@ -487,19 +487,19 @@ impl AstNode for Statement {
 }
 
 impl LetStatement {
-    pub(in crate::core) fn is_mutable(&self) -> bool {
+    pub(crate) fn is_mutable(&self) -> bool {
         token(self.red(), SyntaxKind::Mut).is_some()
     }
 
-    pub(in crate::core) fn name(&self) -> Option<RedToken> {
+    pub(crate) fn name(&self) -> Option<RedToken> {
         token(self.red(), SyntaxKind::Identifier)
     }
 
-    pub(in crate::core) fn type_annotation(&self) -> Option<TypeExpression> {
+    pub(crate) fn type_annotation(&self) -> Option<TypeExpression> {
         child(self.red())
     }
 
-    pub(in crate::core) fn value(&self) -> Option<Expression> {
+    pub(crate) fn value(&self) -> Option<Expression> {
         child(self.red())
     }
 }
@@ -519,7 +519,7 @@ impl AstNode for LetStatement {
 }
 
 impl DefinitionStatement {
-    pub(in crate::core) fn definition(&self) -> Option<Definition> {
+    pub(crate) fn definition(&self) -> Option<Definition> {
         child(self.red())
     }
 }
@@ -539,11 +539,11 @@ impl AstNode for DefinitionStatement {
 }
 
 impl ExpressionStatement {
-    pub(in crate::core) fn expression(&self) -> Option<Expression> {
+    pub(crate) fn expression(&self) -> Option<Expression> {
         child(self.red())
     }
 
-    pub(in crate::core) fn has_semicolon(&self) -> bool {
+    pub(crate) fn has_semicolon(&self) -> bool {
         token(self.red(), SyntaxKind::Semicolon).is_some()
     }
 }
@@ -563,7 +563,7 @@ impl AstNode for ExpressionStatement {
 }
 
 impl Return {
-    pub(in crate::core) fn value(&self) -> Option<Expression> {
+    pub(crate) fn value(&self) -> Option<Expression> {
         child(self.red())
     }
 }
@@ -583,7 +583,7 @@ impl AstNode for Return {
 }
 
 impl Break {
-    pub(in crate::core) fn value(&self) -> Option<Expression> {
+    pub(crate) fn value(&self) -> Option<Expression> {
         child(self.red())
     }
 }
@@ -690,15 +690,15 @@ impl AstNode for Expression {
 }
 
 impl IfExpression {
-    pub(in crate::core) fn condition(&self) -> Option<Expression> {
+    pub(crate) fn condition(&self) -> Option<Expression> {
         nth_child(self.red(), 0)
     }
 
-    pub(in crate::core) fn then_branch(&self) -> Option<Block> {
+    pub(crate) fn then_branch(&self) -> Option<Block> {
         nth_child(self.red(), 1)
     }
 
-    pub(in crate::core) fn else_branch(&self) -> Option<ElseBranch> {
+    pub(crate) fn else_branch(&self) -> Option<ElseBranch> {
         nth_child(self.red(), 2)
     }
 }
@@ -739,11 +739,11 @@ impl AstNode for ElseBranch {
 }
 
 impl WhileLoop {
-    pub(in crate::core) fn condition(&self) -> Option<Expression> {
+    pub(crate) fn condition(&self) -> Option<Expression> {
         child(self.red())
     }
 
-    pub(in crate::core) fn body(&self) -> Option<Block> {
+    pub(crate) fn body(&self) -> Option<Block> {
         child(self.red())
     }
 }
@@ -763,7 +763,7 @@ impl AstNode for WhileLoop {
 }
 
 impl InfiniteLoop {
-    pub(in crate::core) fn body(&self) -> Option<Block> {
+    pub(crate) fn body(&self) -> Option<Block> {
         child(self.red())
     }
 }
@@ -783,11 +783,11 @@ impl AstNode for InfiniteLoop {
 }
 
 impl BinaryOperation {
-    pub(in crate::core) fn lhs(&self) -> Option<Expression> {
+    pub(crate) fn lhs(&self) -> Option<Expression> {
         children(self.red()).next()
     }
 
-    pub(in crate::core) fn operator(&self) -> Option<RedToken> {
+    pub(crate) fn operator(&self) -> Option<RedToken> {
         self.red().children().find_map(|child| match child {
             RedChild::Token(t)
                 if matches!(
@@ -813,7 +813,7 @@ impl BinaryOperation {
         })
     }
 
-    pub(in crate::core) fn rhs(&self) -> Option<Expression> {
+    pub(crate) fn rhs(&self) -> Option<Expression> {
         children(self.red()).nth(1)
     }
 }
@@ -833,7 +833,7 @@ impl AstNode for BinaryOperation {
 }
 
 impl UnaryOperation {
-    pub(in crate::core) fn operator(&self) -> Option<RedToken> {
+    pub(crate) fn operator(&self) -> Option<RedToken> {
         self.red().children().find_map(|child| match child {
             RedChild::Token(t)
                 if matches!(t.kind(), SyntaxKind::Minus | SyntaxKind::LogicalNot) =>
@@ -844,7 +844,7 @@ impl UnaryOperation {
         })
     }
 
-    pub(in crate::core) fn operand(&self) -> Option<Expression> {
+    pub(crate) fn operand(&self) -> Option<Expression> {
         child(self.red())
     }
 }
@@ -864,7 +864,7 @@ impl AstNode for UnaryOperation {
 }
 
 impl Assignment {
-    pub(in crate::core) fn target(&self) -> Option<Expression> {
+    pub(crate) fn target(&self) -> Option<Expression> {
         children(self.red()).next()
     }
 
@@ -872,11 +872,11 @@ impl Assignment {
         dead_code,
         reason = "typed AST accessor, kept complete ahead of its users"
     )]
-    pub(in crate::core) fn operator(&self) -> Option<RedToken> {
+    pub(crate) fn operator(&self) -> Option<RedToken> {
         token(self.red(), SyntaxKind::Equal)
     }
 
-    pub(in crate::core) fn value(&self) -> Option<Expression> {
+    pub(crate) fn value(&self) -> Option<Expression> {
         children(self.red()).nth(1)
     }
 }
@@ -896,11 +896,11 @@ impl AstNode for Assignment {
 }
 
 impl Call {
-    pub(in crate::core) fn callee(&self) -> Option<Expression> {
+    pub(crate) fn callee(&self) -> Option<Expression> {
         child(self.red())
     }
 
-    pub(in crate::core) fn arguments(&self) -> Option<ArgumentList> {
+    pub(crate) fn arguments(&self) -> Option<ArgumentList> {
         child(self.red())
     }
 }
@@ -920,7 +920,7 @@ impl AstNode for Call {
 }
 
 impl ArgumentList {
-    pub(in crate::core) fn arguments(&self) -> impl Iterator<Item = Argument> {
+    pub(crate) fn arguments(&self) -> impl Iterator<Item = Argument> {
         children(self.red())
     }
 }
@@ -940,7 +940,7 @@ impl AstNode for ArgumentList {
 }
 
 impl Argument {
-    pub(in crate::core) fn value(&self) -> Option<Expression> {
+    pub(crate) fn value(&self) -> Option<Expression> {
         child(self.red())
     }
 }
@@ -960,11 +960,11 @@ impl AstNode for Argument {
 }
 
 impl FieldExpression {
-    pub(in crate::core) fn receiver(&self) -> Option<Expression> {
+    pub(crate) fn receiver(&self) -> Option<Expression> {
         child(self.red())
     }
 
-    pub(in crate::core) fn field(&self) -> Option<RedToken> {
+    pub(crate) fn field(&self) -> Option<RedToken> {
         self.red().children().find_map(|child| match child {
             RedChild::Token(t)
                 if matches!(t.kind(), SyntaxKind::Integer | SyntaxKind::Identifier) =>
@@ -991,7 +991,7 @@ impl AstNode for FieldExpression {
 }
 
 impl ParenthesizedExpression {
-    pub(in crate::core) fn expression(&self) -> Option<Expression> {
+    pub(crate) fn expression(&self) -> Option<Expression> {
         child(self.red())
     }
 }
@@ -1011,7 +1011,7 @@ impl AstNode for ParenthesizedExpression {
 }
 
 impl TupleExpression {
-    pub(in crate::core) fn elements(&self) -> impl Iterator<Item = Expression> {
+    pub(crate) fn elements(&self) -> impl Iterator<Item = Expression> {
         children(self.red())
     }
 }
@@ -1031,7 +1031,7 @@ impl AstNode for TupleExpression {
 }
 
 impl PathExpression {
-    pub(in crate::core) fn path(&self) -> Option<Path> {
+    pub(crate) fn path(&self) -> Option<Path> {
         child(self.red())
     }
 }
@@ -1051,11 +1051,11 @@ impl AstNode for PathExpression {
 }
 
 impl IntegerLiteral {
-    pub(in crate::core) fn token(&self) -> Option<RedToken> {
+    pub(crate) fn token(&self) -> Option<RedToken> {
         token(self.red(), SyntaxKind::Integer)
     }
 
-    pub(in crate::core) fn value(&self) -> Result<u128, std::num::ParseIntError> {
+    pub(crate) fn value(&self) -> Result<u128, std::num::ParseIntError> {
         let token = self.token().unwrap();
 
         let cleaned: String = token.lexeme().chars().filter(|&c| c != '_').collect();
@@ -1089,7 +1089,7 @@ impl AstNode for IntegerLiteral {
 }
 
 impl BooleanLiteral {
-    pub(in crate::core) fn value(&self) -> Option<bool> {
+    pub(crate) fn value(&self) -> Option<bool> {
         self.red().children().find_map(|child| match child {
             RedChild::Token(t) if t.kind() == SyntaxKind::True => Some(true),
             RedChild::Token(t) if t.kind() == SyntaxKind::False => Some(false),
@@ -1113,11 +1113,11 @@ impl AstNode for BooleanLiteral {
 }
 
 impl Block {
-    pub(in crate::core) fn statements(&self) -> impl Iterator<Item = Statement> {
+    pub(crate) fn statements(&self) -> impl Iterator<Item = Statement> {
         children(self.red())
     }
 
-    pub(in crate::core) fn definitions(&self) -> impl Iterator<Item = Definition> {
+    pub(crate) fn definitions(&self) -> impl Iterator<Item = Definition> {
         self.statements().filter_map(|stmt| match stmt {
             Statement::Definition(stmt) => stmt.definition(),
             Statement::Let(_) | Statement::Expression(_) => None,
@@ -1140,7 +1140,7 @@ impl AstNode for Block {
 }
 
 impl ParameterList {
-    pub(in crate::core) fn parameters(&self) -> impl Iterator<Item = Parameter> {
+    pub(crate) fn parameters(&self) -> impl Iterator<Item = Parameter> {
         children(self.red())
     }
 }
@@ -1160,11 +1160,11 @@ impl AstNode for ParameterList {
 }
 
 impl Parameter {
-    pub(in crate::core) fn name(&self) -> Option<RedToken> {
+    pub(crate) fn name(&self) -> Option<RedToken> {
         token(self.red(), SyntaxKind::Identifier)
     }
 
-    pub(in crate::core) fn type_annotation(&self) -> Option<TypeExpression> {
+    pub(crate) fn type_annotation(&self) -> Option<TypeExpression> {
         child(self.red())
     }
 }
@@ -1211,7 +1211,7 @@ impl AstNode for TypeExpression {
 }
 
 impl PathType {
-    pub(in crate::core) fn path(&self) -> Option<Path> {
+    pub(crate) fn path(&self) -> Option<Path> {
         child(self.red())
     }
 }
@@ -1231,7 +1231,7 @@ impl AstNode for PathType {
 }
 
 impl TupleType {
-    pub(in crate::core) fn elements(&self) -> impl Iterator<Item = TypeExpression> {
+    pub(crate) fn elements(&self) -> impl Iterator<Item = TypeExpression> {
         children(self.red())
     }
 }
@@ -1251,7 +1251,7 @@ impl AstNode for TupleType {
 }
 
 impl ParenthesizedType {
-    pub(in crate::core) fn inner(&self) -> Option<TypeExpression> {
+    pub(crate) fn inner(&self) -> Option<TypeExpression> {
         child(self.red())
     }
 }
@@ -1271,8 +1271,9 @@ impl AstNode for ParenthesizedType {
 }
 
 mod support {
-    use super::{AstNode, RedNode, RedToken, SyntaxKind};
     use crate::core::syntactic_analysis::cst::RedChild;
+    use crate::core::syntactic_analysis::cst::ast::AstNode;
+    use crate::core::syntactic_analysis::cst::{RedNode, RedToken, SyntaxKind};
 
     pub(super) fn child<N: AstNode>(parent: &RedNode) -> Option<N> {
         parent.children().find_map(|child| match child {

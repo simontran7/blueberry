@@ -4,7 +4,7 @@ use std::ops::Range;
 
 /// A `{ start, len }` range of items inside a `RunList<T>`.
 #[derive(salsa::SalsaValue)]
-pub(in crate::core) struct Run<T> {
+pub(crate) struct Run<T> {
     start: u32,
     len: u32,
     _marker: PhantomData<fn() -> T>,
@@ -19,7 +19,7 @@ impl<T> Run<T> {
         }
     }
 
-    pub(in crate::core) fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Self::new(0, 0)
     }
 
@@ -31,7 +31,7 @@ impl<T> Run<T> {
         dead_code,
         reason = "general-purpose container API, kept complete ahead of its users"
     )]
-    pub(in crate::core) fn len(self) -> usize {
+    pub(crate) fn len(self) -> usize {
         self.len as usize
     }
 
@@ -39,7 +39,7 @@ impl<T> Run<T> {
         dead_code,
         reason = "general-purpose container API, kept complete ahead of its users"
     )]
-    pub(in crate::core) fn is_empty(self) -> bool {
+    pub(crate) fn is_empty(self) -> bool {
         self.len == 0
     }
 }

@@ -8,13 +8,11 @@ use crate::core::common::handle_collections::handle_map::SideHandleMap;
 use crate::core::mir_construction::mir::{
     BlockHandle, Cfg, Instruction, InstructionHandle, ValueHandle, ValueOrigin,
 };
-use crate::core::semantic_analysis::ast_lowering::nodes::{
-    BinaryOperator, LocalBindingHandle, UnaryOperator,
-};
+use crate::core::semantic_analysis::ast_lowering::nodes::{self, LocalBindingHandle};
 use crate::core::semantic_analysis::keys::{ConstantKey, FunctionKey};
 use crate::core::semantic_analysis::type_checking::types::Ty;
 
-pub(in crate::core) struct CfgBuilder<'db> {
+pub(crate) struct CfgBuilder<'db> {
     cfg: Cfg<'db>,
     position: Position,
     predecessor_edge_suballocator: HandleArrayListAllocator<InstructionHandle>,
@@ -56,7 +54,7 @@ enum BlockStatus {
 }
 
 impl<'db> CfgBuilder<'db> {
-    pub(in crate::core) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             cfg: Cfg::new(),
             position: Position::Nowhere,
@@ -67,14 +65,14 @@ impl<'db> CfgBuilder<'db> {
         }
     }
 
-    pub(in crate::core) fn first_result(
+    pub(crate) fn first_result(
         &self,
         instruction_handle: InstructionHandle,
     ) -> Option<ValueHandle> {
         self.cfg.instruction(instruction_handle).first_result()
     }
 
-    pub(in crate::core) fn current_block(&self) -> Option<BlockHandle> {
+    pub(crate) fn current_block(&self) -> Option<BlockHandle> {
         match self.position {
             Position::Nowhere => None,
             Position::At(instruction_handle) => {
@@ -84,13 +82,13 @@ impl<'db> CfgBuilder<'db> {
         }
     }
 
-    pub(in crate::core) fn is_filled_here(&self) -> bool {
+    pub(crate) fn is_filled_here(&self) -> bool {
         self.current_block().is_some_and(|block_handle| {
             self.block_states[block_handle].status == BlockStatus::Filled
         })
     }
 
-    pub(in crate::core) fn finish(&mut self) -> Cfg<'db> {
+    pub(crate) fn finish(&mut self) -> Cfg<'db> {
         let mut cfg = std::mem::replace(&mut self.cfg, Cfg::new());
         cfg.flush_aliases();
 
@@ -103,7 +101,7 @@ impl<'db> CfgBuilder<'db> {
         cfg
     }
 
-    pub(in crate::core) fn append_block_parameter(
+    pub(crate) fn append_block_parameter(
         &mut self,
         block_handle: BlockHandle,
         ty: Ty<'db>,
@@ -111,7 +109,7 @@ impl<'db> CfgBuilder<'db> {
         self.cfg.block_mut(block_handle).append_parameter(ty)
     }
 
-    pub(in crate::core) fn create_block(&mut self) -> BlockHandle {
+    pub(crate) fn create_block(&mut self) -> BlockHandle {
         let block_handle = self.cfg.allocate_block();
         assert_eq!(
             block_handle.index(),
@@ -122,7 +120,7 @@ impl<'db> CfgBuilder<'db> {
         block_handle
     }
 
-    pub(in crate::core) fn add_block(&mut self, block_handle: BlockHandle) {
+    pub(crate) fn add_block(&mut self, block_handle: BlockHandle) {
         match self.position {
             Position::At(before) => {
                 self.cfg.split_block(block_handle, before);
@@ -135,7 +133,7 @@ impl<'db> CfgBuilder<'db> {
         self.position = Position::After(block_handle);
     }
 
-    pub(in crate::core) fn seal_block(&mut self, block_handle: BlockHandle) {
+    pub(crate) fn seal_block(&mut self, block_handle: BlockHandle) {
         assert!(
             !self.block_states[block_handle].sealed,
             "block {block_handle:?} is already sealed"
@@ -152,7 +150,7 @@ impl<'db> CfgBuilder<'db> {
         self.block_states[block_handle].sealed = true;
     }
 
-    pub(in crate::core) fn write_variable(
+    pub(crate) fn write_variable(
         &mut self,
         variable_handle: LocalBindingHandle,
         block_handle: BlockHandle,
@@ -162,7 +160,7 @@ impl<'db> CfgBuilder<'db> {
             .insert((variable_handle, block_handle), value_handle);
     }
 
-    pub(in crate::core) fn read_variable(
+    pub(crate) fn read_variable(
         &mut self,
         variable: LocalBindingHandle,
         ty: Ty<'db>,
@@ -174,9 +172,9 @@ impl<'db> CfgBuilder<'db> {
         self.read_variable_recursive(variable, ty, block)
     }
 
-    pub(in crate::core) fn emit_binary(
+    pub(crate) fn emit_binary(
         &mut self,
-        operator: BinaryOperator,
+        operator: nodes::BinaryOperator,
         lhs_handle: ValueHandle,
         rhs_handle: ValueHandle,
         ty: Ty<'db>,
@@ -189,9 +187,9 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(in crate::core) fn emit_unary(
+    pub(crate) fn emit_unary(
         &mut self,
-        operator: UnaryOperator,
+        operator: nodes::UnaryOperator,
         operand_handle: ValueHandle,
         ty: Ty<'db>,
     ) -> ValueHandle {
@@ -203,11 +201,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(in crate::core) fn emit_integer_literal(
-        &mut self,
-        ty: Ty<'db>,
-        value: u128,
-    ) -> ValueHandle {
+    pub(crate) fn emit_integer_literal(&mut self, ty: Ty<'db>, value: u128) -> ValueHandle {
         let instruction = self.cfg.allocate_integer_literal(value);
         let instruction_handle = self.add_instruction(instruction, &[ty]);
         self.cfg
@@ -216,11 +210,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(in crate::core) fn emit_boolean_literal(
-        &mut self,
-        value: bool,
-        ty: Ty<'db>,
-    ) -> ValueHandle {
+    pub(crate) fn emit_boolean_literal(&mut self, value: bool, ty: Ty<'db>) -> ValueHandle {
         let instruction = self.cfg.allocate_boolean_literal(value);
         let instruction_handle = self.add_instruction(instruction, &[ty]);
         self.cfg
@@ -229,7 +219,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(in crate::core) fn emit_tuple(
+    pub(crate) fn emit_tuple(
         &mut self,
         element_handles: &[ValueHandle],
         ty: Ty<'db>,
@@ -242,7 +232,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(in crate::core) fn emit_extract_field(
+    pub(crate) fn emit_extract_field(
         &mut self,
         operand_handle: ValueHandle,
         index: u32,
@@ -256,7 +246,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(in crate::core) fn emit_insert_field(
+    pub(crate) fn emit_insert_field(
         &mut self,
         tuple_handle: ValueHandle,
         value_handle: ValueHandle,
@@ -273,11 +263,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(in crate::core) fn emit_constant(
-        &mut self,
-        constant: ConstantKey<'db>,
-        ty: Ty<'db>,
-    ) -> ValueHandle {
+    pub(crate) fn emit_constant(&mut self, constant: ConstantKey<'db>, ty: Ty<'db>) -> ValueHandle {
         let instruction = self.cfg.allocate_constant(constant);
         let instruction_handle = self.add_instruction(instruction, &[ty]);
         self.cfg
@@ -286,7 +272,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(in crate::core) fn emit_function_address(
+    pub(crate) fn emit_function_address(
         &mut self,
         function: FunctionKey<'db>,
         ty: Ty<'db>,
@@ -299,7 +285,7 @@ impl<'db> CfgBuilder<'db> {
             .unwrap()
     }
 
-    pub(in crate::core) fn emit_call(
+    pub(crate) fn emit_call(
         &mut self,
         function: FunctionKey<'db>,
         argument_handles: &[ValueHandle],
@@ -309,7 +295,7 @@ impl<'db> CfgBuilder<'db> {
         self.add_instruction(instruction, result_types)
     }
 
-    pub(in crate::core) fn emit_call_indirect(
+    pub(crate) fn emit_call_indirect(
         &mut self,
         callee_and_argument_handles: &[ValueHandle],
         result_types: &[Ty<'db>],
@@ -318,7 +304,7 @@ impl<'db> CfgBuilder<'db> {
         self.add_instruction(instruction, result_types)
     }
 
-    pub(in crate::core) fn emit_jump(
+    pub(crate) fn emit_jump(
         &mut self,
         destination_handle: BlockHandle,
         block_argument_handles: &[ValueHandle],
@@ -331,7 +317,7 @@ impl<'db> CfgBuilder<'db> {
         instruction_handle
     }
 
-    pub(in crate::core) fn emit_conditional_branch(
+    pub(crate) fn emit_conditional_branch(
         &mut self,
         operand_handle: ValueHandle,
         true_block_handle: BlockHandle,
@@ -352,15 +338,12 @@ impl<'db> CfgBuilder<'db> {
         instruction_handle
     }
 
-    pub(in crate::core) fn emit_return(
-        &mut self,
-        output_handles: &[ValueHandle],
-    ) -> InstructionHandle {
+    pub(crate) fn emit_return(&mut self, output_handles: &[ValueHandle]) -> InstructionHandle {
         let instruction = self.cfg.allocate_return(output_handles);
         self.add_instruction(instruction, &[])
     }
 
-    pub(in crate::core) fn emit_unreachable(&mut self) -> InstructionHandle {
+    pub(crate) fn emit_unreachable(&mut self) -> InstructionHandle {
         let instruction = self.cfg.allocate_unreachable();
         self.add_instruction(instruction, &[])
     }

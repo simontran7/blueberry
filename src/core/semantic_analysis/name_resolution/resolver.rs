@@ -1,5 +1,5 @@
 use crate::core::common::symbol::Symbol;
-use crate::core::semantic_analysis::ast_lowering::nodes::{LocalBindingHandle, Path};
+use crate::core::semantic_analysis::ast_lowering::nodes::{self, LocalBindingHandle};
 use crate::core::semantic_analysis::keys::{BlockKey, ConstantKey, FunctionKey};
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeView;
@@ -8,14 +8,14 @@ use crate::core::semantic_analysis::{
 };
 use crate::core::source_file_key::SourceFileKey;
 
-pub(in crate::core) struct Resolver<'a, 'db> {
+pub(crate) struct Resolver<'a, 'db> {
     pub(in crate::core::semantic_analysis::name_resolution) file: SourceFileKey,
     pub(in crate::core::semantic_analysis::name_resolution) scope_view: ScopeView<'a, 'db>,
     pub(in crate::core::semantic_analysis::name_resolution) enclosing_block: Option<BlockKey<'db>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum Resolution<'db> {
+pub(crate) enum Resolution<'db> {
     Local(LocalBindingHandle),
     Function(FunctionKey<'db>),
     Constant(ConstantKey<'db>),
@@ -24,7 +24,7 @@ pub(in crate::core) enum Resolution<'db> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum ResolveError<'db> {
+pub(crate) enum ResolveError<'db> {
     Unresolved {
         segment_index: usize,
     },
@@ -38,15 +38,17 @@ pub(in crate::core) enum ResolveError<'db> {
 }
 
 impl<'a, 'db> Resolver<'a, 'db> {
-    pub(in crate::core) fn resolve_path(
+    pub(crate) fn resolve_path(
         &self,
         db: &'db dyn crate::Db,
-        path: Path<'db>,
+        path: nodes::Path<'db>,
     ) -> Result<Resolution<'db>, ResolveError<'db>> {
         let (first, rest) = path.segments(db).split_first().unwrap();
+
         let mut resolution = self
             .resolve_name(db, *first)
             .ok_or(ResolveError::Unresolved { segment_index: 0 })?;
+
         for (index, name) in rest.iter().enumerate() {
             let file = match resolution {
                 Resolution::Module(file) => file,
@@ -58,11 +60,15 @@ impl<'a, 'db> Resolver<'a, 'db> {
                     });
                 }
             };
-            resolution =
-                resolve_in_module(db, file, *name).ok_or(ResolveError::MissingFromModule {
+            // `name` is looked up among the top-level definitions of the module that the previous segment named
+            resolution = top_level_definitions_of(db, file)
+                .find(db, *name)
+                .map(Resolution::from)
+                .ok_or(ResolveError::MissingFromModule {
                     segment_index: index + 1,
                 })?;
         }
+
         Ok(resolution)
     }
 
@@ -122,14 +128,4 @@ impl<'db> From<Definition<'db>> for Resolution<'db> {
             Definition::Constant(key) => Self::Constant(key),
         }
     }
-}
-
-fn resolve_in_module<'db>(
-    db: &'db dyn crate::Db,
-    file: SourceFileKey,
-    name: Symbol<'db>,
-) -> Option<Resolution<'db>> {
-    top_level_definitions_of(db, file)
-        .find(db, name)
-        .map(Resolution::from)
 }

@@ -5,50 +5,50 @@ use crate::core::common::handle_collections::handle_list::{
     HandleArrayList, HandleArrayListAllocator,
 };
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
-use crate::core::semantic_analysis::ast_lowering::nodes::{BinaryOperator, UnaryOperator};
+use crate::core::semantic_analysis::ast_lowering::nodes;
 use crate::core::semantic_analysis::keys::{ConstantKey, FunctionKey};
 use crate::core::semantic_analysis::type_checking::types::Ty;
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct MirBody<'db> {
+pub(crate) struct MirBody<'db> {
     pub(in crate::core::mir_construction) signature: Signature<'db>,
     pub(in crate::core::mir_construction) cfg: Cfg<'db>,
 }
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct Cfg<'db> {
+pub(crate) struct Cfg<'db> {
     dfg: DataFlowGraph<'db>,
     layout: Layout,
 }
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct Value<'db> {
+pub(crate) struct Value<'db> {
     ty: Ty<'db>,
     alias_handle: Option<ValueHandle>,
     origin: ValueOrigin<'db>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum ValueOrigin<'db> {
+pub(crate) enum ValueOrigin<'db> {
     InstructionResult(InstructionHandle, u16),
     Parameter(BlockHandle, u16),
     Undefined(Ty<'db>),
 }
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct Block {
+pub(crate) struct Block {
     parameter_handles: HandleArrayList<ValueHandle>,
 }
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum InstructionKind<'db, T> {
+pub(crate) enum InstructionKind<'db, T> {
     // Arithmetic
     Binary {
-        operator: BinaryOperator,
+        operator: nodes::BinaryOperator,
         operand_handles: [ValueHandle; 2],
     },
     Unary {
-        operator: UnaryOperator,
+        operator: nodes::UnaryOperator,
         operand_handle: ValueHandle,
     },
 
@@ -108,49 +108,49 @@ pub(in crate::core) enum InstructionKind<'db, T> {
     Unreachable,
 }
 
-pub(in crate::core) type Instruction<'db> = InstructionKind<'db, HandleArrayList<ValueHandle>>;
+pub(crate) type Instruction<'db> = InstructionKind<'db, HandleArrayList<ValueHandle>>;
 
 #[derive(Debug, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct Signature<'db> {
+pub(crate) struct Signature<'db> {
     pub(in crate::core::mir_construction) parameter_types: Box<[Ty<'db>]>,
     pub(in crate::core::mir_construction) return_type: Ty<'db>,
 }
 
 // Opaque, 4-byte handles into the tables above.
-handle_impl!(pub(in crate::core) BlockHandle);
+handle_impl!(pub(crate) BlockHandle);
 
-handle_impl!(pub(in crate::core) InstructionHandle);
+handle_impl!(pub(crate) InstructionHandle);
 
-handle_impl!(pub(in crate::core) ValueHandle);
+handle_impl!(pub(crate) ValueHandle);
 
-pub(in crate::core) struct BlockView<'a, 'db> {
+pub(crate) struct BlockView<'a, 'db> {
     block_handle: BlockHandle,
     cfg: &'a Cfg<'db>,
 }
 
-pub(in crate::core) struct BlockViewMut<'a, 'db> {
+pub(crate) struct BlockViewMut<'a, 'db> {
     block_handle: BlockHandle,
     cfg: &'a mut Cfg<'db>,
 }
 
-pub(in crate::core) struct InstructionView<'a, 'db> {
+pub(crate) struct InstructionView<'a, 'db> {
     instruction_handle: InstructionHandle,
     cfg: &'a Cfg<'db>,
 }
 
-pub(in crate::core) type InstructionRef<'a, 'db> = InstructionKind<'db, &'a [ValueHandle]>;
+pub(crate) type InstructionRef<'a, 'db> = InstructionKind<'db, &'a [ValueHandle]>;
 
-pub(in crate::core) struct InstructionViewMut<'a, 'db> {
+pub(crate) struct InstructionViewMut<'a, 'db> {
     instruction_handle: InstructionHandle,
     cfg: &'a mut Cfg<'db>,
 }
 
-pub(in crate::core) struct ValueView<'a, 'db> {
+pub(crate) struct ValueView<'a, 'db> {
     value_handle: ValueHandle,
     cfg: &'a Cfg<'db>,
 }
 
-pub(in crate::core) enum UsedValuesIter<'a> {
+pub(crate) enum UsedValuesIter<'a> {
     Slice(slice::Iter<'a, ValueHandle>),
     Branch {
         operand_handle: Option<ValueHandle>,
@@ -159,12 +159,12 @@ pub(in crate::core) enum UsedValuesIter<'a> {
     },
 }
 
-pub(in crate::core) struct BlockIter<'a> {
+pub(crate) struct BlockIter<'a> {
     layout: &'a Layout,
     next_handle: Option<BlockHandle>,
 }
 
-pub(in crate::core) struct InstructionIter<'a> {
+pub(crate) struct InstructionIter<'a> {
     layout: &'a Layout,
     next_handle: Option<InstructionHandle>,
 }
@@ -204,7 +204,7 @@ struct InstructionNode {
 }
 
 impl<'db> Cfg<'db> {
-    pub(in crate::core) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             dfg: DataFlowGraph::new(),
             layout: Layout::new(),
@@ -218,7 +218,7 @@ impl<'db> Cfg<'db> {
             reason = "MIR API for codegen and MIR passes, which aren't written yet"
         )
     )]
-    pub(in crate::core) fn entry(&self) -> Option<BlockView<'_, 'db>> {
+    pub(crate) fn entry(&self) -> Option<BlockView<'_, 'db>> {
         self.layout.entry_handle.map(|block_handle| BlockView {
             block_handle,
             cfg: self,
@@ -229,32 +229,32 @@ impl<'db> Cfg<'db> {
         dead_code,
         reason = "MIR API for codegen and MIR passes, which aren't written yet"
     )]
-    pub(in crate::core) fn exit(&self) -> Option<BlockView<'_, 'db>> {
+    pub(crate) fn exit(&self) -> Option<BlockView<'_, 'db>> {
         self.layout.exit_handle.map(|block_handle| BlockView {
             block_handle,
             cfg: self,
         })
     }
 
-    pub(in crate::core) fn block_handles(&self) -> BlockIter<'_> {
+    pub(crate) fn block_handles(&self) -> BlockIter<'_> {
         BlockIter {
             layout: &self.layout,
             next_handle: self.layout.entry_handle,
         }
     }
 
-    pub(in crate::core) fn ssa_handles(&self) -> impl Iterator<Item = ValueHandle> + '_ {
+    pub(crate) fn ssa_handles(&self) -> impl Iterator<Item = ValueHandle> + '_ {
         self.dfg.values.keys()
     }
 
-    pub(in crate::core) fn block(&self, block_handle: BlockHandle) -> BlockView<'_, 'db> {
+    pub(crate) fn block(&self, block_handle: BlockHandle) -> BlockView<'_, 'db> {
         BlockView {
             block_handle,
             cfg: self,
         }
     }
 
-    pub(in crate::core) fn contains(&self, block_handle: BlockHandle) -> bool {
+    pub(crate) fn contains(&self, block_handle: BlockHandle) -> bool {
         Some(block_handle) == self.layout.entry_handle
             || self
                 .layout
@@ -263,7 +263,7 @@ impl<'db> Cfg<'db> {
                 .is_some_and(|node| node.previous_handle.is_some())
     }
 
-    pub(in crate::core) fn instruction(
+    pub(crate) fn instruction(
         &self,
         instruction_handle: InstructionHandle,
     ) -> InstructionView<'_, 'db> {
@@ -273,9 +273,9 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_binary(
+    pub(crate) fn allocate_binary(
         &self,
-        operator: BinaryOperator,
+        operator: nodes::BinaryOperator,
         operand_handles: [ValueHandle; 2],
     ) -> Instruction<'db> {
         Instruction::Binary {
@@ -284,9 +284,9 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_unary(
+    pub(crate) fn allocate_unary(
         &self,
-        operator: UnaryOperator,
+        operator: nodes::UnaryOperator,
         operand_handle: ValueHandle,
     ) -> Instruction<'db> {
         Instruction::Unary {
@@ -295,15 +295,15 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_integer_literal(&self, value: u128) -> Instruction<'db> {
+    pub(crate) fn allocate_integer_literal(&self, value: u128) -> Instruction<'db> {
         Instruction::IntegerLiteral { value }
     }
 
-    pub(in crate::core) fn allocate_boolean_literal(&self, value: bool) -> Instruction<'db> {
+    pub(crate) fn allocate_boolean_literal(&self, value: bool) -> Instruction<'db> {
         Instruction::BooleanLiteral { value }
     }
 
-    pub(in crate::core) fn allocate_extract_field(
+    pub(crate) fn allocate_extract_field(
         &self,
         operand_handle: ValueHandle,
         index: u32,
@@ -314,7 +314,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_insert_field(
+    pub(crate) fn allocate_insert_field(
         &self,
         tuple_handle: ValueHandle,
         value_handle: ValueHandle,
@@ -326,25 +326,19 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_constant(
-        &self,
-        constant: ConstantKey<'db>,
-    ) -> Instruction<'db> {
+    pub(crate) fn allocate_constant(&self, constant: ConstantKey<'db>) -> Instruction<'db> {
         Instruction::Constant { constant }
     }
 
-    pub(in crate::core) fn allocate_function_address(
-        &self,
-        function: FunctionKey<'db>,
-    ) -> Instruction<'db> {
+    pub(crate) fn allocate_function_address(&self, function: FunctionKey<'db>) -> Instruction<'db> {
         Instruction::FunctionAddress { function }
     }
 
-    pub(in crate::core) fn allocate_unreachable(&self) -> Instruction<'db> {
+    pub(crate) fn allocate_unreachable(&self) -> Instruction<'db> {
         Instruction::Unreachable
     }
 
-    pub(in crate::core) fn value(&self, value_handle: ValueHandle) -> ValueView<'_, 'db> {
+    pub(crate) fn value(&self, value_handle: ValueHandle) -> ValueView<'_, 'db> {
         ValueView {
             value_handle,
             cfg: self,
@@ -355,7 +349,7 @@ impl<'db> Cfg<'db> {
         dead_code,
         reason = "MIR API for codegen and MIR passes, which aren't written yet"
     )]
-    pub(in crate::core) fn block_argument(
+    pub(crate) fn block_argument(
         &self,
         block_parameter: ValueHandle,
         predecessor_edge: InstructionHandle,
@@ -370,7 +364,7 @@ impl<'db> Cfg<'db> {
             .block_argument(block_handle, index)
     }
 
-    pub(in crate::core) fn resolve_aliases(&self, value_handle: ValueHandle) -> ValueHandle {
+    pub(crate) fn resolve_aliases(&self, value_handle: ValueHandle) -> ValueHandle {
         let mut current_value = value_handle;
         for _ in 0..=self.dfg.values.count() {
             match self.dfg.values[current_value].alias_handle {
@@ -381,23 +375,20 @@ impl<'db> Cfg<'db> {
         panic!("value alias loop detected");
     }
 
-    pub(in crate::core) fn allocate_block(&mut self) -> BlockHandle {
+    pub(crate) fn allocate_block(&mut self) -> BlockHandle {
         self.dfg.blocks.add(Block {
             parameter_handles: HandleArrayList::<ValueHandle>::new(),
         })
     }
 
-    pub(in crate::core) fn block_mut(
-        &mut self,
-        block_handle: BlockHandle,
-    ) -> BlockViewMut<'_, 'db> {
+    pub(crate) fn block_mut(&mut self, block_handle: BlockHandle) -> BlockViewMut<'_, 'db> {
         BlockViewMut {
             block_handle,
             cfg: self,
         }
     }
 
-    pub(in crate::core) fn append_block(&mut self, block_handle: BlockHandle) {
+    pub(crate) fn append_block(&mut self, block_handle: BlockHandle) {
         assert!(
             !self.contains(block_handle),
             "cannot append a block that is already in the cfg"
@@ -417,7 +408,7 @@ impl<'db> Cfg<'db> {
         self.layout.exit_handle = Some(block_handle);
     }
 
-    pub(in crate::core) fn add_block_before(
+    pub(crate) fn add_block_before(
         &mut self,
         block_handle: BlockHandle,
         before_handle: BlockHandle,
@@ -447,11 +438,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn add_block_after(
-        &mut self,
-        block_handle: BlockHandle,
-        after_handle: BlockHandle,
-    ) {
+    pub(crate) fn add_block_after(&mut self, block_handle: BlockHandle, after_handle: BlockHandle) {
         assert!(
             !self.contains(block_handle),
             "cannot insert a block that is already in the cfg"
@@ -481,7 +468,7 @@ impl<'db> Cfg<'db> {
         dead_code,
         reason = "MIR API for codegen and MIR passes, which aren't written yet"
     )]
-    pub(in crate::core) fn remove_block(&mut self, block_handle: BlockHandle) {
+    pub(crate) fn remove_block(&mut self, block_handle: BlockHandle) {
         assert!(
             self.contains(block_handle),
             "block pointed by `block_handle` is not in the cfg"
@@ -508,7 +495,7 @@ impl<'db> Cfg<'db> {
         dead_code,
         reason = "MIR API for codegen and MIR passes, which aren't written yet"
     )]
-    pub(in crate::core) fn clear_block(&mut self, block_handle: BlockHandle) {
+    pub(crate) fn clear_block(&mut self, block_handle: BlockHandle) {
         assert!(
             self.contains(block_handle),
             "block pointed by `block_handle` is not in the cfg"
@@ -518,7 +505,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn instruction_mut(
+    pub(crate) fn instruction_mut(
         &mut self,
         instruction_handle: InstructionHandle,
     ) -> InstructionViewMut<'_, 'db> {
@@ -528,7 +515,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn add_instruction_before(
+    pub(crate) fn add_instruction_before(
         &mut self,
         instruction: Instruction<'db>,
         result_types: &[Ty<'db>],
@@ -563,7 +550,7 @@ impl<'db> Cfg<'db> {
         instruction_handle
     }
 
-    pub(in crate::core) fn append_instruction(
+    pub(crate) fn append_instruction(
         &mut self,
         block_handle: BlockHandle,
         instruction: Instruction<'db>,
@@ -578,7 +565,7 @@ impl<'db> Cfg<'db> {
         dead_code,
         reason = "MIR API for codegen and MIR passes, which aren't written yet"
     )]
-    pub(in crate::core) fn set_terminator(
+    pub(crate) fn set_terminator(
         &mut self,
         block_handle: BlockHandle,
         terminator: Instruction<'db>,
@@ -593,7 +580,7 @@ impl<'db> Cfg<'db> {
         dead_code,
         reason = "MIR API for codegen and MIR passes, which aren't written yet"
     )]
-    pub(in crate::core) fn remove_instruction(&mut self, instruction_handle: InstructionHandle) {
+    pub(crate) fn remove_instruction(&mut self, instruction_handle: InstructionHandle) {
         let block_handle = self.layout.instructions[instruction_handle]
             .block_handle
             .unwrap();
@@ -619,7 +606,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn split_block(
+    pub(crate) fn split_block(
         &mut self,
         new_block_handle: BlockHandle,
         split_point_handle: InstructionHandle,
@@ -670,7 +657,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_jump(
+    pub(crate) fn allocate_jump(
         &mut self,
         destination_handle: BlockHandle,
         block_argument_handles: &[ValueHandle],
@@ -684,10 +671,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_return(
-        &mut self,
-        output_handles: &[ValueHandle],
-    ) -> Instruction<'db> {
+    pub(crate) fn allocate_return(&mut self, output_handles: &[ValueHandle]) -> Instruction<'db> {
         Instruction::Return {
             output_handles: HandleArrayList::<ValueHandle>::from(
                 &mut self.dfg.suballocator,
@@ -696,10 +680,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_tuple(
-        &mut self,
-        element_handles: &[ValueHandle],
-    ) -> Instruction<'db> {
+    pub(crate) fn allocate_tuple(&mut self, element_handles: &[ValueHandle]) -> Instruction<'db> {
         Instruction::Tuple {
             element_handles: HandleArrayList::<ValueHandle>::from(
                 &mut self.dfg.suballocator,
@@ -708,7 +689,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_call(
+    pub(crate) fn allocate_call(
         &mut self,
         function: FunctionKey<'db>,
         argument_handles: &[ValueHandle],
@@ -722,7 +703,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_call_indirect(
+    pub(crate) fn allocate_call_indirect(
         &mut self,
         callee_and_argument_handles: &[ValueHandle],
     ) -> Instruction<'db> {
@@ -734,7 +715,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn allocate_conditional_branch(
+    pub(crate) fn allocate_conditional_branch(
         &mut self,
         operand_handle: ValueHandle,
         true_block_handle: BlockHandle,
@@ -757,7 +738,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
-    pub(in crate::core) fn add_undefined(&mut self, ty: Ty<'db>) -> ValueHandle {
+    pub(crate) fn add_undefined(&mut self, ty: Ty<'db>) -> ValueHandle {
         self.dfg.values.add(Value {
             ty,
             alias_handle: None,
@@ -765,7 +746,7 @@ impl<'db> Cfg<'db> {
         })
     }
 
-    pub(in crate::core) fn mark_as_alias(
+    pub(crate) fn mark_as_alias(
         &mut self,
         destination_handle: ValueHandle,
         source_handle: ValueHandle,
@@ -790,7 +771,7 @@ impl<'db> Cfg<'db> {
         self.dfg.values[destination_handle].alias_handle = Some(original);
     }
 
-    pub(in crate::core) fn flush_aliases(&mut self) {
+    pub(crate) fn flush_aliases(&mut self) {
         // step 1: compresses every alias chain so each aliased value points directly at its final target
         let value_handles: Vec<ValueHandle> = self.dfg.values.keys().collect();
         for mut value_handle in value_handles {
@@ -977,34 +958,34 @@ impl<'db> Instruction<'db> {
     reason = "MIR API for codegen and MIR passes, which aren't written yet"
 )]
 impl<'a, 'db> BlockView<'a, 'db> {
-    pub(in crate::core) fn handle(&self) -> BlockHandle {
+    pub(crate) fn handle(&self) -> BlockHandle {
         self.block_handle
     }
 
-    pub(in crate::core) fn next(&self) -> Option<BlockHandle> {
+    pub(crate) fn next(&self) -> Option<BlockHandle> {
         self.cfg.layout.blocks[self.block_handle].next_handle
     }
 
-    pub(in crate::core) fn prev(&self) -> Option<BlockHandle> {
+    pub(crate) fn prev(&self) -> Option<BlockHandle> {
         self.cfg.layout.blocks[self.block_handle].previous_handle
     }
 
-    pub(in crate::core) fn instructions(&self) -> InstructionIter<'a> {
+    pub(crate) fn instructions(&self) -> InstructionIter<'a> {
         InstructionIter {
             layout: &self.cfg.layout,
             next_handle: self.cfg.layout.blocks[self.block_handle].first_handle,
         }
     }
 
-    pub(in crate::core) fn first_instruction(&self) -> Option<InstructionHandle> {
+    pub(crate) fn first_instruction(&self) -> Option<InstructionHandle> {
         self.cfg.layout.blocks[self.block_handle].first_handle
     }
 
-    pub(in crate::core) fn last_instruction(&self) -> Option<InstructionHandle> {
+    pub(crate) fn last_instruction(&self) -> Option<InstructionHandle> {
         self.cfg.layout.blocks[self.block_handle].last_handle
     }
 
-    pub(in crate::core) fn parameters(&self) -> &'a [ValueHandle] {
+    pub(crate) fn parameters(&self) -> &'a [ValueHandle] {
         self.cfg.dfg.blocks[self.block_handle]
             .parameter_handles
             .to_slice(&self.cfg.dfg.suballocator)
@@ -1012,7 +993,7 @@ impl<'a, 'db> BlockView<'a, 'db> {
 }
 
 impl<'a, 'db> BlockViewMut<'a, 'db> {
-    pub(in crate::core) fn append_parameter(&mut self, ty: Ty<'db>) -> ValueHandle {
+    pub(crate) fn append_parameter(&mut self, ty: Ty<'db>) -> ValueHandle {
         let parameter = self.cfg.dfg.values.next_handle();
         self.cfg.dfg.blocks[self.block_handle]
             .parameter_handles
@@ -1035,7 +1016,7 @@ impl<'a, 'db> BlockViewMut<'a, 'db> {
         dead_code,
         reason = "MIR API for codegen and MIR passes, which aren't written yet"
     )]
-    pub(in crate::core) fn swap_remove_parameter(&mut self, index: usize) {
+    pub(crate) fn swap_remove_parameter(&mut self, index: usize) {
         let params = self.cfg.dfg.blocks[self.block_handle]
             .parameter_handles
             .to_mut_slice(&mut self.cfg.dfg.suballocator);
@@ -1051,7 +1032,7 @@ impl<'a, 'db> BlockViewMut<'a, 'db> {
         }
     }
 
-    pub(in crate::core) fn remove_parameter(&mut self, index: usize) {
+    pub(crate) fn remove_parameter(&mut self, index: usize) {
         self.cfg.dfg.blocks[self.block_handle]
             .parameter_handles
             .remove(index, &mut self.cfg.dfg.suballocator);
@@ -1069,7 +1050,7 @@ impl<'a, 'db> BlockViewMut<'a, 'db> {
         dead_code,
         reason = "MIR API for codegen and MIR passes, which aren't written yet"
     )]
-    pub(in crate::core) fn detach_parameters(&mut self) -> HandleArrayList<ValueHandle> {
+    pub(crate) fn detach_parameters(&mut self) -> HandleArrayList<ValueHandle> {
         let params = self.cfg.dfg.blocks[self.block_handle].parameter_handles;
         self.cfg.dfg.blocks[self.block_handle].parameter_handles =
             HandleArrayList::<ValueHandle>::new();
@@ -1082,19 +1063,19 @@ impl<'a, 'db> BlockViewMut<'a, 'db> {
     reason = "MIR API for codegen and MIR passes, which aren't written yet"
 )]
 impl<'a, 'db> InstructionView<'a, 'db> {
-    pub(in crate::core) fn handle(&self) -> InstructionHandle {
+    pub(crate) fn handle(&self) -> InstructionHandle {
         self.instruction_handle
     }
 
-    pub(in crate::core) fn next(&self) -> Option<InstructionHandle> {
+    pub(crate) fn next(&self) -> Option<InstructionHandle> {
         self.cfg.layout.instructions[self.instruction_handle].next_handle
     }
 
-    pub(in crate::core) fn prev(&self) -> Option<InstructionHandle> {
+    pub(crate) fn prev(&self) -> Option<InstructionHandle> {
         self.cfg.layout.instructions[self.instruction_handle].previous_handle
     }
 
-    pub(in crate::core) fn is_terminator(&self) -> bool {
+    pub(crate) fn is_terminator(&self) -> bool {
         matches!(
             self.cfg.dfg.instructions[self.instruction_handle],
             Instruction::Jump { .. }
@@ -1108,7 +1089,7 @@ impl<'a, 'db> InstructionView<'a, 'db> {
         clippy::match_same_arms,
         reason = "one arm per instruction, in declaration order"
     )]
-    pub(in crate::core) fn inputs(&self) -> &'a [ValueHandle] {
+    pub(crate) fn inputs(&self) -> &'a [ValueHandle] {
         let suballocator = &self.cfg.dfg.suballocator;
         match &self.cfg.dfg.instructions[self.instruction_handle] {
             Instruction::Binary {
@@ -1142,20 +1123,20 @@ impl<'a, 'db> InstructionView<'a, 'db> {
         }
     }
 
-    pub(in crate::core) fn results(&self) -> &'a [ValueHandle] {
+    pub(crate) fn results(&self) -> &'a [ValueHandle] {
         self.cfg.dfg.instruction_results[self.instruction_handle]
             .to_slice(&self.cfg.dfg.suballocator)
     }
 
-    pub(in crate::core) fn first_result(&self) -> Option<ValueHandle> {
+    pub(crate) fn first_result(&self) -> Option<ValueHandle> {
         self.cfg.dfg.instruction_results[self.instruction_handle].get(&self.cfg.dfg.suballocator, 0)
     }
 
-    pub(in crate::core) fn containing_block(&self) -> Option<BlockHandle> {
+    pub(crate) fn containing_block(&self) -> Option<BlockHandle> {
         self.cfg.layout.instructions[self.instruction_handle].block_handle
     }
 
-    pub(in crate::core) fn used_values(&self) -> UsedValuesIter<'a> {
+    pub(crate) fn used_values(&self) -> UsedValuesIter<'a> {
         match &self.cfg.dfg.instructions[self.instruction_handle] {
             Instruction::ConditionalBranch {
                 operand_handle,
@@ -1188,7 +1169,7 @@ impl<'a, 'db> InstructionView<'a, 'db> {
         }
     }
 
-    pub(in crate::core) fn block_argument(
+    pub(crate) fn block_argument(
         &self,
         destination_handle: BlockHandle,
         index: usize,
@@ -1228,7 +1209,7 @@ impl<'a, 'db> InstructionView<'a, 'db> {
         }
     }
 
-    pub(in crate::core) fn as_instruction_ref(&self) -> InstructionRef<'a, 'db> {
+    pub(crate) fn as_instruction_ref(&self) -> InstructionRef<'a, 'db> {
         let suballocator = &self.cfg.dfg.suballocator;
         match &self.cfg.dfg.instructions[self.instruction_handle] {
             Instruction::Binary {
@@ -1319,12 +1300,12 @@ impl<'a, 'db> InstructionViewMut<'a, 'db> {
         dead_code,
         reason = "MIR API for codegen and MIR passes, which aren't written yet"
     )]
-    pub(in crate::core) fn rewrite_operands(&mut self, f: impl FnMut(ValueHandle) -> ValueHandle) {
+    pub(crate) fn rewrite_operands(&mut self, f: impl FnMut(ValueHandle) -> ValueHandle) {
         self.cfg.dfg.instructions[self.instruction_handle]
             .rewrite_operands(&mut self.cfg.dfg.suballocator, f);
     }
 
-    pub(in crate::core) fn append_block_argument(
+    pub(crate) fn append_block_argument(
         &mut self,
         destination_handle: BlockHandle,
         value: ValueHandle,
@@ -1365,15 +1346,15 @@ impl<'a, 'db> InstructionViewMut<'a, 'db> {
 }
 
 impl<'a, 'db> ValueView<'a, 'db> {
-    pub(in crate::core) fn ty(&self) -> Ty<'db> {
+    pub(crate) fn ty(&self) -> Ty<'db> {
         self.cfg.dfg.values[self.value_handle].ty
     }
 
-    pub(in crate::core) fn origin(&self) -> ValueOrigin<'db> {
+    pub(crate) fn origin(&self) -> ValueOrigin<'db> {
         self.cfg.dfg.values[self.cfg.resolve_aliases(self.value_handle)].origin
     }
 
-    pub(in crate::core) fn alias_target(&self) -> Option<ValueHandle> {
+    pub(crate) fn alias_target(&self) -> Option<ValueHandle> {
         self.cfg.dfg.values[self.value_handle].alias_handle
     }
 }

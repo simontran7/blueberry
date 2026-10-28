@@ -3,11 +3,11 @@ use std::ops::{Index, IndexMut};
 use crate::core::syntactic_analysis::cst::SyntaxKind;
 
 /// The parser's output: a flat stream of events, which the `CstBuilder` replays into a tree.
-pub(in crate::core) struct Sink {
+pub(crate) struct Sink {
     events: Vec<Event>,
 }
 
-pub(in crate::core) enum Event {
+pub(crate) enum Event {
     OpenNode {
         kind: SyntaxKind,
         forward_parent: Option<usize>,
@@ -24,19 +24,19 @@ pub(in crate::core) enum Event {
 }
 
 impl Sink {
-    pub(in crate::core) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self { events: Vec::new() }
     }
 
-    pub(in crate::core) fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.events.len()
     }
 
-    pub(in crate::core) fn push(&mut self, event: Event) {
+    pub(crate) fn push(&mut self, event: Event) {
         self.events.push(event);
     }
 
-    pub(in crate::core) fn into_events(self) -> Vec<Event> {
+    pub(crate) fn into_events(self) -> Vec<Event> {
         self.events
     }
 }

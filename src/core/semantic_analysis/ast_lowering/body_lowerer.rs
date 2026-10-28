@@ -1,9 +1,8 @@
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::ast_lowering::hir_node_store_builder::HirNodeStoreBuilder;
 use crate::core::semantic_analysis::ast_lowering::nodes::{
-    BinaryOperator, Body, Expression, ExpressionHandle, HirNodeSourceMap, LocalBinding,
-    LocalBindingHandle, LoopSource, Path, Statement, StatementHandle, TypeExpressionHandle,
-    UnaryOperator,
+    self, ExpressionHandle, HirNodeSourceMap, LocalBindingHandle, StatementHandle,
+    TypeExpressionHandle,
 };
 use crate::core::semantic_analysis::keys::BlockKey;
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
@@ -11,7 +10,7 @@ use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
 use crate::core::syntactic_analysis::cst::{RedNode, RedNodeTag};
 
-pub(in crate::core) struct BodyLowerer<'db> {
+pub(crate) struct BodyLowerer<'db> {
     db: &'db dyn crate::Db,
     file: SourceFileKey,
     owner: Definition<'db>,
@@ -20,11 +19,7 @@ pub(in crate::core) struct BodyLowerer<'db> {
 }
 
 impl<'db> BodyLowerer<'db> {
-    pub(in crate::core) fn new(
-        db: &'db dyn crate::Db,
-        file: SourceFileKey,
-        owner: Definition<'db>,
-    ) -> Self {
+    pub(crate) fn new(db: &'db dyn crate::Db, file: SourceFileKey, owner: Definition<'db>) -> Self {
         Self {
             db,
             file,
@@ -34,18 +29,16 @@ impl<'db> BodyLowerer<'db> {
         }
     }
 
-    pub(in crate::core) fn lower_expression(
-        &mut self,
-        expression: ast::Expression,
-    ) -> ExpressionHandle {
+    pub(crate) fn lower_expression(&mut self, expression: ast::Expression) -> ExpressionHandle {
         match expression {
-            ast::Expression::IntegerLiteral(literal) => self
-                .builder
-                .add_expression(Expression::Integer(literal.value().ok()), literal.red()),
+            ast::Expression::IntegerLiteral(literal) => self.builder.add_expression(
+                nodes::Expression::Integer(literal.value().ok()),
+                literal.red(),
+            ),
             ast::Expression::BooleanLiteral(literal) => self.builder.add_expression(
                 literal
                     .value()
-                    .map_or(Expression::Error, Expression::Boolean),
+                    .map_or(nodes::Expression::Error, nodes::Expression::Boolean),
                 literal.red(),
             ),
             ast::Expression::TupleExpression(tuple) => {
@@ -55,7 +48,7 @@ impl<'db> BodyLowerer<'db> {
                     .collect();
                 let element_run = self.builder.add_expression_children(&element_handles);
                 self.builder
-                    .add_expression(Expression::Tuple { element_run }, tuple.red())
+                    .add_expression(nodes::Expression::Tuple { element_run }, tuple.red())
             }
             ast::Expression::FieldExpression(field) => {
                 let receiver_handle = self.lower_optional_expression(field.receiver(), field.red());
@@ -63,7 +56,7 @@ impl<'db> BodyLowerer<'db> {
                     .field()
                     .map(|token| super::lower_name(self.db, &token));
                 self.builder.add_expression(
-                    Expression::Field {
+                    nodes::Expression::Field {
                         receiver_handle,
                         name,
                     },
@@ -74,7 +67,7 @@ impl<'db> BodyLowerer<'db> {
                 let lowered = path_expression
                     .path()
                     .and_then(|path| self.lower_path(&path))
-                    .map_or(Expression::Error, Expression::Path);
+                    .map_or(nodes::Expression::Error, nodes::Expression::Path);
                 self.builder.add_expression(lowered, path_expression.red())
             }
             ast::Expression::ParenthesizedExpression(parenthesized) => {
@@ -83,15 +76,17 @@ impl<'db> BodyLowerer<'db> {
             ast::Expression::UnaryOperation(unary) => {
                 let operator = unary
                     .operator()
-                    .and_then(|token| UnaryOperator::try_from(token.kind()).ok());
+                    .and_then(|token| nodes::UnaryOperator::try_from(token.kind()).ok());
                 let Some(operator) = operator else {
-                    return self.builder.add_expression(Expression::Error, unary.red());
+                    return self
+                        .builder
+                        .add_expression(nodes::Expression::Error, unary.red());
                 };
 
                 let operand_handle = self.lower_optional_expression(unary.operand(), unary.red());
 
                 self.builder.add_expression(
-                    Expression::UnaryOperation {
+                    nodes::Expression::UnaryOperation {
                         operator,
                         operand_handle,
                     },
@@ -103,12 +98,12 @@ impl<'db> BodyLowerer<'db> {
 
                 let operator = binary
                     .operator()
-                    .and_then(|token| BinaryOperator::try_from(token.kind()).ok());
+                    .and_then(|token| nodes::BinaryOperator::try_from(token.kind()).ok());
 
                 let rhs_handle = self.lower_optional_expression(binary.rhs(), binary.red());
 
                 self.builder.add_expression(
-                    Expression::BinaryOperation {
+                    nodes::Expression::BinaryOperation {
                         lhs_handle,
                         operator,
                         rhs_handle,
@@ -130,7 +125,7 @@ impl<'db> BodyLowerer<'db> {
                 let argument_run = self.builder.add_expression_children(&argument_handles);
 
                 self.builder.add_expression(
-                    Expression::Call {
+                    nodes::Expression::Call {
                         callee_handle,
                         argument_run,
                     },
@@ -145,7 +140,7 @@ impl<'db> BodyLowerer<'db> {
                     self.lower_optional_expression(assignment.value(), assignment.red());
 
                 self.builder.add_expression(
-                    Expression::Assignment {
+                    nodes::Expression::Assignment {
                         target_handle,
                         value_handle,
                     },
@@ -157,20 +152,24 @@ impl<'db> BodyLowerer<'db> {
                     .value()
                     .map(|value| self.lower_expression(value));
 
-                self.builder
-                    .add_expression(Expression::Return { value_handle }, return_expression.red())
+                self.builder.add_expression(
+                    nodes::Expression::Return { value_handle },
+                    return_expression.red(),
+                )
             }
             ast::Expression::Break(break_expression) => {
                 let value_handle = break_expression
                     .value()
                     .map(|value| self.lower_expression(value));
 
-                self.builder
-                    .add_expression(Expression::Break { value_handle }, break_expression.red())
+                self.builder.add_expression(
+                    nodes::Expression::Break { value_handle },
+                    break_expression.red(),
+                )
             }
             ast::Expression::Continue(continue_expression) => self
                 .builder
-                .add_expression(Expression::Continue, continue_expression.red()),
+                .add_expression(nodes::Expression::Continue, continue_expression.red()),
             ast::Expression::Block(block) => self.lower_block(block),
             ast::Expression::IfExpression(if_expression) => {
                 let condition_handle =
@@ -187,7 +186,7 @@ impl<'db> BodyLowerer<'db> {
                             }
                         });
                 self.builder.add_expression(
-                    Expression::If {
+                    nodes::Expression::If {
                         condition_handle,
                         then_branch_handle,
                         else_branch_handle,
@@ -199,8 +198,8 @@ impl<'db> BodyLowerer<'db> {
                 let body_handle =
                     self.lower_optional_block(infinite_loop.body(), infinite_loop.red());
                 self.builder.add_expression(
-                    Expression::Loop {
-                        source: LoopSource::Loop,
+                    nodes::Expression::Loop {
+                        source: nodes::LoopSource::Loop,
                         body_handle,
                     },
                     infinite_loop.red(),
@@ -210,19 +209,19 @@ impl<'db> BodyLowerer<'db> {
         }
     }
 
-    pub(in crate::core) fn lower_function(
+    pub(crate) fn lower_function(
         mut self,
         function: &ast::FunctionDefinition,
-    ) -> (Body<'db>, HirNodeSourceMap) {
+    ) -> (nodes::Body<'db>, HirNodeSourceMap) {
         let parameter_handles = self.lower_parameters(function.parameter_list());
         let root_handle = self.lower_optional_block(function.body(), function.red());
         self.finish(root_handle, parameter_handles)
     }
 
-    pub(in crate::core) fn lower_constant(
+    pub(crate) fn lower_constant(
         mut self,
         constant: &ast::ConstantDefinition,
-    ) -> (Body<'db>, HirNodeSourceMap) {
+    ) -> (nodes::Body<'db>, HirNodeSourceMap) {
         let root_handle = self.lower_optional_expression(constant.value(), constant.red());
         self.finish(root_handle, Box::new([]))
     }
@@ -231,9 +230,9 @@ impl<'db> BodyLowerer<'db> {
         self,
         root_handle: ExpressionHandle,
         parameter_handles: Box<[LocalBindingHandle]>,
-    ) -> (Body<'db>, HirNodeSourceMap) {
+    ) -> (nodes::Body<'db>, HirNodeSourceMap) {
         let (store, source_map) = self.builder.finish();
-        let body = Body {
+        let body = nodes::Body {
             store,
             root_handle,
             parameter_handles,
@@ -241,7 +240,7 @@ impl<'db> BodyLowerer<'db> {
         (body, source_map)
     }
 
-    fn lower_path(&self, path: &ast::Path) -> Option<Path<'db>> {
+    fn lower_path(&self, path: &ast::Path) -> Option<nodes::Path<'db>> {
         super::lower_path(self.db, path)
     }
 
@@ -253,7 +252,7 @@ impl<'db> BodyLowerer<'db> {
                     .map(|token| token.lexeme().to_string())
                     .unwrap_or_default();
                 let name_handle = self.builder.add_local_binding(
-                    LocalBinding {
+                    nodes::LocalBinding {
                         name: Symbol::new(self.db, name),
                         mutable: let_statement.is_mutable(),
                     },
@@ -268,7 +267,7 @@ impl<'db> BodyLowerer<'db> {
                     self.lower_optional_expression(let_statement.value(), let_statement.red());
 
                 self.builder.add_statement(
-                    Statement::Let {
+                    nodes::Statement::Let {
                         name_handle,
                         annotation_handle,
                         initializer_handle,
@@ -278,7 +277,7 @@ impl<'db> BodyLowerer<'db> {
             }
             ast::Statement::Definition(definition) => self
                 .builder
-                .add_statement(Statement::Definition, definition.red()),
+                .add_statement(nodes::Statement::Definition, definition.red()),
             ast::Statement::Expression(expression_statement) => {
                 let expression_handle = self.lower_optional_expression(
                     expression_statement.expression(),
@@ -288,7 +287,7 @@ impl<'db> BodyLowerer<'db> {
                 let has_semicolon = expression_statement.has_semicolon();
 
                 self.builder.add_statement(
-                    Statement::Expression {
+                    nodes::Statement::Expression {
                         expression_handle,
                         has_semicolon,
                     },
@@ -314,7 +313,7 @@ impl<'db> BodyLowerer<'db> {
                     .map(|token| token.lexeme().to_string())
                     .unwrap_or_default();
                 self.builder.add_local_binding(
-                    LocalBinding {
+                    nodes::LocalBinding {
                         name: Symbol::new(self.db, name),
                         mutable: false,
                     },
@@ -334,10 +333,10 @@ impl<'db> BodyLowerer<'db> {
 
         let else_branch_handle = self
             .builder
-            .add_expression(Expression::Break { value_handle: None }, node);
+            .add_expression(nodes::Expression::Break { value_handle: None }, node);
 
         let if_expression_handle = self.builder.add_expression(
-            Expression::If {
+            nodes::Expression::If {
                 condition_handle,
                 then_branch_handle,
                 else_branch_handle: Some(else_branch_handle),
@@ -349,7 +348,7 @@ impl<'db> BodyLowerer<'db> {
         let statement_run = self.builder.add_statement_children(&[]);
 
         let body_handle = self.builder.add_expression(
-            Expression::Block {
+            nodes::Expression::Block {
                 block_key: None,
                 statement_run,
                 tail_handle: Some(if_expression_handle),
@@ -358,8 +357,8 @@ impl<'db> BodyLowerer<'db> {
         );
 
         self.builder.add_expression(
-            Expression::Loop {
-                source: LoopSource::While,
+            nodes::Expression::Loop {
+                source: nodes::LoopSource::While,
                 body_handle,
             },
             node,
@@ -373,7 +372,9 @@ impl<'db> BodyLowerer<'db> {
     ) -> ExpressionHandle {
         match block {
             Some(block) => self.lower_block(block),
-            None => self.builder.add_expression(Expression::Error, parent),
+            None => self
+                .builder
+                .add_expression(nodes::Expression::Error, parent),
         }
     }
 
@@ -406,7 +407,7 @@ impl<'db> BodyLowerer<'db> {
         self.current_block = parent_block;
 
         self.builder.add_expression(
-            Expression::Block {
+            nodes::Expression::Block {
                 block_key: Some(block_key),
                 statement_run,
                 tail_handle,
@@ -422,7 +423,9 @@ impl<'db> BodyLowerer<'db> {
     ) -> ExpressionHandle {
         match expression {
             Some(expression) => self.lower_expression(expression),
-            None => self.builder.add_expression(Expression::Error, parent),
+            None => self
+                .builder
+                .add_expression(nodes::Expression::Error, parent),
         }
     }
 

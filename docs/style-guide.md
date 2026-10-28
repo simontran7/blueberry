@@ -125,3 +125,57 @@ https://scopedcommits.com/
     - **Construction:** Constructs, Creates
     - **Iteration/traversal:** Performs, Iterates, Traverses
     - **Copy/transform:** Copies, Converts, Wraps
+
+## Comparisons
+
+When comparing, use `<` and `<=`, and avoid `>` and `>=`: less-than comparisons read in the same order as the number line, with smaller values on the left.
+
+```rust
+// Good
+assert!(lo <= x && x <= hi);
+
+// Not as good
+assert!(x >= lo && x <= hi);
+```
+
+## Import Style
+
+- When two modules define items with the same name (e.g., an `Expression` in both a syntax tree and an intermediate representation), qualify those items with their module, so that a name says where it comes from. 
+
+```rust
+// Good
+use crate::syntax::ast;
+use crate::semantics::hir;
+
+fn lower_expression(expression: ast::Expression) -> hir::Expression { .. }
+```
+
+```rust
+// Not as good
+use crate::semantics::hir::Expression;
+use crate::syntax::ast::Expression as AstExpression;
+
+fn lower_expression(expression: AstExpression) -> Expression { .. }
+```
+
+- Avoid local `use MyEnum::*` imports.
+
+- Prefer `use crate::foo::bar` to `use super::bar`. The exception is a `#[cfg(test)] mod tests`, which starts with `use super::*;` to test the items of the module around it.
+
+- When implementing `Debug` or `Display`, import `std::fmt`:
+
+```rust
+// Good
+use std::fmt;
+
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { .. }
+}
+```
+
+```rust
+// Not as good
+impl std::fmt::Display for Point {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { .. }
+}
+```

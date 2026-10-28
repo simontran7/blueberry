@@ -10,10 +10,10 @@
 ### 0. The spine
 
 - [ ] ★ [semantic_analysis.rs](src/core/semantic_analysis.rs), top-down
-  - [ ] `semantics_of`
-  - [ ] `body_of`, `body_source_map_of`
+  - [ ] `body::types_of`
+  - [ ] `body::hir_of`, `body::source_map_of`
   - [ ] `scopes_of`
-  - [ ] `signature_type_of`, `signature_of`, `signature_source_map_of`
+  - [ ] `signature::type_of`, `signature::hir_of`, `signature::source_map_of`
   - [ ] `top_level_definitions_of`, `block_definitions_of`, `imports_of`, `module_file_of`
   - [ ] `definition_diagnostics_of`, `import_diagnostics_of`
   - [ ] `definition_at`, `all_definitions_of`

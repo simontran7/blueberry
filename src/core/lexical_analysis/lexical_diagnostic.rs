@@ -2,12 +2,12 @@ use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, La
 use crate::core::common::span::Span;
 
 #[derive(Debug, Clone)]
-pub(in crate::core) enum LexicalDiagnostic {
+pub(crate) enum LexicalDiagnostic {
     UnknownToken { character: char, span: Span },
 }
 
 impl LexicalDiagnostic {
-    pub(in crate::core) fn describe(&self) -> DiagnosticDescription {
+    pub(crate) fn describe(&self) -> DiagnosticDescription {
         match self {
             Self::UnknownToken { character, span } => DiagnosticDescription {
                 code: "E0102",

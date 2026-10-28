@@ -5,14 +5,14 @@ use crate::core::common::handle_collections::handle_disjoint_set::MergeValue;
 use crate::core::common::handle_collections::handle_map::{HandleMap, SideHandleMap};
 
 /// A generic augmented handle disjoint set
-pub(in crate::core) struct HandleDisjointSet<H: Handle, V: MergeValue> {
+pub(crate) struct HandleDisjointSet<H: Handle, V: MergeValue> {
     parent: HandleMap<H, H>,
     rank: SideHandleMap<H, u8>,
     value: SideHandleMap<H, V>,
 }
 
 impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
-    pub(in crate::core) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             parent: HandleMap::new(),
             rank: SideHandleMap::new(),
@@ -25,11 +25,11 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
         dead_code,
         reason = "general-purpose container API, kept complete ahead of its users"
     )]
-    pub(in crate::core) fn handles(&self) -> impl Iterator<Item = H> + '_ {
+    pub(crate) fn handles(&self) -> impl Iterator<Item = H> + '_ {
         self.parent.keys()
     }
 
-    pub(in crate::core) fn make_set(&mut self, value: V) -> H {
+    pub(crate) fn make_set(&mut self, value: V) -> H {
         let handle = self.parent.next_handle();
         self.parent.add(handle);
         self.rank.add(handle, 0);
@@ -38,7 +38,7 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
     }
 
     /// Returns the value of every set, once per set.
-    pub(in crate::core) fn values_mut(&mut self) -> impl Iterator<Item = &mut V> + '_ {
+    pub(crate) fn values_mut(&mut self) -> impl Iterator<Item = &mut V> + '_ {
         let parent = &self.parent;
         self.value
             .iter_mut()
@@ -46,7 +46,7 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
             .map(|(_, value)| value)
     }
 
-    pub(in crate::core) fn find(&mut self, x: H) -> H {
+    pub(crate) fn find(&mut self, x: H) -> H {
         let mut cursor = x;
         while self.parent[cursor] != cursor {
             self.parent[cursor] = self.parent[self.parent[cursor]];
@@ -55,7 +55,7 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
         cursor
     }
 
-    pub(in crate::core) fn union(&mut self, a: H, b: H) -> Result<(), V::Error> {
+    pub(crate) fn union(&mut self, a: H, b: H) -> Result<(), V::Error> {
         let a_rep = self.find(a);
         let b_rep = self.find(b);
 
@@ -86,18 +86,18 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
         Ok(())
     }
 
-    pub(in crate::core) fn is_connected(&mut self, a: H, b: H) -> bool {
+    pub(crate) fn is_connected(&mut self, a: H, b: H) -> bool {
         self.find(a) == self.find(b)
     }
 
     /// Returns the value of the set containing `a`.
-    pub(in crate::core) fn value(&mut self, a: H) -> V {
+    pub(crate) fn value(&mut self, a: H) -> V {
         let rep = self.find(a);
         self.value[rep].clone()
     }
 
     /// Updates the value of the set containing `a` in place.
-    pub(in crate::core) fn update_value(&mut self, a: H, update: impl FnOnce(&mut V)) {
+    pub(crate) fn update_value(&mut self, a: H, update: impl FnOnce(&mut V)) {
         let rep = self.find(a);
         update(&mut self.value[rep]);
     }
@@ -105,8 +105,8 @@ impl<H: Handle, V: MergeValue> HandleDisjointSet<H, V> {
 
 #[cfg(test)]
 mod tests {
-    use super::HandleDisjointSet;
     use crate::core::common::handle_collections::handle_disjoint_set::MergeValue;
+    use crate::core::common::handle_collections::handle_disjoint_set::handle_disjoint_set::HandleDisjointSet;
     use crate::core::common::handle_collections::handle_impl;
 
     handle_impl!(TestHandle);

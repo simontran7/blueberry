@@ -1,6 +1,6 @@
-pub(in crate::core) mod ast;
-pub(in crate::core) mod cst_builder;
-pub(in crate::core) mod cst_dumper;
+pub(crate) mod ast;
+pub(crate) mod cst_builder;
+pub(crate) mod cst_dumper;
 
 use std::sync::Arc;
 
@@ -9,25 +9,25 @@ use smol_str::SmolStr;
 use crate::core::common::span::{Span, TextSize};
 use crate::core::lexical_analysis::token_stream::TokenKind;
 
-pub(in crate::core) type GreenChild = NodeOrToken<Arc<GreenNode>, Arc<GreenToken>>;
+pub(crate) type GreenChild = NodeOrToken<Arc<GreenNode>, Arc<GreenToken>>;
 
-pub(in crate::core) type RedChild = NodeOrToken<RedNode, RedToken>;
+pub(crate) type RedChild = NodeOrToken<RedNode, RedToken>;
 
 #[derive(PartialEq, Eq)]
-pub(in crate::core) struct GreenNode {
+pub(crate) struct GreenNode {
     kind: SyntaxKind,
     width: TextSize,
     children: Vec<GreenChild>,
 }
 
 #[derive(PartialEq, Eq)]
-pub(in crate::core) struct GreenToken {
+pub(crate) struct GreenToken {
     kind: SyntaxKind,
     text: SmolStr,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub(in crate::core) enum SyntaxKind {
+pub(crate) enum SyntaxKind {
     // --- token kinds ---
 
     // literals
@@ -134,7 +134,7 @@ pub(in crate::core) enum SyntaxKind {
 }
 
 #[derive(Clone)]
-pub(in crate::core) struct RedNode {
+pub(crate) struct RedNode {
     parent: Option<Arc<RedNode>>,
     green: Arc<GreenNode>,
     index: u32,
@@ -142,7 +142,7 @@ pub(in crate::core) struct RedNode {
 }
 
 #[derive(Clone)]
-pub(in crate::core) struct RedToken {
+pub(crate) struct RedToken {
     parent: Arc<RedNode>,
     green: Arc<GreenToken>,
     index: u32,
@@ -150,27 +150,27 @@ pub(in crate::core) struct RedToken {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
-pub(in crate::core) struct RedNodeTag {
-    pub(in crate::core) kind: SyntaxKind,
-    pub(in crate::core) span: Span,
+pub(crate) struct RedNodeTag {
+    pub(crate) kind: SyntaxKind,
+    pub(crate) span: Span,
 }
 
 #[derive(PartialEq, Eq)]
-pub(in crate::core) enum NodeOrToken<N, T> {
+pub(crate) enum NodeOrToken<N, T> {
     Node(N),
     Token(T),
 }
 
-pub(in crate::core) struct SiblingsIter {
+pub(crate) struct SiblingsIter {
     current: Option<RedChild>,
 }
 
-pub(in crate::core) struct DescendantsIter {
+pub(crate) struct DescendantsIter {
     stack: Vec<RedNode>,
 }
 
 impl GreenNode {
-    pub(in crate::core) fn new(kind: SyntaxKind) -> Self {
+    pub(crate) fn new(kind: SyntaxKind) -> Self {
         Self {
             kind,
             width: TextSize::new(0),
@@ -178,19 +178,19 @@ impl GreenNode {
         }
     }
 
-    pub(in crate::core) fn kind(&self) -> SyntaxKind {
+    pub(crate) fn kind(&self) -> SyntaxKind {
         self.kind
     }
 
-    pub(in crate::core) fn width(&self) -> TextSize {
+    pub(crate) fn width(&self) -> TextSize {
         self.width
     }
 
-    pub(in crate::core) fn children(&self) -> &[GreenChild] {
+    pub(crate) fn children(&self) -> &[GreenChild] {
         &self.children
     }
 
-    pub(in crate::core) fn add_child(&mut self, child: GreenChild) {
+    pub(crate) fn add_child(&mut self, child: GreenChild) {
         let child_width = match &child {
             GreenChild::Node(node) => node.width(),
             GreenChild::Token(token) => token.width(),
@@ -201,19 +201,19 @@ impl GreenNode {
 }
 
 impl GreenToken {
-    pub(in crate::core) fn new(kind: SyntaxKind, text: SmolStr) -> Self {
+    pub(crate) fn new(kind: SyntaxKind, text: SmolStr) -> Self {
         Self { kind, text }
     }
 
-    pub(in crate::core) fn kind(&self) -> SyntaxKind {
+    pub(crate) fn kind(&self) -> SyntaxKind {
         self.kind
     }
 
-    pub(in crate::core) fn lexeme(&self) -> &str {
+    pub(crate) fn lexeme(&self) -> &str {
         &self.text
     }
 
-    pub(in crate::core) fn width(&self) -> TextSize {
+    pub(crate) fn width(&self) -> TextSize {
         TextSize::new(self.text.len())
     }
 }
@@ -271,7 +271,7 @@ impl From<TokenKind> for SyntaxKind {
 }
 
 impl RedNode {
-    pub(in crate::core) fn new(green: Arc<GreenNode>) -> Self {
+    pub(crate) fn new(green: Arc<GreenNode>) -> Self {
         Self {
             parent: None,
             green,
@@ -280,30 +280,30 @@ impl RedNode {
         }
     }
 
-    pub(in crate::core) fn kind(&self) -> SyntaxKind {
+    pub(crate) fn kind(&self) -> SyntaxKind {
         self.green.kind()
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
-    pub(in crate::core) fn green(&self) -> &GreenNode {
+    pub(crate) fn green(&self) -> &GreenNode {
         &self.green
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
-    pub(in crate::core) fn offset(&self) -> TextSize {
+    pub(crate) fn offset(&self) -> TextSize {
         self.offset
     }
 
-    pub(in crate::core) fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         Span::new(self.offset, self.offset + self.green.width())
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
-    pub(in crate::core) fn parent(&self) -> Option<Arc<RedNode>> {
+    pub(crate) fn parent(&self) -> Option<Arc<RedNode>> {
         self.parent.clone()
     }
 
-    pub(in crate::core) fn children(&self) -> impl Iterator<Item = RedChild> {
+    pub(crate) fn children(&self) -> impl Iterator<Item = RedChild> {
         let parent = Arc::new(self.clone());
         let mut offset = self.offset;
         self.green
@@ -336,14 +336,14 @@ impl RedNode {
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
-    pub(in crate::core) fn descendants(&self) -> DescendantsIter {
+    pub(crate) fn descendants(&self) -> DescendantsIter {
         DescendantsIter {
             stack: vec![self.clone()],
         }
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
-    pub(in crate::core) fn siblings(&self) -> SiblingsIter {
+    pub(crate) fn siblings(&self) -> SiblingsIter {
         SiblingsIter {
             current: Some(RedChild::Node(self.clone())),
         }
@@ -359,25 +359,25 @@ impl PartialEq for RedNode {
 impl Eq for RedNode {}
 
 impl RedToken {
-    pub(in crate::core) fn kind(&self) -> SyntaxKind {
+    pub(crate) fn kind(&self) -> SyntaxKind {
         self.green.kind()
     }
 
-    pub(in crate::core) fn lexeme(&self) -> &str {
+    pub(crate) fn lexeme(&self) -> &str {
         self.green.lexeme()
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
-    pub(in crate::core) fn offset(&self) -> TextSize {
+    pub(crate) fn offset(&self) -> TextSize {
         self.offset
     }
 
-    pub(in crate::core) fn span(&self) -> Span {
+    pub(crate) fn span(&self) -> Span {
         Span::new(self.offset, self.offset + self.green.width())
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
-    pub(in crate::core) fn parent(&self) -> &RedNode {
+    pub(crate) fn parent(&self) -> &RedNode {
         &self.parent
     }
 }
@@ -389,21 +389,21 @@ impl PartialEq for RedToken {
 }
 
 impl RedNodeTag {
-    pub(in crate::core) fn new(node: &RedNode) -> Self {
+    pub(crate) fn new(node: &RedNode) -> Self {
         Self {
             kind: node.kind(),
             span: node.span(),
         }
     }
 
-    pub(in crate::core) fn relative_to(self, anchor: TextSize) -> Self {
+    pub(crate) fn relative_to(self, anchor: TextSize) -> Self {
         Self {
             kind: self.kind,
             span: self.span.relative_to(anchor),
         }
     }
 
-    pub(in crate::core) fn to_red_node(self, root: &RedNode) -> Option<RedNode> {
+    pub(crate) fn to_red_node(self, root: &RedNode) -> Option<RedNode> {
         std::iter::successors(Some(root.clone()), |node| {
             node.children().find_map(|child| match child {
                 RedChild::Node(child) if child.span().contains(self.span) => Some(child),

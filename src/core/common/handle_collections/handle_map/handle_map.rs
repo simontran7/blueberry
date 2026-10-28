@@ -6,22 +6,22 @@ use std::slice;
 use crate::core::common::handle_collections::Handle;
 
 #[derive(Clone, salsa::SalsaValue)]
-pub(in crate::core) struct HandleMap<K, V> {
+pub(crate) struct HandleMap<K, V> {
     data: Vec<V>,
     _marker: PhantomData<K>,
 }
 
-pub(in crate::core) struct Iter<'a, K, V> {
+pub(crate) struct Iter<'a, K, V> {
     inner: std::iter::Enumerate<slice::Iter<'a, V>>,
     _marker: PhantomData<K>,
 }
 
-pub(in crate::core) struct IterMut<'a, K, V> {
+pub(crate) struct IterMut<'a, K, V> {
     inner: std::iter::Enumerate<slice::IterMut<'a, V>>,
     _marker: PhantomData<K>,
 }
 
-pub(in crate::core) struct IntoIter<K, V> {
+pub(crate) struct IntoIter<K, V> {
     inner: std::iter::Enumerate<std::vec::IntoIter<V>>,
     _marker: PhantomData<K>,
 }
@@ -31,89 +31,89 @@ pub(in crate::core) struct IntoIter<K, V> {
     reason = "general-purpose container API, kept complete ahead of its users"
 )]
 impl<K: Handle, V> HandleMap<K, V> {
-    pub(in crate::core) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             data: Vec::new(),
             _marker: PhantomData,
         }
     }
 
-    pub(in crate::core) fn with_capacity(capacity: usize) -> Self {
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
         Self {
             data: Vec::with_capacity(capacity),
             _marker: PhantomData,
         }
     }
 
-    pub(in crate::core) fn next_handle(&self) -> K {
+    pub(crate) fn next_handle(&self) -> K {
         K::new(self.data.len())
     }
 
-    pub(in crate::core) fn last(&self) -> Option<(K, &V)> {
+    pub(crate) fn last(&self) -> Option<(K, &V)> {
         let len = self.data.len();
         let last = self.data.last()?;
         Some((K::new(len - 1), last))
     }
 
-    pub(in crate::core) fn get(&self, key: K) -> Option<&V> {
+    pub(crate) fn get(&self, key: K) -> Option<&V> {
         self.data.get(key.index())
     }
 
-    pub(in crate::core) fn contains_key(&self, k: K) -> bool {
+    pub(crate) fn contains_key(&self, k: K) -> bool {
         k.index() < self.data.len()
     }
 
-    pub(in crate::core) fn count(&self) -> usize {
+    pub(crate) fn count(&self) -> usize {
         self.data.len()
     }
 
-    pub(in crate::core) fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
 
-    pub(in crate::core) fn keys(&self) -> impl Iterator<Item = K> + '_ {
+    pub(crate) fn keys(&self) -> impl Iterator<Item = K> + '_ {
         (0..self.data.len()).map(K::new)
     }
 
-    pub(in crate::core) fn values(&self) -> impl Iterator<Item = &V> + '_ {
+    pub(crate) fn values(&self) -> impl Iterator<Item = &V> + '_ {
         self.data.iter()
     }
 
-    pub(in crate::core) fn iter(&self) -> Iter<'_, K, V> {
+    pub(crate) fn iter(&self) -> Iter<'_, K, V> {
         Iter {
             inner: self.data.iter().enumerate(),
             _marker: PhantomData,
         }
     }
 
-    pub(in crate::core) fn last_mut(&mut self) -> Option<(K, &mut V)> {
+    pub(crate) fn last_mut(&mut self) -> Option<(K, &mut V)> {
         let len = self.data.len();
         let last = self.data.last_mut()?;
         Some((K::new(len - 1), last))
     }
 
-    pub(in crate::core) fn add(&mut self, value: V) -> K {
+    pub(crate) fn add(&mut self, value: V) -> K {
         let index = self.data.len();
         self.data.push(value);
         K::new(index)
     }
 
-    pub(in crate::core) fn get_mut(&mut self, key: K) -> Option<&mut V> {
+    pub(crate) fn get_mut(&mut self, key: K) -> Option<&mut V> {
         self.data.get_mut(key.index())
     }
 
-    pub(in crate::core) fn values_mut(&mut self) -> impl Iterator<Item = &mut V> + '_ {
+    pub(crate) fn values_mut(&mut self) -> impl Iterator<Item = &mut V> + '_ {
         self.data.iter_mut()
     }
 
-    pub(in crate::core) fn iter_mut(&mut self) -> IterMut<'_, K, V> {
+    pub(crate) fn iter_mut(&mut self) -> IterMut<'_, K, V> {
         IterMut {
             inner: self.data.iter_mut().enumerate(),
             _marker: PhantomData,
         }
     }
 
-    pub(in crate::core) fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.data.clear();
     }
 }

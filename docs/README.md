@@ -24,13 +24,13 @@ flowchart TD
     end
 
     subgraph definition [Per definition: a function or a constant]
-        signature_with_source_map_of
-        signature_of
-        signature_type_of
-        body_with_source_map_of
-        body_of
+        signature_hir_and_source_map_of["signature::hir_and_source_map_of"]
+        signature_hir_of["signature::hir_of"]
+        signature_type_of["signature::type_of"]
+        body_hir_and_source_map_of["body::hir_and_source_map_of"]
+        body_hir_of["body::hir_of"]
         scopes_of
-        semantics_of
+        body_types_of["body::types_of"]
         mir_of
     end
 
@@ -43,13 +43,13 @@ flowchart TD
     ModuleMap --> module_file_of
     imports_of -- "supplies the path argument" --> module_file_of
 
-    cst_of --> signature_with_source_map_of --> signature_of --> signature_type_of
-    cst_of --> body_with_source_map_of --> body_of --> scopes_of
+    cst_of --> signature_hir_and_source_map_of --> signature_hir_of --> signature_type_of
+    cst_of --> body_hir_and_source_map_of --> body_hir_of --> scopes_of
 
-    body_of & scopes_of & signature_type_of -.-> semantics_of
-    top_level_definitions_of & block_definitions_of & module_file_of -.-> semantics_of
+    body_hir_of & scopes_of & signature_type_of -.-> body_types_of
+    top_level_definitions_of & block_definitions_of & module_file_of -.-> body_types_of
 
-    body_of & signature_type_of & semantics_of --> mir_of
+    body_hir_of & signature_type_of & body_types_of --> mir_of
 ```
 
 1. [Lexical Analysis](architecture/lexical-analysis.md): source text to tokens (not written yet)

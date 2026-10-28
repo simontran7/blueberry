@@ -2,17 +2,17 @@ use std::fmt::Write;
 
 use crate::core::lexical_analysis::token_stream::TokenStream;
 
-pub(in crate::core) struct TokenDumper<'src> {
+pub(crate) struct TokenDumper<'src> {
     source: &'src str,
     tokens: TokenStream,
 }
 
 impl<'src> TokenDumper<'src> {
-    pub(in crate::core) fn new(source: &'src str, tokens: TokenStream) -> Self {
+    pub(crate) fn new(source: &'src str, tokens: TokenStream) -> Self {
         Self { source, tokens }
     }
 
-    pub(in crate::core) fn dump(&self) -> String {
+    pub(crate) fn dump(&self) -> String {
         let mut dump = String::new();
 
         // dump header

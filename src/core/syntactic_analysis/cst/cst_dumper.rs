@@ -2,14 +2,14 @@ use std::fmt::Write;
 
 use crate::core::syntactic_analysis::cst::{GreenChild, GreenNode};
 
-pub(in crate::core) struct CstDumper<'cst> {
+pub(crate) struct CstDumper<'cst> {
     root: &'cst GreenNode,
     dump: String,
     offset: usize,
 }
 
 impl<'cst> CstDumper<'cst> {
-    pub(in crate::core) fn new(root: &'cst GreenNode) -> Self {
+    pub(crate) fn new(root: &'cst GreenNode) -> Self {
         Self {
             root,
             dump: String::new(),
@@ -17,7 +17,7 @@ impl<'cst> CstDumper<'cst> {
         }
     }
 
-    pub(in crate::core) fn dump(&mut self) -> String {
+    pub(crate) fn dump(&mut self) -> String {
         writeln!(self.dump, "{:?}", self.root.kind()).unwrap();
         self.dump_children(self.root, "");
         writeln!(

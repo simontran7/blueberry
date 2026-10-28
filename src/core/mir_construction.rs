@@ -1,26 +1,26 @@
-pub(in crate::core) mod cfg_builder;
-pub(in crate::core) mod lowerer;
-pub(in crate::core) mod mir;
-pub(in crate::core) mod mir_dumper;
+pub(crate) mod cfg_builder;
+pub(crate) mod lowerer;
+pub(crate) mod mir;
+pub(crate) mod mir_dumper;
 
 use std::sync::Arc;
 
 use crate::core::mir_construction::lowerer::MirLowerer;
 use crate::core::mir_construction::mir::MirBody;
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
-use crate::core::semantic_analysis::{body_of, semantics_of, signature_type_of};
+use crate::core::semantic_analysis::{body, signature};
 
 #[salsa::tracked]
-pub(in crate::core) fn mir_of<'db>(
+pub(crate) fn mir_of<'db>(
     db: &'db dyn crate::Db,
     definition: Definition<'db>,
 ) -> Option<Arc<MirBody<'db>>> {
-    let signature_type = *signature_type_of(db, definition);
-    let semantics = semantics_of(db, definition);
+    let signature_type = *signature::type_of(db, definition);
+    let semantics = body::types_of(db, definition);
     if signature_type.is_poisoned(db) || semantics.has_errors(db) {
         return None;
     }
-    let body = body_of(db, definition);
+    let body = body::hir_of(db, definition);
     let lowerer = MirLowerer::new(db, body, semantics);
     Some(Arc::new(match definition {
         Definition::Function(_) => lowerer.lower_function(signature_type),

@@ -1,11 +1,10 @@
 use std::str::Chars;
 
-use super::token_stream::TokenKind;
-use super::token_stream::TokenStream;
 use crate::core::common::span::{Span, TextSize};
 use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
+use crate::core::lexical_analysis::token_stream::{TokenKind, TokenStream};
 
-pub(in crate::core) struct Tokenizer<'src> {
+pub(crate) struct Tokenizer<'src> {
     source: &'src str,
     cursor: Chars<'src>,
     tokens: TokenStream,
@@ -13,7 +12,7 @@ pub(in crate::core) struct Tokenizer<'src> {
 }
 
 impl<'src> Tokenizer<'src> {
-    pub(in crate::core) fn new(source: &'src str) -> Self {
+    pub(crate) fn new(source: &'src str) -> Self {
         Tokenizer {
             source,
             cursor: source.chars(),
@@ -22,7 +21,7 @@ impl<'src> Tokenizer<'src> {
         }
     }
 
-    pub(in crate::core) fn tokenize(mut self) -> (TokenStream, Vec<LexicalDiagnostic>) {
+    pub(crate) fn tokenize(mut self) -> (TokenStream, Vec<LexicalDiagnostic>) {
         while !self.at_eof() {
             let (kind, end) = self.tokenize_one();
             self.tokens.add(kind, end);
@@ -168,8 +167,8 @@ impl<'src> Tokenizer<'src> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::token_stream_dumper::TokenDumper;
     use super::*;
+    use crate::core::lexical_analysis::token_stream_dumper::TokenDumper;
     use std::fmt::Write;
     use std::fs;
 

@@ -9,13 +9,13 @@ use crate::core::semantic_analysis::keys::BlockKey;
 use crate::core::syntactic_analysis::cst::{RedNodeTag, SyntaxKind};
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum Signature<'db> {
+pub(crate) enum Signature<'db> {
     Function(FunctionSignature<'db>),
     Constant(ConstantSignature<'db>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct FunctionSignature<'db> {
+pub(crate) struct FunctionSignature<'db> {
     pub(in crate::core::semantic_analysis::ast_lowering) name: Symbol<'db>,
     pub(in crate::core::semantic_analysis::ast_lowering) store: HirNodeStore<'db>,
     pub(in crate::core::semantic_analysis::ast_lowering) parameter_annotation_handles:
@@ -25,14 +25,14 @@ pub(in crate::core) struct FunctionSignature<'db> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct ConstantSignature<'db> {
+pub(crate) struct ConstantSignature<'db> {
     pub(in crate::core::semantic_analysis::ast_lowering) name: Symbol<'db>,
     pub(in crate::core::semantic_analysis::ast_lowering) store: HirNodeStore<'db>,
     pub(in crate::core::semantic_analysis::ast_lowering) annotation: Option<TypeExpressionHandle>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct Body<'db> {
+pub(crate) struct Body<'db> {
     pub(in crate::core::semantic_analysis::ast_lowering) store: HirNodeStore<'db>,
     pub(in crate::core::semantic_analysis::ast_lowering) root_handle: ExpressionHandle,
     pub(in crate::core::semantic_analysis::ast_lowering) parameter_handles:
@@ -40,7 +40,7 @@ pub(in crate::core) struct Body<'db> {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct HirNodeStore<'db> {
+pub(crate) struct HirNodeStore<'db> {
     pub(in crate::core::semantic_analysis::ast_lowering) expressions:
         HandleMap<ExpressionHandle, Expression<'db>>,
     pub(in crate::core::semantic_analysis::ast_lowering) statements:
@@ -59,7 +59,7 @@ pub(in crate::core) struct HirNodeStore<'db> {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct HirNodeSourceMap {
+pub(crate) struct HirNodeSourceMap {
     pub(in crate::core::semantic_analysis::ast_lowering) expressions:
         SideHandleMap<ExpressionHandle, RedNodeTag>,
     pub(in crate::core::semantic_analysis::ast_lowering) statements:
@@ -71,7 +71,7 @@ pub(in crate::core) struct HirNodeSourceMap {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum Expression<'db> {
+pub(crate) enum Expression<'db> {
     Integer(Option<u128>),
     Boolean(bool),
     Path(Path<'db>),
@@ -124,24 +124,24 @@ pub(in crate::core) enum Expression<'db> {
 }
 
 #[salsa::interned(debug)]
-pub(in crate::core) struct Path<'db> {
+pub(crate) struct Path<'db> {
     #[returns(deref)]
-    pub(in crate::core) segments: Box<[Symbol<'db>]>,
+    pub(crate) segments: Box<[Symbol<'db>]>,
 }
 
-pub(in crate::core) struct TypeExpressionDisplay<'a, 'db> {
+pub(crate) struct TypeExpressionDisplay<'a, 'db> {
     store: &'a HirNodeStore<'db>,
     type_expression_handle: TypeExpressionHandle,
     db: &'db dyn crate::Db,
 }
 
-pub(in crate::core) struct PathDisplay<'db> {
+pub(crate) struct PathDisplay<'db> {
     path: Path<'db>,
     db: &'db dyn crate::Db,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum Statement {
+pub(crate) enum Statement {
     Let {
         name_handle: LocalBindingHandle,
         annotation_handle: Option<TypeExpressionHandle>,
@@ -155,26 +155,26 @@ pub(in crate::core) enum Statement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) struct LocalBinding<'db> {
+pub(crate) struct LocalBinding<'db> {
     pub(in crate::core::semantic_analysis::ast_lowering) name: Symbol<'db>,
     pub(in crate::core::semantic_analysis::ast_lowering) mutable: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum TypeExpression<'db> {
+pub(crate) enum TypeExpression<'db> {
     Path(Path<'db>),
     Tuple(Run<TypeExpressionHandle>),
     Error,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum LoopSource {
+pub(crate) enum LoopSource {
     Loop,
     While,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum BinaryOperator {
+pub(crate) enum BinaryOperator {
     Add,
     Sub,
     Mul,
@@ -191,21 +191,21 @@ pub(in crate::core) enum BinaryOperator {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
-pub(in crate::core) enum UnaryOperator {
+pub(crate) enum UnaryOperator {
     Negation,
     Not,
 }
 
-handle_impl!(pub(in crate::core) StatementHandle);
+handle_impl!(pub(crate) StatementHandle);
 
-handle_impl!(pub(in crate::core) ExpressionHandle);
+handle_impl!(pub(crate) ExpressionHandle);
 
-handle_impl!(pub(in crate::core) TypeExpressionHandle);
+handle_impl!(pub(crate) TypeExpressionHandle);
 
-handle_impl!(pub(in crate::core) LocalBindingHandle);
+handle_impl!(pub(crate) LocalBindingHandle);
 
 impl HirNodeSourceMap {
-    pub(in crate::core) fn expression_at(&self, offset: TextSize) -> Option<ExpressionHandle> {
+    pub(crate) fn expression_at(&self, offset: TextSize) -> Option<ExpressionHandle> {
         self.expressions
             .iter()
             .filter(|(_, tag)| tag.span.contains_offset(offset))
@@ -213,7 +213,7 @@ impl HirNodeSourceMap {
             .map(|(expression_handle, _)| expression_handle)
     }
 
-    pub(in crate::core) fn local_binding_span(
+    pub(crate) fn local_binding_span(
         &self,
         binding_handle: LocalBindingHandle,
         anchor: TextSize,
@@ -221,7 +221,7 @@ impl HirNodeSourceMap {
         self.local_bindings[binding_handle].span.anchored_at(anchor)
     }
 
-    pub(in crate::core) fn expression_span(
+    pub(crate) fn expression_span(
         &self,
         expression_handle: ExpressionHandle,
         anchor: TextSize,
@@ -229,7 +229,7 @@ impl HirNodeSourceMap {
         self.expressions[expression_handle].span.anchored_at(anchor)
     }
 
-    pub(in crate::core) fn type_expression_span(
+    pub(crate) fn type_expression_span(
         &self,
         type_expression_handle: TypeExpressionHandle,
         anchor: TextSize,
@@ -241,7 +241,7 @@ impl HirNodeSourceMap {
 }
 
 impl<'db> HirNodeStore<'db> {
-    pub(in crate::core) fn expressions(
+    pub(crate) fn expressions(
         &self,
     ) -> impl Iterator<Item = (ExpressionHandle, &Expression<'db>)> + '_ {
         self.expressions.iter()
@@ -249,59 +249,57 @@ impl<'db> HirNodeStore<'db> {
 }
 
 impl<'db> FunctionSignature<'db> {
-    pub(in crate::core) fn parameter_annotations(&self) -> &[TypeExpressionHandle] {
+    pub(crate) fn parameter_annotations(&self) -> &[TypeExpressionHandle] {
         &self.parameter_annotation_handles
     }
 
-    pub(in crate::core) fn return_type_annotation(&self) -> Option<TypeExpressionHandle> {
+    pub(crate) fn return_type_annotation(&self) -> Option<TypeExpressionHandle> {
         self.return_type_annotation
     }
 }
 
 impl<'db> ConstantSignature<'db> {
-    pub(in crate::core) fn annotation(&self) -> Option<TypeExpressionHandle> {
+    pub(crate) fn annotation(&self) -> Option<TypeExpressionHandle> {
         self.annotation
     }
 }
 
 impl<'db> Body<'db> {
-    pub(in crate::core) fn store(&self) -> &HirNodeStore<'db> {
+    pub(crate) fn store(&self) -> &HirNodeStore<'db> {
         &self.store
     }
 
-    pub(in crate::core) fn root(&self) -> ExpressionHandle {
+    pub(crate) fn root(&self) -> ExpressionHandle {
         self.root_handle
     }
 
-    pub(in crate::core) fn parameters(&self) -> &[LocalBindingHandle] {
+    pub(crate) fn parameters(&self) -> &[LocalBindingHandle] {
         &self.parameter_handles
     }
 }
 
 impl<'db> LocalBinding<'db> {
-    pub(in crate::core) fn name(&self) -> Symbol<'db> {
+    pub(crate) fn name(&self) -> Symbol<'db> {
         self.name
     }
 }
 
 impl<'db> Signature<'db> {
-    pub(in crate::core) fn name(&self) -> Symbol<'db> {
+    pub(crate) fn name(&self) -> Symbol<'db> {
         match self {
             Self::Function(function) => function.name,
             Self::Constant(constant) => constant.name,
         }
     }
 
-    pub(in crate::core) fn store(&self) -> &HirNodeStore<'db> {
+    pub(crate) fn store(&self) -> &HirNodeStore<'db> {
         match self {
             Self::Function(function) => &function.store,
             Self::Constant(constant) => &constant.store,
         }
     }
 
-    pub(in crate::core) fn annotation_handles(
-        &self,
-    ) -> impl Iterator<Item = TypeExpressionHandle> + '_ {
+    pub(crate) fn annotation_handles(&self) -> impl Iterator<Item = TypeExpressionHandle> + '_ {
         let (parameter_annotation_handles, annotation_handle): (&[TypeExpressionHandle], _) =
             match self {
                 Self::Function(function) => (
@@ -318,7 +316,7 @@ impl<'db> Signature<'db> {
 }
 
 impl<'db> HirNodeStore<'db> {
-    pub(in crate::core) fn display_type_expression<'a>(
+    pub(crate) fn display_type_expression<'a>(
         &'a self,
         type_expression_handle: TypeExpressionHandle,
         db: &'db dyn crate::Db,
@@ -332,7 +330,7 @@ impl<'db> HirNodeStore<'db> {
 }
 
 impl<'db> Path<'db> {
-    pub(in crate::core) fn display(self, db: &'db dyn crate::Db) -> PathDisplay<'db> {
+    pub(crate) fn display(self, db: &'db dyn crate::Db) -> PathDisplay<'db> {
         PathDisplay { path: self, db }
     }
 }
@@ -361,40 +359,31 @@ impl TryFrom<SyntaxKind> for BinaryOperator {
 }
 
 impl<'db> HirNodeStore<'db> {
-    pub(in crate::core) fn expression(&self, handle: ExpressionHandle) -> &Expression<'db> {
+    pub(crate) fn expression(&self, handle: ExpressionHandle) -> &Expression<'db> {
         &self.expressions[handle]
     }
 
-    pub(in crate::core) fn statement(&self, handle: StatementHandle) -> &Statement {
+    pub(crate) fn statement(&self, handle: StatementHandle) -> &Statement {
         &self.statements[handle]
     }
 
-    pub(in crate::core) fn local_binding(&self, handle: LocalBindingHandle) -> &LocalBinding<'db> {
+    pub(crate) fn local_binding(&self, handle: LocalBindingHandle) -> &LocalBinding<'db> {
         &self.local_bindings[handle]
     }
 
-    pub(in crate::core) fn type_expression(
-        &self,
-        handle: TypeExpressionHandle,
-    ) -> &TypeExpression<'db> {
+    pub(crate) fn type_expression(&self, handle: TypeExpressionHandle) -> &TypeExpression<'db> {
         &self.type_expressions[handle]
     }
 
-    pub(in crate::core) fn expression_handles(
-        &self,
-        run: Run<ExpressionHandle>,
-    ) -> &[ExpressionHandle] {
+    pub(crate) fn expression_handles(&self, run: Run<ExpressionHandle>) -> &[ExpressionHandle] {
         &self.expression_children[run]
     }
 
-    pub(in crate::core) fn statement_handles(
-        &self,
-        run: Run<StatementHandle>,
-    ) -> &[StatementHandle] {
+    pub(crate) fn statement_handles(&self, run: Run<StatementHandle>) -> &[StatementHandle] {
         &self.statement_children[run]
     }
 
-    pub(in crate::core) fn type_expression_handles(
+    pub(crate) fn type_expression_handles(
         &self,
         run: Run<TypeExpressionHandle>,
     ) -> &[TypeExpressionHandle] {
@@ -410,7 +399,7 @@ impl fmt::Display for TypeExpressionDisplay<'_, '_> {
                 let element_handles = &self.store.type_expression_children[*element_run];
                 f.write_str("(")?;
                 for (index, &element_handle) in element_handles.iter().enumerate() {
-                    if index > 0 {
+                    if 0 < index {
                         f.write_str(", ")?;
                     }
                     write!(
@@ -432,7 +421,7 @@ impl fmt::Display for TypeExpressionDisplay<'_, '_> {
 impl fmt::Display for PathDisplay<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for (index, segment) in self.path.segments(self.db).iter().enumerate() {
-            if index > 0 {
+            if 0 < index {
                 f.write_str("::")?;
             }
             f.write_str(segment.text(self.db))?;

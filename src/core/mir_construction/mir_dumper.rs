@@ -10,13 +10,13 @@ use crate::core::semantic_analysis::all_definitions_of;
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::source_file_key::SourceFileKey;
 
-pub(in crate::core) struct MirBodyDumper<'a, 'db> {
+pub(crate) struct MirBodyDumper<'a, 'db> {
     db: &'db dyn crate::Db,
     definition: Definition<'db>,
     body: &'a MirBody<'db>,
 }
 
-pub(in crate::core) trait BodyWriter {
+pub(crate) trait BodyWriter {
     fn write_block_header(
         &mut self,
         dumper: &MirBodyDumper,
@@ -38,10 +38,10 @@ pub(in crate::core) trait BodyWriter {
     }
 }
 
-pub(in crate::core) struct PlainWriter;
+pub(crate) struct PlainWriter;
 
 impl<'a, 'db> MirBodyDumper<'a, 'db> {
-    pub(in crate::core) fn new(
+    pub(crate) fn new(
         db: &'db dyn crate::Db,
         definition: Definition<'db>,
         body: &'a MirBody<'db>,
@@ -53,7 +53,7 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
         }
     }
 
-    pub(in crate::core) fn dump_file(
+    pub(crate) fn dump_file(
         db: &'db dyn crate::Db,
         file: SourceFileKey,
     ) -> Result<String, fmt::Error> {
@@ -74,20 +74,17 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
         Ok(out)
     }
 
-    pub(in crate::core) fn dump(&self) -> Result<String, fmt::Error> {
+    pub(crate) fn dump(&self) -> Result<String, fmt::Error> {
         self.dump_with(&mut PlainWriter)
     }
 
-    pub(in crate::core) fn dump_with<FW: BodyWriter>(
-        &self,
-        writer: &mut FW,
-    ) -> Result<String, fmt::Error> {
+    pub(crate) fn dump_with<FW: BodyWriter>(&self, writer: &mut FW) -> Result<String, fmt::Error> {
         let mut out = String::new();
         self.decorate_body(writer, &mut out)?;
         Ok(out)
     }
 
-    pub(in crate::core) fn signature_line(&self) -> String {
+    pub(crate) fn signature_line(&self) -> String {
         let name = name(self.db, self.definition);
         let parameters = self
             .body
@@ -101,7 +98,7 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
         format!("{name}({parameters}) -> {return_type}")
     }
 
-    pub(in crate::core) fn block_header(
+    pub(crate) fn block_header(
         &self,
         out: &mut String,
         block: BlockHandle,
@@ -124,7 +121,7 @@ impl<'a, 'db> MirBodyDumper<'a, 'db> {
         writeln!(out, ":")
     }
 
-    pub(in crate::core) fn instruction(
+    pub(crate) fn instruction(
         &self,
         out: &mut String,
         instruction: InstructionHandle,

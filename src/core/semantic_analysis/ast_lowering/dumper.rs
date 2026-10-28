@@ -3,19 +3,18 @@ use std::sync::Arc;
 
 use crate::core::common::span::{Span, TextSize};
 use crate::core::semantic_analysis::ast_lowering::nodes::{
-    Body, Expression, ExpressionHandle, HirNodeSourceMap, Signature, Statement, StatementHandle,
+    self, ExpressionHandle, HirNodeSourceMap, StatementHandle,
 };
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
 use crate::core::semantic_analysis::type_checking::type_checker::BodySemantics;
 use crate::core::semantic_analysis::{
-    all_definitions_of, block_definitions_of, body_of, body_source_map_of,
-    definition_diagnostics_of, import_diagnostics_of, semantics_of, signature_of,
-    top_level_definitions_of,
+    all_definitions_of, block_definitions_of, body, definition_diagnostics_of,
+    import_diagnostics_of, signature, top_level_definitions_of,
 };
 use crate::core::source_file_key::SourceFileKey;
 
-pub(in crate::core) struct HirBodyDumper<'db> {
+pub(crate) struct HirBodyDumper<'db> {
     db: &'db dyn crate::Db,
     source: &'db str,
     with_types: bool,
@@ -34,14 +33,11 @@ struct Node {
 
 impl<'db> HirBodyDumper<'db> {
     #[cfg(test)]
-    pub(in crate::core) fn dump_file(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
+    pub(crate) fn dump_file(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
         Self::dump(db, file, false)
     }
 
-    pub(in crate::core) fn dump_file_with_types(
-        db: &'db dyn crate::Db,
-        file: SourceFileKey,
-    ) -> String {
+    pub(crate) fn dump_file_with_types(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
         Self::dump(db, file, true)
     }
 
@@ -57,7 +53,7 @@ impl<'db> HirBodyDumper<'db> {
             .iter()
             .enumerate()
         {
-            if index > 0 {
+            if 0 < index {
                 out.push('\n');
             }
             dumper.definition(*definition).write(&mut out);
@@ -91,18 +87,18 @@ impl<'db> HirBodyDumper<'db> {
     }
 
     fn definition(&self, definition: Definition<'db>) -> Node {
-        let signature = signature_of(self.db, definition);
-        let body = body_of(self.db, definition);
+        let signature = signature::hir_of(self.db, definition);
+        let body = body::hir_of(self.db, definition);
         let types = self.with_types.then(|| BodyTypes {
-            semantics: semantics_of(self.db, definition).clone(),
-            source_map: body_source_map_of(self.db, definition),
+            semantics: body::types_of(self.db, definition).clone(),
+            source_map: body::source_map_of(self.db, definition),
             anchor: definition.anchor(self.db),
         });
         let types = types.as_ref();
         let store = signature.store();
         let name = signature.name().text(self.db);
         let label = match &**signature {
-            Signature::Function(function) => {
+            nodes::Signature::Function(function) => {
                 let parameters: Vec<String> = body
                     .parameter_handles
                     .iter()
@@ -129,7 +125,7 @@ impl<'db> HirBodyDumper<'db> {
                         });
                 format!("function {name}({}){returns}", parameters.join(", "))
             }
-            Signature::Constant(constant) => {
+            nodes::Signature::Constant(constant) => {
                 let ty = constant
                     .annotation
                     .map_or_else(String::new, |annotation_handle| {
@@ -146,16 +142,16 @@ impl<'db> HirBodyDumper<'db> {
 
     fn expression(
         &self,
-        body: &Body<'db>,
+        body: &nodes::Body<'db>,
         types: Option<&BodyTypes<'db>>,
         expression_handle: ExpressionHandle,
     ) -> Node {
         let node = match body.store().expression(expression_handle) {
-            Expression::Integer(Some(value)) => Node::leaf(format!("Integer {value}")),
-            Expression::Integer(None) => Node::leaf("Integer (too large)"),
-            Expression::Boolean(value) => Node::leaf(format!("Boolean {value}")),
-            Expression::Path(path) => Node::leaf(format!("Path {}", path.display(self.db))),
-            Expression::Tuple { element_run } => Node::new(
+            nodes::Expression::Integer(Some(value)) => Node::leaf(format!("Integer {value}")),
+            nodes::Expression::Integer(None) => Node::leaf("Integer (too large)"),
+            nodes::Expression::Boolean(value) => Node::leaf(format!("Boolean {value}")),
+            nodes::Expression::Path(path) => Node::leaf(format!("Path {}", path.display(self.db))),
+            nodes::Expression::Tuple { element_run } => Node::new(
                 "Tuple",
                 body.store()
                     .expression_handles(*element_run)
@@ -163,15 +159,15 @@ impl<'db> HirBodyDumper<'db> {
                     .map(|element_handle| self.expression(body, types, *element_handle))
                     .collect(),
             ),
-            Expression::Field {
+            nodes::Expression::Field {
                 receiver_handle,
                 name,
             } => Node::new(
                 format!("Field {}", name.map_or("?", |name| name.text(self.db))),
                 vec![self.expression(body, types, *receiver_handle)],
             ),
-            Expression::Error => Node::leaf("Error"),
-            Expression::If {
+            nodes::Expression::Error => Node::leaf("Error"),
+            nodes::Expression::If {
                 condition_handle,
                 then_branch_handle,
                 else_branch_handle,
@@ -190,7 +186,7 @@ impl<'db> HirBodyDumper<'db> {
                 }
                 Node::new("If", children)
             }
-            Expression::Block {
+            nodes::Expression::Block {
                 block_key,
                 statement_run,
                 tail_handle,
@@ -219,14 +215,14 @@ impl<'db> HirBodyDumper<'db> {
                 }
                 Node::new("Block", children)
             }
-            Expression::Loop {
+            nodes::Expression::Loop {
                 source,
                 body_handle: loop_body_handle,
             } => Node::new(
                 format!("Loop {source:?}"),
                 vec![self.expression(body, types, *loop_body_handle)],
             ),
-            Expression::Call {
+            nodes::Expression::Call {
                 callee_handle,
                 argument_run,
             } => {
@@ -242,29 +238,29 @@ impl<'db> HirBodyDumper<'db> {
                 ));
                 Node::new("Call", children)
             }
-            Expression::Continue => Node::leaf("Continue"),
-            Expression::Break { value_handle } => Node::new(
+            nodes::Expression::Continue => Node::leaf("Continue"),
+            nodes::Expression::Break { value_handle } => Node::new(
                 "Break",
                 value_handle
                     .iter()
                     .map(|value_handle| self.expression(body, types, *value_handle))
                     .collect(),
             ),
-            Expression::Return { value_handle } => Node::new(
+            nodes::Expression::Return { value_handle } => Node::new(
                 "Return",
                 value_handle
                     .iter()
                     .map(|value_handle| self.expression(body, types, *value_handle))
                     .collect(),
             ),
-            Expression::UnaryOperation {
+            nodes::Expression::UnaryOperation {
                 operand_handle,
                 operator,
             } => Node::new(
                 format!("Unary {operator}"),
                 vec![self.expression(body, types, *operand_handle)],
             ),
-            Expression::BinaryOperation {
+            nodes::Expression::BinaryOperation {
                 lhs_handle,
                 operator,
                 rhs_handle,
@@ -278,7 +274,7 @@ impl<'db> HirBodyDumper<'db> {
                     ],
                 )
             }
-            Expression::Assignment {
+            nodes::Expression::Assignment {
                 target_handle,
                 value_handle,
             } => Node::new(
@@ -311,12 +307,12 @@ impl<'db> HirBodyDumper<'db> {
 
     fn statement(
         &self,
-        body: &Body<'db>,
+        body: &nodes::Body<'db>,
         types: Option<&BodyTypes<'db>>,
         statement_handle: StatementHandle,
     ) -> Node {
         match body.store().statement(statement_handle) {
-            Statement::Let {
+            nodes::Statement::Let {
                 name_handle,
                 annotation_handle,
                 initializer_handle,
@@ -349,7 +345,7 @@ impl<'db> HirBodyDumper<'db> {
                     None => node,
                 }
             }
-            Statement::Expression {
+            nodes::Statement::Expression {
                 expression_handle,
                 has_semicolon,
             } => {
@@ -359,7 +355,7 @@ impl<'db> HirBodyDumper<'db> {
                     vec![self.expression(body, types, *expression_handle)],
                 )
             }
-            Statement::Definition => Node::leaf("Definition"),
+            nodes::Statement::Definition => Node::leaf("Definition"),
         }
     }
 

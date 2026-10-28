@@ -1,21 +1,16 @@
-pub(in crate::core) mod ast_lowering;
-pub(in crate::core) mod keys;
-pub(in crate::core) mod name_resolution;
-pub(in crate::core) mod semantic_diagnostic;
-pub(in crate::core) mod type_checking;
+pub(crate) mod ast_lowering;
+pub(crate) mod keys;
+pub(crate) mod name_resolution;
+pub(crate) mod semantic_diagnostic;
+pub(crate) mod type_checking;
 
 use std::sync::Arc;
 
 use crate::core::common::span::{Span, TextSize};
 use crate::core::module_map::{ModuleMap, ModulePath};
-use crate::core::semantic_analysis::ast_lowering::body_lowerer::BodyLowerer;
-use crate::core::semantic_analysis::ast_lowering::{
-    lower_constant_signature, lower_function_signature,
-};
 
 use crate::core::semantic_analysis::ast_lowering::nodes::{
-    Body, Expression, HirNodeSourceMap, HirNodeStore, Signature, TypeExpression,
-    TypeExpressionHandle,
+    self, HirNodeSourceMap, HirNodeStore, TypeExpressionHandle,
 };
 
 use crate::core::semantic_analysis::keys::{BlockKey, DefinitionSource};
@@ -27,9 +22,6 @@ use crate::core::semantic_analysis::name_resolution::definition_list::{
 use crate::core::semantic_analysis::name_resolution::import_list::ImportList;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
 use crate::core::semantic_analysis::semantic_diagnostic::{OwnerSpans, SemanticDiagnostic};
-use crate::core::semantic_analysis::type_checking::type_checker::{
-    BodySemantics, check_constant, check_function,
-};
 use crate::core::semantic_analysis::type_checking::type_expression_lowering::lower_type_expression;
 use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::source_file_key::SourceFileKey;
@@ -37,95 +29,155 @@ use crate::core::syntactic_analysis::cst::RedNode;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode, File};
 use crate::core::syntactic_analysis::cst_of;
 
-// ---- Type Checking ----
+// ---- Signatures ----
+pub(crate) mod signature {
+    use std::sync::Arc;
 
-#[salsa::tracked]
-pub(in crate::core) fn semantics_of<'db>(
-    db: &'db dyn crate::Db,
-    definition: Definition<'db>,
-) -> Arc<BodySemantics<'db>> {
-    let body = body_of(db, definition);
-    let scopes = scopes_of(db, definition);
-    let signature_type = *signature_type_of(db, definition);
-    Arc::new(match definition {
-        Definition::Function(_) => check_function(db, body, scopes, signature_type),
-        Definition::Constant(_) => check_constant(db, body, scopes, signature_type),
-    })
-}
-
-// ---- AST Lowering ----
-
-#[salsa::tracked]
-pub(in crate::core) fn body_of<'db>(
-    db: &'db dyn crate::Db,
-    definition: Definition<'db>,
-) -> Arc<Body<'db>> {
-    body_with_source_map_of(db, definition).0.clone()
-}
-
-pub(in crate::core) fn body_source_map_of<'db>(
-    db: &'db dyn crate::Db,
-    definition: Definition<'db>,
-) -> Arc<HirNodeSourceMap> {
-    body_with_source_map_of(db, definition).1.clone()
-}
-
-#[salsa::tracked]
-pub(in crate::core) fn signature_type_of<'db>(
-    db: &'db dyn crate::Db,
-    definition: Definition<'db>,
-) -> Ty<'db> {
-    let signature = signature_of(db, definition);
-    let lower = |annotation_handle| {
-        lower_type_expression(db, signature.store(), annotation_handle, &mut |_| {})
+    use crate::core::semantic_analysis::ast_lowering::nodes::{HirNodeSourceMap, Signature};
+    use crate::core::semantic_analysis::ast_lowering::{
+        lower_constant_signature, lower_function_signature,
     };
-    match &**signature {
-        Signature::Function(function) => {
-            let parameters = function
-                .parameter_annotations()
-                .iter()
-                .map(|&annotation_handle| lower(annotation_handle))
-                .collect();
-            let return_type = function
-                .return_type_annotation()
-                .map_or_else(|| Ty::unit(db), lower);
-            Ty::function(db, parameters, return_type)
+    use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
+    use crate::core::semantic_analysis::type_checking::type_expression_lowering::lower_type_expression;
+    use crate::core::semantic_analysis::type_checking::types::Ty;
+
+    /// Returns the type of `definition`, from its signature's annotations alone.
+    #[salsa::tracked]
+    pub(crate) fn type_of<'db>(db: &'db dyn crate::Db, definition: Definition<'db>) -> Ty<'db> {
+        let signature = hir_of(db, definition);
+        let lower = |annotation_handle| {
+            lower_type_expression(db, signature.store(), annotation_handle, &mut |_| {})
+        };
+        match &**signature {
+            Signature::Function(function) => {
+                let parameters = function
+                    .parameter_annotations()
+                    .iter()
+                    .map(|&annotation_handle| lower(annotation_handle))
+                    .collect();
+                let return_type = function
+                    .return_type_annotation()
+                    .map_or_else(|| Ty::unit(db), lower);
+                Ty::function(db, parameters, return_type)
+            }
+            Signature::Constant(constant) => {
+                constant.annotation().map_or_else(|| Ty::error(db), lower)
+            }
         }
-        Signature::Constant(constant) => constant.annotation().map_or_else(|| Ty::error(db), lower),
+    }
+
+    /// Returns the HIR of `definition`'s signature.
+    #[salsa::tracked]
+    pub(crate) fn hir_of<'db>(
+        db: &'db dyn crate::Db,
+        definition: Definition<'db>,
+    ) -> Arc<Signature<'db>> {
+        hir_and_source_map_of(db, definition).0.clone()
+    }
+
+    /// Returns where each node of `definition`'s signature comes from in the text.
+    pub(crate) fn source_map_of<'db>(
+        db: &'db dyn crate::Db,
+        definition: Definition<'db>,
+    ) -> Arc<HirNodeSourceMap> {
+        hir_and_source_map_of(db, definition).1.clone()
+    }
+
+    #[salsa::tracked]
+    fn hir_and_source_map_of<'db>(
+        db: &'db dyn crate::Db,
+        definition: Definition<'db>,
+    ) -> (Arc<Signature<'db>>, Arc<HirNodeSourceMap>) {
+        let (signature, source_map) = match definition {
+            Definition::Function(key) => {
+                let (function, source_map) =
+                    lower_function_signature(db, &key.to_ast_node(db), definition.anchor(db));
+                (Signature::Function(function), source_map)
+            }
+            Definition::Constant(key) => {
+                let (constant, source_map) =
+                    lower_constant_signature(db, &key.to_ast_node(db), definition.anchor(db));
+                (Signature::Constant(constant), source_map)
+            }
+        };
+        (Arc::new(signature), Arc::new(source_map))
     }
 }
 
-#[salsa::tracked]
-pub(in crate::core) fn signature_of<'db>(
-    db: &'db dyn crate::Db,
-    definition: Definition<'db>,
-) -> Arc<Signature<'db>> {
-    signature_with_source_map_of(db, definition).0.clone()
-}
+// ---- Bodies ----
+pub(crate) mod body {
+    use std::sync::Arc;
 
-pub(in crate::core) fn signature_source_map_of<'db>(
-    db: &'db dyn crate::Db,
-    definition: Definition<'db>,
-) -> Arc<HirNodeSourceMap> {
-    signature_with_source_map_of(db, definition).1.clone()
+    use crate::core::semantic_analysis::ast_lowering::body_lowerer::BodyLowerer;
+    use crate::core::semantic_analysis::ast_lowering::nodes::{Body, HirNodeSourceMap};
+    use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
+    use crate::core::semantic_analysis::type_checking::type_checker::{
+        BodySemantics, check_constant, check_function,
+    };
+    use crate::core::semantic_analysis::{scopes_of, signature};
+
+    /// Returns the types of `definition`'s body: what each name in it refers to, and what type
+    /// each expression has.
+    #[salsa::tracked]
+    pub(crate) fn types_of<'db>(
+        db: &'db dyn crate::Db,
+        definition: Definition<'db>,
+    ) -> Arc<BodySemantics<'db>> {
+        let body = hir_of(db, definition);
+        let scopes = scopes_of(db, definition);
+        let signature_type = *signature::type_of(db, definition);
+        Arc::new(match definition {
+            Definition::Function(_) => check_function(db, body, scopes, signature_type),
+            Definition::Constant(_) => check_constant(db, body, scopes, signature_type),
+        })
+    }
+
+    /// Returns the HIR of `definition`'s body.
+    #[salsa::tracked]
+    pub(crate) fn hir_of<'db>(
+        db: &'db dyn crate::Db,
+        definition: Definition<'db>,
+    ) -> Arc<Body<'db>> {
+        hir_and_source_map_of(db, definition).0.clone()
+    }
+
+    /// Returns where each node of `definition`'s body comes from in the text.
+    pub(crate) fn source_map_of<'db>(
+        db: &'db dyn crate::Db,
+        definition: Definition<'db>,
+    ) -> Arc<HirNodeSourceMap> {
+        hir_and_source_map_of(db, definition).1.clone()
+    }
+
+    #[salsa::tracked]
+    fn hir_and_source_map_of<'db>(
+        db: &'db dyn crate::Db,
+        definition: Definition<'db>,
+    ) -> (Arc<Body<'db>>, Arc<HirNodeSourceMap>) {
+        let lowerer = BodyLowerer::new(db, definition.file(db), definition);
+        let (body, source_map) = match definition {
+            Definition::Function(key) => lowerer.lower_function(&key.to_ast_node(db)),
+            Definition::Constant(key) => lowerer.lower_constant(&key.to_ast_node(db)),
+        };
+        (Arc::new(body), Arc::new(source_map))
+    }
 }
 
 // ---- Name Collecting ----
-
 #[salsa::tracked]
-pub(in crate::core) fn scopes_of<'db>(
+pub(crate) fn scopes_of<'db>(
     db: &'db dyn crate::Db,
     definition: Definition<'db>,
 ) -> Arc<ScopeTree<'db>> {
     Arc::new(ScopeTree::new(
-        body_of(db, definition),
+        body::hir_of(db, definition),
         definition.file(db),
         definition.source(db).block(),
     ))
 }
 
 #[salsa::tracked]
-pub(in crate::core) fn top_level_definitions_of<'db>(
+pub(crate) fn top_level_definitions_of<'db>(
     db: &'db dyn crate::Db,
     file: SourceFileKey,
 ) -> Arc<DefinitionList<'db>> {
@@ -143,7 +195,7 @@ pub(in crate::core) fn top_level_definitions_of<'db>(
 }
 
 #[salsa::tracked]
-pub(in crate::core) fn block_definitions_of<'db>(
+pub(crate) fn block_definitions_of<'db>(
     db: &'db dyn crate::Db,
     block: BlockKey<'db>,
 ) -> Arc<DefinitionList<'db>> {
@@ -156,10 +208,7 @@ pub(in crate::core) fn block_definitions_of<'db>(
 }
 
 #[salsa::tracked]
-pub(in crate::core) fn imports_of<'db>(
-    db: &'db dyn crate::Db,
-    file: SourceFileKey,
-) -> Arc<ImportList<'db>> {
+pub(crate) fn imports_of<'db>(db: &'db dyn crate::Db, file: SourceFileKey) -> Arc<ImportList<'db>> {
     let root_node = RedNode::new(cst_of(db, file).clone());
     let root_file = File::cast(root_node).unwrap();
 
@@ -177,7 +226,7 @@ pub(in crate::core) fn imports_of<'db>(
 
 /// Takes an import's path and returns that module's [`SourceFileKey`]
 #[salsa::tracked]
-pub(in crate::core) fn module_file_of<'db>(
+pub(crate) fn module_file_of<'db>(
     db: &'db dyn crate::Db,
     path: ast_lowering::nodes::Path<'db>,
 ) -> Option<SourceFileKey> {
@@ -193,17 +242,17 @@ pub(in crate::core) fn module_file_of<'db>(
 
 // ---- Diagnostics ----
 #[salsa::tracked]
-pub(in crate::core) fn definition_diagnostics_of<'db>(
+pub(crate) fn definition_diagnostics_of<'db>(
     db: &'db dyn crate::Db,
     definition: Definition<'db>,
 ) -> Arc<[SemanticDiagnostic]> {
     let file = definition.file(db);
-    let signature = signature_of(db, definition);
+    let signature = signature::hir_of(db, definition);
     let anchor = definition.anchor(db);
     let mut diagnostics = unknown_type_diagnostics(
         db,
         signature.store(),
-        &signature_source_map_of(db, definition),
+        &signature::source_map_of(db, definition),
         anchor,
         signature.annotation_handles(),
     );
@@ -227,9 +276,9 @@ pub(in crate::core) fn definition_diagnostics_of<'db>(
             return_type: None,
         },
     };
-    let body = body_of(db, definition);
-    let source_map = body_source_map_of(db, definition);
-    let semantics = semantics_of(db, definition);
+    let body = body::hir_of(db, definition);
+    let source_map = body::source_map_of(db, definition);
+    let semantics = body::types_of(db, definition);
     diagnostics.extend(
         semantics
             .diagnostics()
@@ -239,7 +288,7 @@ pub(in crate::core) fn definition_diagnostics_of<'db>(
     diagnostics.into()
 }
 
-pub(in crate::core) fn import_diagnostics_of(
+pub(crate) fn import_diagnostics_of(
     db: &dyn crate::Db,
     file: SourceFileKey,
 ) -> Vec<SemanticDiagnostic> {
@@ -266,9 +315,7 @@ pub(in crate::core) fn import_diagnostics_of(
         .collect()
 }
 
-/// Returns the errors about `main`, the entry point of a program compiled from `file`: only a
-/// top-level function counts, and it must take no parameters and return `()`.
-pub(in crate::core) fn entry_point_diagnostics_of(
+pub(crate) fn entry_point_diagnostics_of(
     db: &dyn crate::Db,
     file: SourceFileKey,
 ) -> Vec<SemanticDiagnostic> {
@@ -288,7 +335,7 @@ pub(in crate::core) fn entry_point_diagnostics_of(
         }];
     };
 
-    let ty = *signature_type_of(db, main);
+    let ty = *signature::type_of(db, main);
     let expected = Ty::function(db, Box::new([]), Ty::unit(db));
     // a poisoned signature (e.g., with an unknown type) was already reported
     if ty == expected || ty.is_poisoned(db) {
@@ -309,8 +356,7 @@ pub(in crate::core) fn entry_point_diagnostics_of(
 }
 
 // ---- Finding Definitions ----
-
-pub(in crate::core) fn definition_at<'db>(
+pub(crate) fn definition_at<'db>(
     db: &'db dyn crate::Db,
     file: SourceFileKey,
     offset: TextSize,
@@ -321,7 +367,7 @@ pub(in crate::core) fn definition_at<'db>(
         .min_by_key(|definition| definition.span(db).len())
 }
 
-pub(in crate::core) fn all_definitions_of<'db>(
+pub(crate) fn all_definitions_of<'db>(
     db: &'db dyn crate::Db,
     file: SourceFileKey,
 ) -> Vec<Definition<'db>> {
@@ -331,9 +377,9 @@ pub(in crate::core) fn all_definitions_of<'db>(
         definitions: &mut Vec<Definition<'db>>,
     ) {
         definitions.push(definition);
-        let body = body_of(db, definition);
+        let body = body::hir_of(db, definition);
         for expression in body.store().expressions().map(|(_, expression)| expression) {
-            if let Expression::Block {
+            if let nodes::Expression::Block {
                 block_key: Some(block_key),
                 ..
             } = expression
@@ -353,40 +399,6 @@ pub(in crate::core) fn all_definitions_of<'db>(
 }
 
 // ---- Helpers ----
-
-#[salsa::tracked]
-fn body_with_source_map_of<'db>(
-    db: &'db dyn crate::Db,
-    definition: Definition<'db>,
-) -> (Arc<Body<'db>>, Arc<HirNodeSourceMap>) {
-    let lowerer = BodyLowerer::new(db, definition.file(db), definition);
-    let (body, source_map) = match definition {
-        Definition::Function(key) => lowerer.lower_function(&key.to_ast_node(db)),
-        Definition::Constant(key) => lowerer.lower_constant(&key.to_ast_node(db)),
-    };
-    (Arc::new(body), Arc::new(source_map))
-}
-
-#[salsa::tracked]
-fn signature_with_source_map_of<'db>(
-    db: &'db dyn crate::Db,
-    definition: Definition<'db>,
-) -> (Arc<Signature<'db>>, Arc<HirNodeSourceMap>) {
-    let (signature, source_map) = match definition {
-        Definition::Function(key) => {
-            let (function, source_map) =
-                lower_function_signature(db, &key.to_ast_node(db), definition.anchor(db));
-            (Signature::Function(function), source_map)
-        }
-        Definition::Constant(key) => {
-            let (constant, source_map) =
-                lower_constant_signature(db, &key.to_ast_node(db), definition.anchor(db));
-            (Signature::Constant(constant), source_map)
-        }
-    };
-    (Arc::new(signature), Arc::new(source_map))
-}
-
 fn collect_definitions<'db>(
     db: &'db dyn crate::Db,
     file: SourceFileKey,
@@ -418,7 +430,8 @@ fn unknown_type_diagnostics<'db>(
             store,
             annotation_handle,
             &mut |type_expression_handle| {
-                let TypeExpression::Path(path) = store.type_expression(type_expression_handle)
+                let nodes::TypeExpression::Path(path) =
+                    store.type_expression(type_expression_handle)
                 else {
                     unreachable!("only path type expressions can be unknown")
                 };
