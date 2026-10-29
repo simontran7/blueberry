@@ -52,19 +52,15 @@ flowchart TD
     body_hir_of & signature_type_of & body_types_of --> mir_of
 ```
 
-1. [Lexical Analysis](architecture/lexical-analysis.md): source text to tokens (not written yet)
-2. [Syntactic Analysis](architecture/syntactic-analysis.md): tokens to a concrete syntax tree
-3. [Semantic Analysis](architecture/semantic-analysis.md): what each name refers to, and what type each expression has
-4. [MIR Construction](architecture/mir-construction.md): the typed HIR to a control-flow graph in SSA form
+1. [Lexical Analysis](architecture/lexical-analysis.md): source text to tokens 
+2. [Syntactic Analysis](architecture/syntactic-analysis.md): tokens to concrete syntax trees
+3. [Semantic Analysis](architecture/semantic-analysis.md): concrete syntax trees to a typed high-level intermediate representation
+4. [MIR Construction](architecture/mir-construction.md): typed high-level intermediate representation to a mid-level intermediate representation (control-flow graph in SSA form)
 
 ## Testing
 
-```bash
-cargo test
-```
-
-Most tests are snapshot tests: see [Testing](testing.md) to add one.
+See [Testing](testing.md).
 
 ## Style
 
-Follow the [Style Guide](style-guide.md), including its commit messages.
+See [Style Guide](style-guide.md).
