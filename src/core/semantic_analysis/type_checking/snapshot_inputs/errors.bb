@@ -92,3 +92,8 @@ func negated_later() {
     let y = -1;
     let z: U64 = y;
 }
+
+func operator_cannot_be_applied() {
+    let a = (1, 2) + 1;
+    let b = true * 2;
+}

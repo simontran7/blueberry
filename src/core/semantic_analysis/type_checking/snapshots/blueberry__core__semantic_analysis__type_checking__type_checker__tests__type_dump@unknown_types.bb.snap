@@ -1,0 +1,54 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+assertion_line: 1336
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/unknown_types.bb
+---
+function after_loop()
+└─ Block 18..59: Bottom
+   ├─ Let t: {error}
+   │  └─ initializer: Loop Loop 32..39: Bottom
+   │     └─ Block 37..39: ()
+   └─ Let y: {error}
+      └─ initializer: Field 0 53..56: {error}
+         └─ Path t 53..54: {error}
+
+function after_diverging_if()
+└─ Block 87..157: Bottom
+   ├─ Let t: {error}
+   │  └─ initializer: If 101..137: {error}
+   │     ├─ condition: Boolean true 104..108: Bool
+   │     ├─ then: Block 109..120: Bottom
+   │     │  └─ Expression ;
+   │     │     └─ Return 111..117: Bottom
+   │     └─ else: Block 126..137: Bottom
+   │        └─ Expression ;
+   │           └─ Return 128..134: Bottom
+   └─ Let y: {error}
+      └─ initializer: Field 0 151..154: {error}
+         └─ Path t 151..152: {error}
+
+function after_diverging_block()
+└─ Block 188..233: Bottom
+   ├─ Let t: {error}
+   │  └─ initializer: Block 202..213: Bottom
+   │     └─ Expression ;
+   │        └─ Return 204..210: Bottom
+   └─ Let y: {error}
+      └─ initializer: Field 0 227..230: {error}
+         └─ Path t 227..228: {error}
+
+function diverging_receiver()
+└─ Block 261..289: Bottom
+   └─ Let y: Bottom
+      └─ initializer: Field 0 275..286: Bottom
+         └─ Loop Loop 276..283: Bottom
+            └─ Block 281..283: ()
+
+diagnostics
+  E0282 28..29 't': type annotations needed (consider giving `t` an explicit type)
+    53..54 't': type must be known at this point
+  E0282 97..98 't': type annotations needed (consider giving `t` an explicit type)
+    151..152 't': type must be known at this point
+  E0282 198..199 't': type annotations needed (consider giving `t` an explicit type)
+    227..228 't': type must be known at this point

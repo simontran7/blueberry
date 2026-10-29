@@ -34,9 +34,18 @@ _In the code:_ `keys.rs`; keys are created while collecting definitions (`top_le
 
 Every definition's header is lowered into a `FunctionSignature` (its name, parameter annotations and return annotation) or a `ConstantSignature` (its name and annotation). The annotations are still just what the user wrote, e.g. `I32`; they only become types when they're needed, with `()` as the return type if none is written, and the `Error` type for an unknown type name.
 
-An annotation is a **type expression**: a term in the language of types, which denotes a type (a `Ty`) the way an expression denotes a value. Type expressions nest (e.g., `(I32, (Bool, U64))`), so every type expression gets its own handle in a `HirNodeStore` (see [Bodies](#bodies)), and a tuple type expression refers to its elements by handle. A signature has its own store, and so does each body, and both are built by the same `HirNodeStoreBuilder`, which also records in a source map where each type expression came from, so that an unknown name inside a tuple (e.g., `Foo` in `(I32, Foo)`) is reported at the name itself. An unknown name is found the same way in a signature and in a body: by lowering the annotation to a type, which reports every name it can't resolve.
+An annotation is a **type expression**: what the user wrote for a type, which denotes a type (a `Ty`) the way an expression denotes a value.
 
-Turning an annotation into a type is done by `resolve_type_expression`, the same function for signatures and for a `let` in a body. It belongs to type checking rather than to the HIR, since it's resolution: today, a name can only be a primitive, but once blueberry has user-defined types, `Point` will need to be looked up the same way as a value path.
+> [!NOTE]
+> An annotation becomes a type in two steps:
+> 1. **lowering** (AST lowering): the syntax becomes a type expression in the HIR, e.g. the path `I32`. It's still just a name.
+> 2. **resolving** (type checking): the type expression becomes a `Ty`, e.g. the built-in 32-bit integer type, by `resolve_type_expression`.
+>
+> Resolving is part of type checking, not of AST lowering, since it needs to know what names mean: today, a name can only be a primitive, but once blueberry has user-defined types, `Point` will need to be looked up the same way as a value path.
+
+Type expressions nest (e.g., `(I32, (Bool, U64))`), so every type expression gets its own handle in a `HirNodeStore` (see [Bodies](#bodies)), and a tuple type expression refers to its elements by handle. A signature has its own store, and so does each body, and both are built by the same `HirNodeStoreBuilder`. It also records in a source map where each type expression came from, so that an unknown name inside a tuple (e.g., `Foo` in `(I32, Foo)`) is reported at the name itself.
+
+Resolving `(I32, Foo)` gives a `ResolvedTypeExpression`: the type `(I32, Error)`, and the handles of the paths that name no type (here, `Foo`). The caller turns each of those into an "unknown type" diagnostic. It's the same function for signatures and for a `let` in a body.
 
 A signature is kept separate from its body, so that `f` can call `g` using only `g`'s signature, without `g`'s body being checked first. This matters for two reasons:
 - **stability**: editing inside `g`'s body doesn't change `g`'s signature, so `f`'s cached result stays valid and `f` isn't checked again
@@ -215,11 +224,11 @@ Blueberry has local type inference, and infers with constraints. Constraints are
 #### Types
 
 A type is one of:
-- a primitive: `I32`, `I64`, `U32`, `U64`, or `Bool`
+- a primitive: `I8`, `I16`, `I32`, `I64`, `U8`, `U16`, `U32`, `U64`, or `Bool`
 - a tuple type, e.g. `(I32, Bool)`; `()` (unit) is simply the empty tuple, and `(I32,)` is a tuple of one element
 - a function type, e.g. `fn(I32) -> Bool`
 - `Bottom`: the type of an expression that never produces a value (`return`, `break`, `continue`, a `loop` without `break`)
-- `Error`: the type of anything already reported as wrong (see [Resilience](#resilience))
+- `Error`: the type of anything already reported as wrong (see [Resilience](#resilience)). It's printed as `{error}` in diagnostics and dumps, like `{unknown}` and `{integer}`, so that it can't be mistaken for a type the user wrote.
 - an inference variable, i.e., an unknown
 
 #### Inference Variables
@@ -275,8 +284,8 @@ After shallow resolving both sides, `unify` dispatches on the two shapes:
 | `?x` (general) | any type `t` | occurs check, then `?x := t` |
 | any type `t` | `?x` (general) | occurs check, then `?x := t` |
 | `?i` (integer) | `?j` (integer) | merge the two groups |
-| `?i` (integer) | `I32` / `I64` / `U32` / `U64` / `Error` | `?i := t` |
-| `I32` / `I64` / `U32` / `U64` / `Error` | `?i` (integer) | `?i := t` |
+| `?i` (integer) | an integer type / `Error` | `?i := t` |
+| an integer type / `Error` | `?i` (integer) | `?i := t` |
 | `Error` | anything (either side) | ok (see [Resilience](#resilience)) |
 | `fn(p1, ..) -> r1` | `fn(q1, ..) -> r2` | same number of parameters? then unify each $p_i$ with $q_i$, and `r1` with `r2` |
 | `(t1, ..)` | `(u1, ..)` | same number of elements? then unify each $t_i$ with $u_i$ |
@@ -373,13 +382,68 @@ let b = if c { return } else { return };  // Bottom into ?0, twice: ?0 stays uns
 
 For `b`, nothing ever solves `?0`. Yet, it isn't an error: `b` simply never gets a value. Hence, when `Bottom` is coerced into an unsolved inference variable, that variable is marked as **coerced from `Bottom`** (the mark is kept when it's unified with other variables). When the body is finished, a marked inference variable that's still unsolved is solved to `Bottom`, rather than becoming an error, so `b: Bottom`. An unmarked one is still an error, since nothing ever said anything about it.
 
+### Divergence
+
+An expression **diverges** if it never finishes, so that the code after it never runs: `return`, `break` and `continue` jump somewhere else, and `loop {}` runs forever. That's what the `Bottom` type stands for (see [Types](#types)): an expression of type `Bottom` never produces a value, because control never gets past it.
+
+The type checker needs to know when code can't be reached, for one main reason: the end of a block. A function that must return an `I32` is only wrong for reaching its end without a value if its end can actually be reached:
+
+```
+func f() -> I32 {
+    loop {
+        return 1;
+        break;    // can't run: it comes after a `return`
+    };
+}                 // fine: the loop never finishes, so the end of `f` is never reached
+
+func g(c: Bool) -> I32 {
+    loop {
+        if c { return 1; }
+        break;    // can run, when `c` is false
+    };
+}                 // error: "implicitly returns `()`", since the loop can finish and reach the end of `g`
+```
+
+#### Tracking It
+
+While walking a body, the type checker keeps `self.is_reachable`, which answers: can the point the walk has reached run?
+- `true`: the code being checked might run
+- `false`: something checked before it has definitely left, so it can't run
+
+It starts as `true`. After checking any expression, if its type is `Bottom`, it becomes `false` (at the end of `check_expression`), and it stays `false` for everything checked after it, since nothing after a `return` can run either:
+
+```
+foo();      // reachable
+return;     // Bottom, so the code after it isn't reachable
+bar();      // not reachable: can't run
+```
+
+#### Where It's Combined
+
+Only three expressions decide their own reachability, rather than simply making what follows unreachable once something in them diverged, because they have parts that might not run:
+- **`if`**: the condition always runs, but only one branch does. So with an `else`, the code after the `if` is reachable if the condition finishes, and _either_ branch does (`condition_reachable && (then_reachable || else_reachable)`). Without an `else`, a false condition skips the then branch, so only the condition counts.
+- **`a and b`, `a or b`**: `b` might not run, so only `a`'s divergence counts.
+- **loops**: a loop can only finish through a `break`, so it diverges unless a `break` in it can run. Each `break` that's checked while `self.is_reachable` is `true` marks its loop's frame as exitable (`can_exit`), and when the loop's body is done, `check_loop` sets `self.is_reachable` to that mark. A `break` checked while it's `false`, like the one in `f` above, can't run, so it doesn't count.
+
+#### What It's Used For
+
+A block without a tail produces `()`, but only if its end can be reached. So when the block's end is reached while `self.is_reachable` is `false`, nothing is poured into its funnel, and its type is `Bottom` instead. That's why `f` above is fine: its body's type is `Bottom`, which coerces to `I32`.
+
+Divergence and an expression's type are tracked separately, and don't always match. In `f`, the `break` can't run, but it's still type checked, so it still gives the loop `()`: the loop's type is `()`, yet it diverges. What decides whether the code after the loop can run is its divergence, not its type.
+
+_In the code:_ `self.is_reachable`, `LoopFrame::can_exit`
+
 ### Rules per Expression
 
-Below, "checked with `T`" means checked with the expectation `T`, and "must be `T`" means coerced to `T` afterwards.
+The rules below use two short phrases, one for each half of how a parent checks a child (see [The Walk](#the-walk)):
+- **"checked with `T`"**: the child is checked with the expectation `T`. This is only a hint that's passed down: the child may use it to decide its own type (an integer literal checked with `U64` becomes a `U64`), pass it on to its own children, or ignore it.
+- **"must be `T`"**: once the child is checked, its type is coerced to `T` (see [Coercion](#coercion)). This is the actual requirement: if the coercion fails, a type mismatch is reported at the child.
+
+The two usually go together. For example, an `if`'s condition is checked with `Bool`, and must be `Bool`: the expectation tells the condition which type it should have, and the coercion afterwards rejects a condition that isn't a `Bool`, like `if 5 { .. }`.
 
 #### Integer Literals
 
-An integer literal can be any integer type (`I32`, `I64`, `U32`, or `U64`), so its type depends on its expectation:
+An integer literal can be any integer type (`I8` through `I64`, or `U8` through `U64`), so its type depends on its expectation:
 - if the expected type is an integer type `t`, it takes `t`
 - otherwise (i.e., no expected type, or a non-integer expected type), it gets a fresh integer variable `?i`, which the parent's coercion then solves, or rejects
 
@@ -409,7 +473,7 @@ A path ignores its expectation, since its type is already decided; the parent co
 #### Tuples and Fields
 
 - `(e1, .., en)`: if the expected type is a tuple with the same number of elements `(t1, .., tn)`, each `ei` is checked with `ti`, and must be `ti`; otherwise, each `ei` is checked without an expectation. The tuple's type is made of each element's expected type, or of its own type without one. Since each element was already coerced, the parent's coercion of the whole tuple can't fail on an element, so a mismatch is reported once, on the innermost wrong element
-- `e.i`: `e` is checked first, and must be a tuple with an element at index `i` (written as a plain integer, so `e.01` isn't `e.1`); the expression has that element's type. Otherwise, the field is reported as unknown (or as a primitive having no fields, e.g. `5.0`). An unsolved general variable says nothing about which fields exist, so it's reported as "type annotations needed"
+- `e.i`: `e` is checked first, and must be a tuple with an element at index `i` (written as a plain integer, so `e.01` isn't `e.1`); the expression has that element's type. Otherwise, the field is reported as unknown (or as a primitive having no fields, e.g. `5.0`). An unsolved general variable says nothing about which fields exist, so it's reported as "type annotations needed" (see [Type Annotations Needed](#type-annotations-needed))
 
 ```
 let p = (1, true);       // p: (?i, Bool)
@@ -433,25 +497,46 @@ let s = p.2;             // no field `2` on type `(U64, Bool)`
 
 - each `let` and expression statement is checked in order; an expression statement without a `;` (e.g., an `if` followed by more statements) must be `()`
 - the tail expression is checked with the block's expectation, and poured into the block's funnel
-- without a tail, `()` is poured, unless the block always diverges (e.g., it ends in a `return`), in which case nothing is poured, and the block's type is `Bottom`
+- without a tail, `()` is poured, unless the block always diverges (it ends in a `return`, say), in which case nothing is poured, and the block's type is `Bottom` (see [Divergence](#divergence))
 
 #### Loops
 
 - a `loop`'s type comes from its `break`s: each `break e` checks `e` with the loop's expected type, and pours it into the loop's funnel; a bare `break` pours `()`. A `loop` without any `break` has type `Bottom`
 - a `while`'s condition is checked with `Bool`, and must be `Bool`; a `while` has type `()`, and a `break` inside it can't carry a value
-- in both, the body must be `()`
+- in both, the body must be `()`, since its value is discarded each time around
+- a loop diverges unless a `break` in it can run (see [Divergence](#divergence))
 
 #### Calls
 
-`f(a1, .., an)`: the callee is checked first, and must be a function type `fn(p1, .., pn) -> r`. Each argument `ai` is checked with `pi`, and must be `pi`. The call has type `r`. If the number of arguments is wrong, a mismatch is reported, and the extra arguments are still checked.
+`f(a1, .., an)`: the callee `f` is checked first, with no expectation, since nothing says what type it should have. What happens next depends on its type:
+- **a function type `fn(p1, .., pn) -> r`**: each argument `ai` is checked with `pi`, and must be `pi`. The call has type `r`. If the number of arguments is wrong, a mismatch is reported, and the arguments that have no parameter are still checked, with no expectation.
+- **`Bottom`**: the callee never produces a value (as in `(return 1)(2)`), so the call never happens. It's accepted silently, and the call has type `Bottom`.
+- **`Error`**: the callee's own error was already reported, so the call is accepted silently, and has type `Error`.
+- **an unsolved general variable**: nothing is known about the callee, so it's reported as "type annotations needed" (see [Type Annotations Needed](#type-annotations-needed)), and the call has type `Error`.
+- **any other type** (an integer, `Bool`, a tuple): it's reported as "expected function", and the call has type `Error`.
 
-#### Operators
+In every case but the first, there are no parameters to check the arguments against, but they're still checked with no expectation, so that a mistake inside an argument is found too.
 
-- `a + b`, `a - b`, `a * b`, `a div b`, `a mod b`: `a` is checked first; `b` is checked with `a`'s type, and must be `a`'s type, which must be an integer type. The expression has `a`'s type.
-- `a < b`, `a == b`, …: the same, except any type is allowed, and the expression has type `Bool`
-- `a and b`, `a or b`: both are checked with `Bool`, and must be `Bool`
-- `-e`: `e` must be a signed integer type, or an integer variable (e.g., `-1` is fine, `-x` with `x: U32` isn't). An integer variable might only become unsigned later (e.g., `let y = -1; let z: U64 = y;`), so it's checked again once the body is finished
-- `not e`: `e` is checked with `Bool`, and must be `Bool`
+#### Binary Operations
+
+Each binary operator has a rule (`BinaryOperator::rule`) that says which types its operands must have, and which type it produces.
+
+- `a + b`, `a - b`, `a * b`, `a div b`, `a mod b`: `a` is checked first, and must be an integer type. Only then is `b` checked: with `a`'s type, and it must be `a`'s type. The expression has `a`'s type.
+
+  The order matters when `a` isn't an integer. In `(1, 2) + 1`, the operator can't be applied, so that's reported, and `b` is checked with no expectation instead. Otherwise, the `1` would also be reported, for not being a tuple, which is only a consequence of the first mistake.
+- `a < b`, `a > b`, `a <= b`, `a >= b`, `a == b`, `a != b`: `a` is checked first, and can have any type. Then `b` is checked with `a`'s type, and must be `a`'s type, so that two values are only ever compared with a value of the same type. The expression has type `Bool`.
+- `a and b`, `a or b`: both `a` and `b` are checked with `Bool`, and must be `Bool`, even when the other one isn't, so that a mistake on one side doesn't hide a mistake on the other. The expression has type `Bool`.
+
+  `b` only runs when `a` doesn't already decide the result (`a and b` is `if a { b } else { false }`), so only `a`'s divergence counts: in `x and (return 1)`, the code after it is still reachable (see [Divergence](#divergence)).
+
+For the arithmetic and comparison operators, when `a` diverges (as in `(return 1) + 5`), it says nothing about `b`'s type, so `b` is checked with no expectation. That doesn't apply to `and` and `or`, whose `b` is always checked with `Bool`.
+
+#### Unary Operations
+
+- `-e`: `e` is checked with the negation's own expectation, since `-e` has the type of `e`. Then `e` must be a signed integer, which is checked in two steps:
+  1. right away, `e` must be an integer, and mustn't already be known to be unsigned. So `-true` and `-x` with `x: U32` are reported here, and `-e` becomes the `Error` type, so that it causes no further errors.
+  2. once the body is finished, `e` is checked again, since its integer type might not have been known yet. In `let y = 5; let z = -y; let w: U32 = y;`, `y` is only known to be a `U32` after `-y` was checked.
+- `not e`: `e` is checked with `Bool`, and must be `Bool`. The expression has type `Bool`, even when `e` isn't one, since `not` always produces a `Bool`.
 
 #### Assignments
 
@@ -524,6 +609,22 @@ Once the walk is over, every unknown is replaced with its solution:
 4. every expression's and binding's type is deep resolved; an inference variable still unsolved becomes the `Error` type, and a "type annotations needed" diagnostic is reported (once per variable)
 5. every integer literal is checked to fit in its now-known type
 
+#### Type Annotations Needed
+
+The diagnostic points at where the unknown came from. Each general variable records its **origin** when it's created: the `let` binding it was made for (`let t = ..` without an annotation), or the expression it was made for (e.g., an `if` whose branches all diverge). When two variables are unified, a binding origin wins over an expression origin, since a binding is something the user can annotate:
+
+```
+[E0282] Error: type annotations needed
+ 2 │     let t = loop {};
+   │         ┬ consider giving `t` an explicit type
+ 3 │     let y = t.0;
+   │             ┬ type must be known at this point
+```
+
+The origin is a HIR handle (a `LocalBindingHandle` or an `ExpressionHandle`), so `body::types_of` stays independent of positions: the span is only looked up, through the source map, when the diagnostic is resolved (see [Diagnostics](#diagnostics)).
+
+_In the code:_ `VariableOrigin`, `InferenceTable::deep_resolve_with_poisoning`
+
 The result, a `BodySemantics`, holds the body's semantics: each expression's type, each binding's type, what each path refers to, and the body's diagnostics.
 
 ### Resilience
@@ -542,7 +643,9 @@ An `Error` type is produced, after its diagnostic has been reported, by:
 And an `Error` type is silently accepted by:
 - `unify` and coercion, which succeed when either side is `Error`
 - expectations: an expected `Error` type becomes no expectation, so it isn't passed down
-- diagnostics that compare types (e.g. the one for `a + b`), which are skipped if an `Error` is hidden anywhere inside either type (checked by deep resolving)
+- the checks that look at a type's shape: calling it, taking a field, or using it as an operand. Each has its own case for an `Error` type that accepts it silently.
+
+A type that only _contains_ an `Error` isn't accepted silently, though. In `let t = (1, foo); t(5);`, `t` is `(I32, Error)`, and calling it is still reported. The `Error` inside the tuple doesn't change its shape, so calling it would be a mistake whatever `foo` turns out to be: it's a separate mistake, not a consequence of the first one.
 
 For example, where `foo` doesn't exist:
 
@@ -555,6 +658,30 @@ let y: I32 = foo + 1;   // foo: Error, reported as an unresolved name
 
 Only the unresolved name is reported. After type checking, a body with any diagnostic or any `Error` type left in it isn't lowered to MIR.
 
+#### Checking the Children Anyway
+
+Poisoning keeps one mistake from causing more errors. The opposite matters too: one mistake mustn't _hide_ other mistakes. So when an expression is wrong in a way that stops it from being checked normally, its children are still checked, with no expectation, since nothing says what type they should have. A mistake inside a child is then still found, and every child still gets a type, which later stages (the HIR dump, and someday the editor's hover) expect.
+
+```
+let t = (1, 2);
+t(foo);              // calling a tuple: reported
+                     // the argument `foo` is still checked: "cannot find `foo`" is reported too
+```
+
+Fixing the first mistake wouldn't fix the second, so both are real, and both are reported in one run.
+
+The same rule shows up wherever checking can't go on normally:
+- a call whose callee isn't a function: its arguments are still checked (`check_call`)
+- a call with too many arguments: the extra ones are still checked
+- a field with no name, like `t.` (a syntax error): the receiver is still checked first (`check_field`)
+- a binary operation with no operator (a syntax error): both sides are still checked (`check_binary_operation`)
+- a `break` outside of a loop, or a `return` in a constant: its value is still checked (`check_break`, `check_return`)
+- a `break` with a value from a `while`: the value is still checked
+
+The children are always checked _before_ the expression gives up. For example, `check_field` checks the receiver before it looks at the field name, so that `foo.` still reports the unknown `foo`.
+
+The syntax error cases don't show up in `blueberry check` today, since the driver stops after syntax errors, before type checking. The type checker still handles them, because an editor checks code while it's being typed, and so while it's full of syntax errors.
+
 ### Diagnostics
 
 While walking a body, the type checker records each problem as an `UnresolvedSemanticDiagnostic`, which points at HIR handles rather than positions in the text, so that the `BodySemantics` stays unchanged when text only moves. A type mismatch records the expected and found types, and a **cause**: why that type was required (e.g., an `if` and `else` disagreeing, or a missing `else`).
@@ -566,8 +693,6 @@ When a diagnostic is reported, it's **resolved** into a `SemanticDiagnostic` (vi
 The diagnostics of one definition (unknown types in its signature, and its body's resolved diagnostics) are given by `definition_diagnostics_of(definition)`.
 
 ## Worked Example
-
-This section follows one program through every stage, on a fresh run, where nothing has been computed yet:
 
 ```
 // math.bb

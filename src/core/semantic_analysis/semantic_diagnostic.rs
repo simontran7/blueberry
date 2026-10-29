@@ -5,8 +5,9 @@ use crate::core::semantic_analysis::ast_lowering::nodes::{
 };
 use crate::core::semantic_analysis::keys::FunctionKey;
 use crate::core::semantic_analysis::name_resolution::resolver::{Resolution, ResolveError};
+use crate::core::semantic_analysis::type_checking::inference_table::VariableOrigin;
 use crate::core::semantic_analysis::type_checking::type_checker::BodySemantics;
-use crate::core::semantic_analysis::type_checking::types::Ty;
+use crate::core::semantic_analysis::type_checking::types::{Ty, TyKind};
 use crate::core::source_file_key::SourceFileKey;
 
 #[derive(Debug, Clone, PartialEq, Eq, salsa::SalsaValue)]
@@ -16,6 +17,8 @@ pub(crate) enum SemanticDiagnostic {
         found: String,
         span: Span,
         return_type_span: Option<Span>,
+        /// the number of elements of each, when both are tuples of different lengths
+        tuple_lengths: Option<(usize, usize)>,
     },
     ImplicitUnitReturn {
         expected: String,
@@ -119,7 +122,12 @@ pub(crate) enum SemanticDiagnostic {
         span: Span,
     },
     TypeMustBeKnown {
+        /// where the type was needed
         span: Span,
+        /// the name of the `let` binding whose type is unknown, if that's what it is
+        binding_name: Option<String>,
+        /// what the unknown type belongs to: the `let` binding, or an expression
+        origin_span: Span,
     },
     LiteralOutOfRange {
         literal: String,
@@ -204,6 +212,7 @@ pub(crate) enum UnresolvedSemanticDiagnostic<'db> {
     },
     TypeMustBeKnown {
         expression_handle: ExpressionHandle,
+        origin: VariableOrigin,
     },
     LiteralOutOfRange {
         expression_handle: ExpressionHandle,
@@ -239,15 +248,38 @@ impl SemanticDiagnostic {
                 found,
                 span,
                 return_type_span,
+                tuple_lengths,
             } => {
-                let mut labels = vec![primary(*span, expected_found(expected, found))];
+                // two tuples of different lengths are told apart by their lengths, which are
+                // easier to compare than the two types
+                let message = match tuple_lengths {
+                    Some((expected_length, found_length)) => format!(
+                        "expected a tuple with {expected_length} element{}, found one with \
+                         {found_length} element{}",
+                        if *expected_length == 1 { "" } else { "s" },
+                        if *found_length == 1 { "" } else { "s" },
+                    ),
+                    None => expected_found(expected, found),
+                };
+                let mut labels = vec![primary(*span, message)];
                 if let Some(return_type_span) = return_type_span {
                     labels.push(secondary(
                         *return_type_span,
                         format!("expected {} because of return type", quote_type(expected)),
                     ));
                 }
-                description("E0308", "mismatched types", *span, labels)
+                let notes = match tuple_lengths {
+                    Some(_) => Box::new([format!(
+                        "expected tuple {}, found tuple {}",
+                        quote_type(expected),
+                        quote_type(found)
+                    )]) as Box<[String]>,
+                    None => Box::new([]),
+                };
+                DiagnosticDescription {
+                    notes,
+                    ..description("E0308", "mismatched types", *span, labels)
+                }
             }
             Self::ImplicitUnitReturn {
                 expected,
@@ -499,12 +531,35 @@ impl SemanticDiagnostic {
                     vec![primary(*span, "can only break with a value inside `loop`")],
                 )
             },
-            Self::TypeMustBeKnown { span } => description(
-                "E0282",
-                "type annotations needed",
-                *span,
-                vec![primary(*span, "cannot infer type")],
-            ),
+            Self::TypeMustBeKnown {
+                span,
+                binding_name,
+                origin_span,
+            } => {
+                if let Some(name) = binding_name {
+                    description(
+                        "E0282",
+                        "type annotations needed",
+                        *origin_span,
+                        vec![
+                            primary(
+                                *origin_span,
+                                format!("consider giving `{name}` an explicit type"),
+                            ),
+                            secondary(*span, "type must be known at this point"),
+                        ],
+                    )
+                } else {
+                    let mut labels = vec![primary(*span, "type must be known at this point")];
+                    if origin_span != span {
+                        labels.push(secondary(
+                            *origin_span,
+                            "cannot infer the type of this expression",
+                        ));
+                    }
+                    description("E0282", "type annotations needed", *span, labels)
+                }
+            }
             Self::MainNotFound { file, span } => description(
                 "E0601",
                 &format!("`main` function not found in `{file}`"),
@@ -600,6 +655,14 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                     span: span_of(*expression_handle),
                     return_type_span: match cause {
                         TypeMismatchCause::ReturnValue => owner.return_type,
+                        _ => None,
+                    },
+                    tuple_lengths: match (expected.kind(db), found.kind(db)) {
+                        (TyKind::Tuple(expected_elements), TyKind::Tuple(found_elements))
+                            if expected_elements.len() != found_elements.len() =>
+                        {
+                            Some((expected_elements.len(), found_elements.len()))
+                        }
                         _ => None,
                     },
                 },
@@ -829,9 +892,29 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                     span: span_of(*expression_handle),
                 }
             }
-            Self::TypeMustBeKnown { expression_handle } => SemanticDiagnostic::TypeMustBeKnown {
-                span: span_of(*expression_handle),
-            },
+            Self::TypeMustBeKnown {
+                expression_handle,
+                origin,
+            } => {
+                let (binding_name, origin_span) = match origin {
+                    VariableOrigin::LocalBinding(binding_handle) => (
+                        Some(
+                            body.store()
+                                .local_binding(*binding_handle)
+                                .name()
+                                .text(db)
+                                .to_string(),
+                        ),
+                        source_map.local_binding_span(*binding_handle, owner.anchor),
+                    ),
+                    VariableOrigin::Expression(origin_handle) => (None, span_of(*origin_handle)),
+                };
+                SemanticDiagnostic::TypeMustBeKnown {
+                    span: span_of(*expression_handle),
+                    binding_name,
+                    origin_span,
+                }
+            }
             Self::LiteralOutOfRange {
                 expression_handle,
                 ty,

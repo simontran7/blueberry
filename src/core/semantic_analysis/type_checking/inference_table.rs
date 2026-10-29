@@ -1,4 +1,5 @@
 use crate::core::common::handle_collections::handle_disjoint_set::{HandleDisjointSet, MergeValue};
+use crate::core::semantic_analysis::ast_lowering::nodes::{ExpressionHandle, LocalBindingHandle};
 use crate::core::semantic_analysis::type_checking::types::{
     GeneralVariableHandle, InferenceVariable, IntegerVariableHandle, SignedIntTy, Ty, TyKind,
 };
@@ -17,6 +18,16 @@ pub(crate) struct TypeMismatch<'db> {
     pub(crate) found: Ty<'db>,
 }
 
+/// What a general inference variable was created for, so that an error about its type can point
+/// at its cause.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, salsa::SalsaValue)]
+pub(crate) enum VariableOrigin {
+    /// the type of an unannotated `let` binding
+    LocalBinding(LocalBindingHandle),
+    /// the type of an `if`, a block, or a `loop` that wasn't expected to be anything known
+    Expression(ExpressionHandle),
+}
+
 /// The solution of a disjoint set of general inference variables.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct GeneralInferenceVariableSolution<'db> {
@@ -24,6 +35,7 @@ struct GeneralInferenceVariableSolution<'db> {
     /// Whether a value of type [`TyKind::Bottom`] was coerced to the set. If still unsolved at the
     /// end, it falls back to [`TyKind::Bottom`].
     coerced_from_bottom: bool,
+    origin: VariableOrigin,
 }
 
 /// The solution of a disjoint set of integer inference variables.
@@ -76,34 +88,52 @@ impl<'db> InferenceTable<'db> {
         ty.map_children(self.db, |child| self.deep_resolve(child))
     }
 
-    /// Resolves `ty` like [`Self::deep_resolve`], but replaces an unsolved general variable with
-    /// the error type and reports it through `on_unsolved`.
+    /// Resolves `ty` like [`Self::deep_resolve`], but gives up on each unsolved general variable in
+    /// it, by solving it to the error type in the table.
+    ///
+    /// Returns the resolved type, and the origin of the first unsolved variable, if any, so that the
+    /// caller can report "type annotations needed".
     pub(crate) fn deep_resolve_with_poisoning(
         &mut self,
         ty: Ty<'db>,
-        on_unsolved: &mut impl FnMut(GeneralVariableHandle),
-    ) -> Ty<'db> {
-        let ty = self.shallow_resolve(ty);
-        match ty.kind(self.db) {
-            TyKind::InferenceVariable(InferenceVariable::General(variable_handle)) => {
-                on_unsolved(self.general_inference_variables.find(*variable_handle));
-                Ty::error(self.db)
+    ) -> (Ty<'db>, Option<VariableOrigin>) {
+        fn poison<'db>(
+            table: &mut InferenceTable<'db>,
+            ty: Ty<'db>,
+            unsolved_origin: &mut Option<VariableOrigin>,
+        ) -> Ty<'db> {
+            let ty = table.shallow_resolve(ty);
+            match ty.kind(table.db) {
+                TyKind::InferenceVariable(InferenceVariable::General(variable_handle)) => {
+                    let error = Ty::error(table.db);
+                    table
+                        .general_inference_variables
+                        .update_value(*variable_handle, |solution| {
+                            unsolved_origin.get_or_insert(solution.origin);
+                            solution.ty = Some(error);
+                        });
+                    error
+                }
+                TyKind::InferenceVariable(InferenceVariable::Integer(_)) => unreachable!(
+                    "an integer variable is never unknown, since it defaults to `I32`, so it's \
+                     never poisoned"
+                ),
+                _ => ty.map_children(table.db, |child| poison(table, child, unsolved_origin)),
             }
-            TyKind::InferenceVariable(InferenceVariable::Integer(_)) => {
-                unreachable!("integer variables are all solved by the fallback first")
-            }
-            _ => ty.map_children(self.db, |child| {
-                self.deep_resolve_with_poisoning(child, on_unsolved)
-            }),
         }
+
+        let mut unsolved_origin = None;
+        let ty = poison(self, ty, &mut unsolved_origin);
+        (ty, unsolved_origin)
     }
 
-    pub(crate) fn new_general_inference_variable(&mut self) -> Ty<'db> {
+    pub(crate) fn make_general_inference_variable(&mut self, origin: VariableOrigin) -> Ty<'db> {
         let inference_variable_handle =
             self.general_inference_variables
                 .make_set(GeneralInferenceVariableSolution {
                     ty: None,
                     coerced_from_bottom: false,
+                    origin,
                 });
         Ty::new(
             self.db,
@@ -284,6 +314,12 @@ impl<'db> MergeValue for GeneralInferenceVariableSolution<'db> {
         Ok(Self {
             ty: Option::merge(&a.ty, &b.ty)?,
             coerced_from_bottom: a.coerced_from_bottom || b.coerced_from_bottom,
+            // a `let` binding makes the best error message, since it can be given an annotation
+            origin: if matches!(a.origin, VariableOrigin::Expression(_)) {
+                b.origin
+            } else {
+                a.origin
+            },
         })
     }
 }

@@ -43,23 +43,24 @@ pub(crate) mod signature {
     #[salsa::tracked]
     pub(crate) fn type_of<'db>(db: &'db dyn crate::Db, definition: Definition<'db>) -> Ty<'db> {
         let signature = hir_of(db, definition);
-        let lower = |annotation_handle| {
-            resolve_type_expression(db, signature.store(), annotation_handle, &mut |_| {})
+        // the unknown paths are reported by `definition_diagnostics_of`
+        let resolve = |annotation_handle| {
+            resolve_type_expression(db, signature.store(), annotation_handle).ty
         };
         match &**signature {
             Signature::Function(function) => {
                 let parameters = function
                     .parameter_annotations()
                     .iter()
-                    .map(|&annotation_handle| lower(annotation_handle))
+                    .map(|&annotation_handle| resolve(annotation_handle))
                     .collect();
                 let return_type = function
                     .return_type_annotation()
-                    .map_or_else(|| Ty::unit(db), lower);
+                    .map_or_else(|| Ty::unit(db), resolve);
                 Ty::function(db, parameters, return_type)
             }
             Signature::Constant(constant) => {
-                constant.annotation().map_or_else(|| Ty::error(db), lower)
+                constant.annotation().map_or_else(|| Ty::error(db), resolve)
             }
         }
     }
@@ -347,17 +348,6 @@ pub(crate) fn entry_point_diagnostics_of(
 }
 
 // ---- Finding Definitions ----
-pub(crate) fn definition_at<'db>(
-    db: &'db dyn crate::Db,
-    file: SourceFileKey,
-    offset: TextSize,
-) -> Option<Definition<'db>> {
-    all_definitions_of(db, file)
-        .into_iter()
-        .filter(|definition| definition.span(db).contains_offset(offset))
-        .min_by_key(|definition| definition.span(db).len())
-}
-
 pub(crate) fn all_definitions_of<'db>(
     db: &'db dyn crate::Db,
     file: SourceFileKey,
@@ -416,22 +406,17 @@ fn unknown_type_diagnostics<'db>(
 ) -> Vec<SemanticDiagnostic> {
     let mut diagnostics = Vec::new();
     for annotation_handle in annotation_handles {
-        resolve_type_expression(
-            db,
-            store,
-            annotation_handle,
-            &mut |type_expression_handle| {
-                let nodes::TypeExpression::Path(path) =
-                    store.type_expression(type_expression_handle)
-                else {
-                    unreachable!("only path type expressions can be unknown")
-                };
-                diagnostics.push(SemanticDiagnostic::UnknownType {
-                    name: path.display(db).to_string(),
-                    span: source_map.type_expression_span(type_expression_handle, anchor),
-                });
-            },
-        );
+        let resolved = resolve_type_expression(db, store, annotation_handle);
+        for type_expression_handle in resolved.unknown_paths {
+            let nodes::TypeExpression::Path(path) = store.type_expression(type_expression_handle)
+            else {
+                unreachable!("only path type expressions can be unknown")
+            };
+            diagnostics.push(SemanticDiagnostic::UnknownType {
+                name: path.display(db).to_string(),
+                span: source_map.type_expression_span(type_expression_handle, anchor),
+            });
+        }
     }
     diagnostics
 }

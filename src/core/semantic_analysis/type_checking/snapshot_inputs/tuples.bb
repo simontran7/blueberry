@@ -35,3 +35,8 @@ func errors(pair: (I32, Bool), n: I32) {
     let j: (shapes::Point, I32) = (1, 2);
     swap(pair).0 = 1;
 }
+
+func wrong_lengths() {
+    let a: (U8, Bool) = (true, 1, false);
+    let b: (I32,) = (1, 2);
+}

@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug test",
+            "name": "Debug blueberry",
             "type": "lldb",
             "request": "launch",
             "sourceLanguages": [
@@ -10,14 +10,36 @@
             ],
             "cargo": {
                 "args": [
-                    "build"
+                    "build",
+                    "--bin=blueberry"
                 ]
             },
-            "program": "${workspaceFolder}/target/debug/crawfish",
-            // "args": [
-            //     "compile",
-            //     "main.crw"
-            // ],
+            "args": [
+                "check",
+                "--path=main.bb",
+                "--emit=hir"
+            ],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "RUST_BACKTRACE": "1"
+            },
+            "stopOnEntry": false
+        },
+        {
+            "name": "Debug tests",
+            "type": "lldb",
+            "request": "launch",
+            "sourceLanguages": [
+                "rust"
+            ],
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib"
+                ]
+            },
+            "args": [],
             "cwd": "${workspaceFolder}",
             "env": {
                 "RUST_BACKTRACE": "1"

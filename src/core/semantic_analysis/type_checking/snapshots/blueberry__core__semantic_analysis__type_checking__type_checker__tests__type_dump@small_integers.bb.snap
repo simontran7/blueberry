@@ -1,0 +1,72 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+assertion_line: 1336
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/small_integers.bb
+---
+function fits()
+└─ Block 12..130: ()
+   ├─ Let a: I8
+   │  ├─ type: I8
+   │  └─ initializer: Unary - 30..34: I8
+   │     └─ Integer 128 31..34: I8
+   ├─ Let b: I8
+   │  ├─ type: I8
+   │  └─ initializer: Integer 127 52..55: I8
+   ├─ Let c: U8
+   │  ├─ type: U8
+   │  └─ initializer: Integer 255 73..76: U8
+   ├─ Let d: I16
+   │  ├─ type: I16
+   │  └─ initializer: Unary - 95..102: I16
+   │     └─ Integer 32768 96..102: I16
+   └─ Let e: U16
+      ├─ type: U16
+      └─ initializer: Integer 65535 121..127: U16
+
+function out_of_range()
+└─ Block 152..364: ()
+   ├─ Let a: I8
+   │  ├─ type: I8
+   │  └─ initializer: Unary - 170..174: I8
+   │     └─ Integer 129 171..174: I8
+   ├─ Let b: I8
+   │  ├─ type: I8
+   │  └─ initializer: Integer 200 212..215: I8
+   ├─ Let c: U8
+   │  ├─ type: U8
+   │  └─ initializer: Integer 300 253..256: U8
+   ├─ Let d: I16
+   │  ├─ type: I16
+   │  └─ initializer: Integer 40000 296..302: I16
+   └─ Let e: U16
+      ├─ type: U16
+      └─ initializer: Integer 70000 338..344: U16
+
+function negating_unsigned()
+└─ Block 391..429: ()
+   ├─ Let x: U8
+   │  ├─ type: U8
+   │  └─ initializer: Integer 1 409..410: U8
+   └─ Let y: {error}
+      └─ initializer: Unary - 424..426: {error}
+         └─ Path x 425..426: U8
+
+diagnostics
+  E0103 170..174 '-129': literal out of range for `I8`
+    note: the literal `-129` does not fit into the type `I8` whose range is `-128..=127`
+    help: consider using the type `I16` instead
+  E0103 212..215 '200': literal out of range for `I8`
+    note: the literal `200` does not fit into the type `I8` whose range is `-128..=127`
+    help: consider using the type `U8` instead
+  E0103 253..256 '300': literal out of range for `U8`
+    note: the literal `300` does not fit into the type `U8` whose range is `0..=255`
+    help: consider using the type `U16` instead
+  E0103 296..302 '40_000': literal out of range for `I16`
+    note: the literal `40_000` does not fit into the type `I16` whose range is `-32768..=32767`
+    help: consider using the type `U16` instead
+  E0103 338..344 '70_000': literal out of range for `U16`
+    note: the literal `70_000` does not fit into the type `U16` whose range is `0..=65535`
+    help: consider using the type `U32` instead
+  E0600 424..426 '-x': cannot apply unary operator `-` to type `U8` (cannot apply unary operator `-`)
+    note: unsigned values cannot be negated

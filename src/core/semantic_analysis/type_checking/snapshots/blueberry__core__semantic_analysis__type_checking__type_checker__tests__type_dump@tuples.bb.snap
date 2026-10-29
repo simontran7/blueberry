@@ -1,5 +1,6 @@
 ---
 source: src/core/semantic_analysis/type_checking/type_checker.rs
+assertion_line: 1343
 expression: "HirBodyDumper::dump_file_with_types(&db, file)"
 input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/tuples.bb
 ---
@@ -87,33 +88,33 @@ function errors(pair: (I32, Bool), n: I32)
    │     ├─ Integer 1 557..558: I32
    │     ├─ Integer 2 560..561: I32
    │     └─ Integer 3 563..564: I32
-   ├─ Let c: Error
-   │  └─ initializer: Field 2 579..585: Error
+   ├─ Let c: {error}
+   │  └─ initializer: Field 2 579..585: {error}
    │     └─ Path pair 579..583: (I32, Bool)
-   ├─ Let d: Error
-   │  └─ initializer: Field 01 599..606: Error
+   ├─ Let d: {error}
+   │  └─ initializer: Field 01 599..606: {error}
    │     └─ Path pair 599..603: (I32, Bool)
-   ├─ Let e: Error
-   │  └─ initializer: Field name 620..629: Error
+   ├─ Let e: {error}
+   │  └─ initializer: Field name 620..629: {error}
    │     └─ Path pair 620..624: (I32, Bool)
-   ├─ Let f: Error
-   │  └─ initializer: Field 0 643..646: Error
+   ├─ Let f: {error}
+   │  └─ initializer: Field 0 643..646: {error}
    │     └─ Path n 643..644: I32
-   ├─ Let g: Error
-   │  └─ initializer: Field 0 660..663: Error
+   ├─ Let g: {error}
+   │  └─ initializer: Field 0 660..663: {error}
    │     └─ Integer 1 660..661: I32
-   ├─ Let h: Error
-   │  └─ initializer: Field 0 677..683: Error
+   ├─ Let h: {error}
+   │  └─ initializer: Field 0 677..683: {error}
    │     └─ Path swap 677..681: ((I32, Bool)) -> (Bool, I32)
-   ├─ Let i: (I32, Error)
+   ├─ Let i: (I32, {error})
    │  ├─ type: (I32, Foo)
-   │  └─ initializer: Tuple 709..715: (I32, Error)
+   │  └─ initializer: Tuple 709..715: (I32, {error})
    │     ├─ Integer 1 710..711: I32
-   │     └─ Integer 2 713..714: Error
-   ├─ Let j: (Error, I32)
+   │     └─ Integer 2 713..714: {error}
+   ├─ Let j: ({error}, I32)
    │  ├─ type: (shapes::Point, I32)
-   │  └─ initializer: Tuple 751..757: (Error, I32)
-   │     ├─ Integer 1 752..753: Error
+   │  └─ initializer: Tuple 751..757: ({error}, I32)
+   │     ├─ Integer 1 752..753: {error}
    │     └─ Integer 2 755..756: I32
    └─ Expression ;
       └─ Assignment 763..779: ()
@@ -123,10 +124,25 @@ function errors(pair: (I32, Bool), n: I32)
          │     └─ argument: Path pair 768..772: (I32, Bool)
          └─ Integer 1 778..779: I32
 
+function wrong_lengths()
+└─ Block 805..878: ()
+   ├─ Let a: (U8, Bool)
+   │  ├─ type: (U8, Bool)
+   │  └─ initializer: Tuple 831..847: (Bool, I32, Bool)
+   │     ├─ Boolean true 832..836: Bool
+   │     ├─ Integer 1 838..839: I32
+   │     └─ Boolean false 841..846: Bool
+   └─ Let b: (I32,)
+      ├─ type: (I32,)
+      └─ initializer: Tuple 869..875: (I32, I32)
+         ├─ Integer 1 870..871: I32
+         └─ Integer 2 873..874: I32
+
 diagnostics
   E0308 522..526 'true': mismatched types (expected `I32`, found `Bool`)
   E0308 528..529 '1': mismatched types (expected `Bool`, found integer)
-  E0308 556..565 '(1, 2, 3)': mismatched types (expected `(I32, I32)`, found `({integer}, {integer}, {integer})`)
+  E0308 556..565 '(1, 2, 3)': mismatched types (expected a tuple with 2 elements, found one with 3 elements)
+    note: expected tuple `(I32, I32)`, found tuple `({integer}, {integer}, {integer})`
   E0609 584..585 '2': no field `2` on type `(I32, Bool)` (unknown field)
   E0609 604..606 '01': no field `01` on type `(I32, Bool)` (unknown field)
   E0609 625..629 'name': no field `name` on type `(I32, Bool)` (unknown field)
@@ -138,3 +154,7 @@ diagnostics
   E0070 763..779 'swap(p....0 = 1': invalid left-hand side of assignment
     763..775 'swap(pair).0': cannot assign to this expression
   E0308 778..779 '1': mismatched types (expected `Bool`, found integer)
+  E0308 831..847 '(true,...false)': mismatched types (expected a tuple with 2 elements, found one with 3 elements)
+    note: expected tuple `(U8, Bool)`, found tuple `(Bool, {integer}, Bool)`
+  E0308 869..875 '(1, 2)': mismatched types (expected a tuple with 1 element, found one with 2 elements)
+    note: expected tuple `(I32,)`, found tuple `({integer}, {integer})`

@@ -64,8 +64,9 @@ pub(crate) struct HirNodeSourceMap {
         SideHandleMap<ExpressionHandle, RedNodeTag>,
     pub(in crate::core::semantic_analysis::ast_lowering) statements:
         SideHandleMap<StatementHandle, RedNodeTag>,
+    /// the span of each binding's name, which is what diagnostics point at
     pub(in crate::core::semantic_analysis::ast_lowering) local_bindings:
-        SideHandleMap<LocalBindingHandle, RedNodeTag>,
+        SideHandleMap<LocalBindingHandle, Span>,
     pub(in crate::core::semantic_analysis::ast_lowering) type_expressions:
         SideHandleMap<TypeExpressionHandle, RedNodeTag>,
 }
@@ -205,20 +206,12 @@ handle_impl!(pub(crate) TypeExpressionHandle);
 handle_impl!(pub(crate) LocalBindingHandle);
 
 impl HirNodeSourceMap {
-    pub(crate) fn expression_at(&self, offset: TextSize) -> Option<ExpressionHandle> {
-        self.expressions
-            .iter()
-            .filter(|(_, tag)| tag.span.contains_offset(offset))
-            .min_by_key(|(_, tag)| tag.span.len())
-            .map(|(expression_handle, _)| expression_handle)
-    }
-
     pub(crate) fn local_binding_span(
         &self,
         binding_handle: LocalBindingHandle,
         anchor: TextSize,
     ) -> Span {
-        self.local_bindings[binding_handle].span.anchored_at(anchor)
+        self.local_bindings[binding_handle].anchored_at(anchor)
     }
 
     pub(crate) fn expression_span(

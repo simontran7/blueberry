@@ -516,7 +516,7 @@ ParenthesizedExpression →
     `-` Expression
   | `not` Expression</pre></div>
 
-<p class="r" id="expr.unary.negation"><code>-e</code> negates <code>e</code>, which must have a signed integer type (<code>I32</code> or <code>I64</code>). It has the type of <code>e</code>.</p>
+<p class="r" id="expr.unary.negation"><code>-e</code> negates <code>e</code>, which must have a signed integer type (<code>I8</code>, <code>I16</code>, <code>I32</code>, or <code>I64</code>). It has the type of <code>e</code>.</p>
 
 <p class="r" id="expr.unary.not"><code>not e</code> is <code>true</code> if <code>e</code> is <code>false</code>, and the reverse. <code>e</code> must be a <code>Bool</code>, and so is the result.</p>
 
@@ -709,8 +709,12 @@ ParenthesizedType →
 
 <div class="table-wrap"><table>
 <tr><th>Type</th><th>Values</th></tr>
+<tr><td><code>I8</code></td><td>8-bit signed integers</td></tr>
+<tr><td><code>I16</code></td><td>16-bit signed integers</td></tr>
 <tr><td><code>I32</code></td><td>32-bit signed integers</td></tr>
 <tr><td><code>I64</code></td><td>64-bit signed integers</td></tr>
+<tr><td><code>U8</code></td><td>8-bit unsigned integers</td></tr>
+<tr><td><code>U16</code></td><td>16-bit unsigned integers</td></tr>
 <tr><td><code>U32</code></td><td>32-bit unsigned integers</td></tr>
 <tr><td><code>U64</code></td><td>64-bit unsigned integers</td></tr>
 <tr><td><code>Bool</code></td><td><code>true</code> and <code>false</code></td></tr>

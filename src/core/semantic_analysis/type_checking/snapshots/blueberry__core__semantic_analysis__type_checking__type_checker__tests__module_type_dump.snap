@@ -1,5 +1,6 @@
 ---
 source: src/core/semantic_analysis/type_checking/type_checker.rs
+assertion_line: 1347
 expression: "HirBodyDumper::dump_file_with_types(&db, file)"
 input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/modules/qualified_paths/main.bb
 ---
@@ -16,32 +17,32 @@ constant DOUBLE_PI: I32
 
 function errors(x: I32)
 └─ Block 168..406: ()
-   ├─ Let a: Error
-   │  └─ initializer: Path circle::nope 182..194: Error
+   ├─ Let a: {error}
+   │  └─ initializer: Path circle::nope 182..194: {error}
    ├─ Expression ;
-   │  └─ Call 200..218: Error
-   │     ├─ callee: Path circle::missing 200..215: Error
+   │  └─ Call 200..218: {error}
+   │     ├─ callee: Path circle::missing 200..215: {error}
    │     └─ argument: Integer 1 216..217: I32
-   ├─ Let b: Error
-   │  └─ initializer: Path nope::area 232..242: Error
-   ├─ Let c: Error
-   │  └─ initializer: Path circle 256..262: Error
-   ├─ Let d: Error
-   │  └─ initializer: Path unit_area::x 276..288: Error
-   ├─ Let e: Error
-   │  └─ initializer: Path x::y 302..306: Error
-   ├─ Let f: Error
-   │  └─ initializer: Call 320..327: Error
-   │     ├─ callee: Path area 320..324: Error
+   ├─ Let b: {error}
+   │  └─ initializer: Path nope::area 232..242: {error}
+   ├─ Let c: {error}
+   │  └─ initializer: Path circle 256..262: {error}
+   ├─ Let d: {error}
+   │  └─ initializer: Path unit_area::x 276..288: {error}
+   ├─ Let e: {error}
+   │  └─ initializer: Path x::y 302..306: {error}
+   ├─ Let f: {error}
+   │  └─ initializer: Call 320..327: {error}
+   │     ├─ callee: Path area 320..324: {error}
    │     └─ argument: Integer 1 325..326: I32
    ├─ Expression ;
    │  └─ Assignment 333..347: ()
    │     ├─ Path circle::PI 333..343: I32
    │     └─ Integer 4 346..347: I32
-   ├─ Let g: Error
-   │  └─ initializer: Path ghost::thing 361..373: Error
-   └─ Let h: Error
-      └─ initializer: Path undeclared::area 387..403: Error
+   ├─ Let g: {error}
+   │  └─ initializer: Path ghost::thing 361..373: {error}
+   └─ Let h: {error}
+      └─ initializer: Path undeclared::area 387..403: {error}
 
 diagnostics
   E0432 30..42 'shapes::nope': unresolved import `shapes::nope` (no `nope` in `shapes`)

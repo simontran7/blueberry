@@ -26,14 +26,6 @@ impl Span {
         self.start <= other.start && other.end <= self.end
     }
 
-    pub(crate) fn contains_offset(self, offset: TextSize) -> bool {
-        self.start <= offset && offset < self.end
-    }
-
-    pub(crate) fn len(self) -> TextSize {
-        self.end - self.start
-    }
-
     pub(crate) fn relative_to(self, anchor: TextSize) -> Self {
         Self::new(self.start - anchor, self.end - anchor)
     }

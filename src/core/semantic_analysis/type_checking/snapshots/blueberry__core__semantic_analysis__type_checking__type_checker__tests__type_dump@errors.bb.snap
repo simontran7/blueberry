@@ -1,5 +1,6 @@
 ---
 source: src/core/semantic_analysis/type_checking/type_checker.rs
+assertion_line: 1336
 expression: "HirBodyDumper::dump_file_with_types(&db, file)"
 input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/errors.bb
 ---
@@ -10,7 +11,7 @@ constant UNKNOWN: Foo
 └─ Integer 5 44..45: I32
 
 function mismatches(x: I32) -> Bool
-└─ Block 80..163: Error
+└─ Block 80..163: {error}
    ├─ Let a: Bool
    │  ├─ type: Bool
    │  └─ initializer: Integer 1 100..101: I32
@@ -19,7 +20,7 @@ function mismatches(x: I32) -> Bool
    │     ├─ Path x 115..116: I32
    │     └─ Boolean true 119..123: Bool
    ├─ Expression ;
-   │  └─ If 129..154: Error
+   │  └─ If 129..154: {error}
    │     ├─ condition: Path x 132..133: I32
    │     ├─ then: Block 134..139: I32
    │     │  └─ tail: Integer 1 136..137: I32
@@ -29,20 +30,20 @@ function mismatches(x: I32) -> Bool
 
 function names()
 └─ Block 178..247: ()
-   ├─ Let a: Error
-   │  └─ initializer: Path missing 192..199: Error
-   ├─ Let b: Error
+   ├─ Let a: {error}
+   │  └─ initializer: Path missing 192..199: {error}
+   ├─ Let b: {error}
    │  ├─ type: Baz
    │  └─ initializer: Integer 1 218..219: I32
    └─ Expression ;
-      └─ Call 225..244: Error
-         ├─ callee: Path missing_function 225..241: Error
+      └─ Call 225..244: {error}
+         ├─ callee: Path missing_function 225..241: {error}
          └─ argument: Integer 1 242..243: I32
 
 function calls(x: I32)
 └─ Block 268..328: ()
    ├─ Expression ;
-   │  └─ Call 274..278: Error
+   │  └─ Call 274..278: {error}
    │     ├─ callee: Path x 274..275: I32
    │     └─ argument: Integer 1 276..277: I32
    ├─ Expression ;
@@ -60,11 +61,11 @@ function calls(x: I32)
 
 function operators(c: Bool)
 └─ Block 354..432: ()
-   ├─ Let a: Error
-   │  └─ initializer: Unary - 368..370: Error
+   ├─ Let a: {error}
+   │  └─ initializer: Unary - 368..370: {error}
    │     └─ Path c 369..370: Bool
-   ├─ Let b: Error
-   │  └─ initializer: Binary + 384..389: Error
+   ├─ Let b: {error}
+   │  └─ initializer: Binary + 384..389: {error}
    │     ├─ Path c 384..385: Bool
    │     └─ Path c 388..389: Bool
    ├─ Let d: Bool
@@ -111,7 +112,7 @@ function assignments()
          └─ Integer 2 630..631: I32
 
 function no_tail() -> I32
-└─ Block 658..676: Error
+└─ Block 658..676: {error}
    └─ Let x: I32
       └─ initializer: Integer 1 672..673: I32
 
@@ -119,34 +120,34 @@ function if_without_else(c: Bool)
 └─ Block 708..726: ()
    └─ tail: If 714..724: ()
       ├─ condition: Path c 717..718: Bool
-      └─ then: Block 719..724: Error
+      └─ then: Block 719..724: {error}
          └─ tail: Integer 1 721..722: I32
 
 function unknown_return() -> Missing
-└─ Block 761..770: Error
-   └─ tail: Integer 5 767..768: Error
+└─ Block 761..770: {error}
+   └─ tail: Integer 5 767..768: {error}
 
 function poisoned()
 └─ Block 788..865: ()
-   ├─ Let a: Error
-   │  └─ initializer: Binary + 802..813: Error
-   │     ├─ Path missing 802..809: Error
+   ├─ Let a: {error}
+   │  └─ initializer: Binary + 802..813: {error}
+   │     ├─ Path missing 802..809: {error}
    │     └─ Integer 1 812..813: I32
-   ├─ Let b: Error
-   │  └─ initializer: Call 827..836: Error
-   │     └─ callee: Path missing 827..834: Error
+   ├─ Let b: {error}
+   │  └─ initializer: Call 827..836: {error}
+   │     └─ callee: Path missing 827..834: {error}
    └─ Let c: I32
       ├─ type: I32
-      └─ initializer: Path missing 855..862: Error
+      └─ initializer: Path missing 855..862: {error}
 
 function negations(u: U64)
 └─ Block 890..982: ()
-   ├─ Let a: Error
-   │  └─ initializer: Unary - 904..906: Error
+   ├─ Let a: {error}
+   │  └─ initializer: Unary - 904..906: {error}
    │     └─ Path u 905..906: U64
    ├─ Let b: U32
    │  ├─ type: U32
-   │  └─ initializer: Unary - 925..927: Error
+   │  └─ initializer: Unary - 925..927: {error}
    │     └─ Integer 5 926..927: U32
    ├─ Let c: U64
    │  └─ initializer: Unary - 941..943: U64
@@ -162,7 +163,7 @@ function rustc_style(c: Bool) -> I32
 └─ Block 1017..1097: Bottom
    ├─ Let a: I32
    │  ├─ type: I32
-   │  └─ initializer: If 1036..1046: Error
+   │  └─ initializer: If 1036..1046: {error}
    │     ├─ condition: Path c 1039..1040: Bool
    │     └─ then: Block 1041..1046: I32
    │        └─ tail: Integer 1 1043..1044: I32
@@ -175,7 +176,7 @@ function rustc_style(c: Bool) -> I32
       └─ Return 1088..1094: Bottom
 
 function wrong_tail() -> I32
-└─ Block 1124..1136: Error
+└─ Block 1124..1136: {error}
    └─ tail: Boolean true 1130..1134: Bool
 
 function wrong_return(c: Bool) -> I32
@@ -197,6 +198,19 @@ function negated_later()
    └─ Let z: U64
       ├─ type: U64
       └─ initializer: Path y 1278..1279: U64
+
+function operator_cannot_be_applied()
+└─ Block 1318..1367: ()
+   ├─ Let a: {error}
+   │  └─ initializer: Binary + 1332..1342: {error}
+   │     ├─ Tuple 1332..1338: (I32, I32)
+   │     │  ├─ Integer 1 1333..1334: I32
+   │     │  └─ Integer 2 1336..1337: I32
+   │     └─ Integer 1 1341..1342: I32
+   └─ Let b: {error}
+      └─ initializer: Binary * 1356..1364: {error}
+         ├─ Boolean true 1356..1360: Bool
+         └─ Integer 2 1363..1364: I32
 
 diagnostics
   E0308 20..21 '5': mismatched types (expected `Bool`, found integer)
@@ -262,3 +276,9 @@ diagnostics
     1168..1171 'I32': expected `I32` because of return type
   E0600 1257..1259 '-1': cannot apply unary operator `-` to type `U64` (cannot apply unary operator `-`)
     note: unsigned values cannot be negated
+  E0369 1332..1342 '(1, 2) + 1': cannot add `{integer}` to `({integer}, {integer})`
+    1332..1338 '(1, 2)': ({integer}, {integer})
+    1341..1342 '1': {integer}
+  E0369 1356..1364 'true * 2': cannot multiply `Bool` by `{integer}`
+    1356..1360 'true': Bool
+    1363..1364 '2': {integer}

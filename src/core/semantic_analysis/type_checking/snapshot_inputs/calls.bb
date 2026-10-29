@@ -10,3 +10,17 @@ func main() {
     let function = add;
     let again = function(sum, 3);
 }
+
+func diverging_callee() -> I32 {
+    (return 1)(2)
+}
+
+func unknown_callee() {
+    let f = loop {};
+    f(1);
+}
+
+func not_a_function() {
+    let x = 5;
+    x(true);
+}

@@ -2,7 +2,6 @@ use std::io;
 use std::path::Path as FilePath;
 
 pub(crate) use crate::core::common::diagnostic::{DiagnosticDescription, LabelSeverity};
-pub(crate) use crate::core::common::span::{Span, TextSize};
 pub(crate) use crate::core::db::BlueberryDatabase;
 pub(crate) use crate::core::source_file_key::SourceFileKey;
 
@@ -12,11 +11,8 @@ use crate::core::lexical_analysis::tokens_of;
 use crate::core::mir_construction::mir_dumper::MirBodyDumper;
 use crate::core::module_map::{ModuleMap, ModulePath};
 use crate::core::semantic_analysis::ast_lowering::dumper::HirBodyDumper;
-use crate::core::semantic_analysis::ast_lowering::nodes::ExpressionHandle;
-use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
-use crate::core::semantic_analysis::name_resolution::resolver::Resolution;
 use crate::core::semantic_analysis::{
-    all_definitions_of, body, definition_at, definition_diagnostics_of, entry_point_diagnostics_of,
+    all_definitions_of, definition_diagnostics_of, entry_point_diagnostics_of,
     import_diagnostics_of, imports_of, module_file_of,
 };
 use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
@@ -109,47 +105,6 @@ impl<'db> Compiler<'db> {
             .collect()
     }
 
-    #[expect(
-        dead_code,
-        reason = "language-server API; the language server isn't written yet"
-    )]
-    pub(crate) fn type_at(&self, file: SourceFileKey, offset: TextSize) -> Option<String> {
-        let (definition, expression_handle) = self.expression_at(file, offset)?;
-        let ty = body::types_of(self.db, definition).expression_type(expression_handle);
-        Some(ty.display(self.db).to_string())
-    }
-
-    #[expect(
-        dead_code,
-        reason = "language-server API; the language server isn't written yet"
-    )]
-    pub(crate) fn goto_definition(
-        &self,
-        file: SourceFileKey,
-        offset: TextSize,
-    ) -> Option<(SourceFileKey, Span)> {
-        let (definition, expression_handle) = self.expression_at(file, offset)?;
-        match body::types_of(self.db, definition).path_resolution(expression_handle)? {
-            Resolution::Local(binding_handle) => {
-                let span = body::source_map_of(self.db, definition)
-                    .local_binding_span(binding_handle, definition.anchor(self.db));
-                Some((file, span))
-            }
-            Resolution::Function(key) => {
-                let span = Definition::Function(key).span(self.db);
-                Some((key.file(self.db), span))
-            }
-            Resolution::Constant(key) => {
-                let span = Definition::Constant(key).span(self.db);
-                Some((key.file(self.db), span))
-            }
-            Resolution::Module(module_file) => {
-                Some((module_file, Span::new(TextSize::new(0), TextSize::new(0))))
-            }
-            Resolution::Error => None,
-        }
-    }
-
     pub(crate) fn dump_tokens(&self, file: SourceFileKey) -> String {
         TokenDumper::new(file.contents(self.db), tokens_of(self.db, file).clone()).dump()
     }
@@ -164,17 +119,5 @@ impl<'db> Compiler<'db> {
 
     pub(crate) fn dump_mir(&self, file: SourceFileKey) -> String {
         MirBodyDumper::dump_file(self.db, file).unwrap()
-    }
-
-    fn expression_at(
-        &self,
-        file: SourceFileKey,
-        offset: TextSize,
-    ) -> Option<(Definition<'db>, ExpressionHandle)> {
-        let definition = definition_at(self.db, file, offset)?;
-        let relative_offset = offset - definition.anchor(self.db);
-        let expression_handle =
-            body::source_map_of(self.db, definition).expression_at(relative_offset)?;
-        Some((definition, expression_handle))
     }
 }

@@ -9,7 +9,7 @@ use crate::core::semantic_analysis::keys::BlockKey;
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode};
-use crate::core::syntactic_analysis::cst::{RedNode, RedNodeTag};
+use crate::core::syntactic_analysis::cst::{RedNode, RedNodeTag, RedToken};
 
 pub(crate) struct BodyLowerer<'db> {
     db: &'db dyn crate::Db,
@@ -248,16 +248,20 @@ impl<'db> BodyLowerer<'db> {
     fn lower_statement(&mut self, statement: ast::Statement) -> StatementHandle {
         match statement {
             ast::Statement::Let(let_statement) => {
-                let name = let_statement
-                    .name()
+                let name_token = let_statement.name();
+                let name = name_token
+                    .as_ref()
                     .map(|token| token.lexeme().to_string())
                     .unwrap_or_default();
+                let name_span = name_token
+                    .as_ref()
+                    .map_or_else(|| let_statement.red().span(), RedToken::span);
                 let name_handle = self.builder.add_local_binding(
                     nodes::LocalBinding {
                         name: Symbol::new(self.db, name),
                         mutable: let_statement.is_mutable(),
                     },
-                    let_statement.red(),
+                    name_span,
                 );
 
                 let annotation_handle = let_statement
@@ -309,16 +313,20 @@ impl<'db> BodyLowerer<'db> {
         parameters
             .into_iter()
             .map(|parameter| {
-                let name = parameter
-                    .name()
+                let name_token = parameter.name();
+                let name = name_token
+                    .as_ref()
                     .map(|token| token.lexeme().to_string())
                     .unwrap_or_default();
+                let name_span = name_token
+                    .as_ref()
+                    .map_or_else(|| parameter.red().span(), RedToken::span);
                 self.builder.add_local_binding(
                     nodes::LocalBinding {
                         name: Symbol::new(self.db, name),
                         mutable: false,
                     },
-                    parameter.red(),
+                    name_span,
                 )
             })
             .collect()

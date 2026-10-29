@@ -1,5 +1,6 @@
 ---
 source: src/core/semantic_analysis/type_checking/type_checker.rs
+assertion_line: 1336
 expression: "HirBodyDumper::dump_file_with_types(&db, file)"
 input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/calls.bb
 ---
@@ -29,3 +30,35 @@ function main()
          ├─ callee: Path function 171..179: (I64, I64) -> I64
          ├─ argument: Path sum 180..183: I64
          └─ argument: Integer 3 185..186: I64
+
+function diverging_callee() -> I32
+└─ Block 223..244: I32
+   └─ tail: Call 229..242: Bottom
+      ├─ callee: Return 230..238: Bottom
+      │  └─ Integer 1 237..238: I32
+      └─ argument: Integer 2 240..241: I32
+
+function unknown_callee()
+└─ Block 268..302: Bottom
+   ├─ Let f: {error}
+   │  └─ initializer: Loop Loop 282..289: Bottom
+   │     └─ Block 287..289: ()
+   └─ Expression ;
+      └─ Call 295..299: {error}
+         ├─ callee: Path f 295..296: {error}
+         └─ argument: Integer 1 297..298: I32
+
+function not_a_function()
+└─ Block 326..357: ()
+   ├─ Let x: I32
+   │  └─ initializer: Integer 5 340..341: I32
+   └─ Expression ;
+      └─ Call 347..354: {error}
+         ├─ callee: Path x 347..348: I32
+         └─ argument: Boolean true 349..353: Bool
+
+diagnostics
+  E0282 278..279 'f': type annotations needed (consider giving `f` an explicit type)
+    295..296 'f': type must be known at this point
+  E0618 347..354 'x(true)': expected function, found `{integer}` (call expression requires function)
+    347..348 'x': `x` has type `{integer}`

@@ -1,5 +1,5 @@
 use crate::core::common::runs::Run;
-use crate::core::common::span::TextSize;
+use crate::core::common::span::{Span, TextSize};
 use crate::core::semantic_analysis::ast_lowering::nodes::{
     self, ExpressionHandle, HirNodeSourceMap, HirNodeStore, LocalBindingHandle, StatementHandle,
     TypeExpressionHandle,
@@ -50,13 +50,12 @@ impl<'db> HirNodeStoreBuilder<'db> {
     pub(crate) fn add_local_binding(
         &mut self,
         binding: nodes::LocalBinding<'db>,
-        node: &RedNode,
+        name_span: Span,
     ) -> LocalBindingHandle {
         let binding_handle = self.store.local_bindings.add(binding);
-        self.source_map.local_bindings.add(
-            binding_handle,
-            RedNodeTag::new(node).relative_to(self.anchor),
-        );
+        self.source_map
+            .local_bindings
+            .add(binding_handle, name_span.relative_to(self.anchor));
         binding_handle
     }
 

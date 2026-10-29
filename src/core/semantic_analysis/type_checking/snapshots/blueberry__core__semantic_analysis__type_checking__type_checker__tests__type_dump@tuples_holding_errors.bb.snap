@@ -1,0 +1,48 @@
+---
+source: src/core/semantic_analysis/type_checking/type_checker.rs
+assertion_line: 1336
+expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/tuples_holding_errors.bb
+---
+function calling()
+└─ Block 15..50: ()
+   ├─ Let t: (I32, {error})
+   │  └─ initializer: Tuple 29..37: (I32, {error})
+   │     ├─ Integer 1 30..31: I32
+   │     └─ Path foo 33..36: {error}
+   └─ Expression ;
+      └─ Call 43..47: {error}
+         ├─ callee: Path t 43..44: (I32, {error})
+         └─ argument: Integer 5 45..46: I32
+
+function field()
+└─ Block 65..107: ()
+   ├─ Let t: (I32, {error})
+   │  └─ initializer: Tuple 79..87: (I32, {error})
+   │     ├─ Integer 1 80..81: I32
+   │     └─ Path foo 83..86: {error}
+   └─ Let x: {error}
+      └─ initializer: Field 5 101..104: {error}
+         └─ Path t 101..102: (I32, {error})
+
+function adding()
+└─ Block 123..167: ()
+   ├─ Let t: (I32, {error})
+   │  └─ initializer: Tuple 137..145: (I32, {error})
+   │     ├─ Integer 1 138..139: I32
+   │     └─ Path foo 141..144: {error}
+   └─ Let x: {error}
+      └─ initializer: Binary + 159..164: {error}
+         ├─ Path t 159..160: (I32, {error})
+         └─ Integer 1 163..164: I32
+
+diagnostics
+  E0425 33..36 'foo': cannot find `foo` in this scope (not found in this scope)
+  E0618 43..47 't(5)': expected function, found `({integer}, {error})` (call expression requires function)
+    43..44 't': `t` has type `({integer}, {error})`
+  E0425 83..86 'foo': cannot find `foo` in this scope (not found in this scope)
+  E0609 103..104 '5': no field `5` on type `({integer}, {error})` (unknown field)
+  E0425 141..144 'foo': cannot find `foo` in this scope (not found in this scope)
+  E0369 159..164 't + 1': cannot add `{integer}` to `({integer}, {error})`
+    159..160 't': ({integer}, {error})
+    163..164 '1': {integer}
