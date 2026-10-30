@@ -11,6 +11,8 @@ hello/
     └── circle.bb
 ```
 
+`main.bb` holds `main`, where the program starts. Its directory is the project's root: imports are found from there, so `import shapes::circle;` brings in `hello/shapes/circle.bb` (see [Modules](modules.md)).
+
 ```
 // hello/shapes/circle.bb
 func area(radius: I32) -> I32 {
@@ -27,15 +29,15 @@ func main() {
 }
 ```
 
-`main.bb` holds `main`, where the program starts. Its directory is the project's root: imports are found from there, so `import shapes::circle;` brings in `hello/shapes/circle.bb` (see [Modules](modules.md)).
-
 ## Checking a Program
+
+`check` runs the compiler on `main.bb`, and on every file it imports, and reports any error it finds.
 
 ```bash
 blueberry check --path=hello/main.bb
 ```
 
-`check` runs the compiler on `main.bb`, and on every file it imports, and reports any error it finds. For example, with `let a: Bool = circle::area(2);` in `main.bb`, it reports:
+For example, with `let a: Bool = circle::area(2);` in `main.bb`, it reports:
 
 ```
 [E0308] Error: mismatched types
@@ -53,23 +55,23 @@ Options are written as `--name=value`, and `--path` is always required. Run `blu
 
 ## Looking Inside the Compiler
 
+`--emit` also prints what the compiler made of your program at one of its stages: `tokens`, `cst` (the syntax tree), `hir` (the program, with the type of every expression), or `mir`. It can take several, separated by commas, like `--emit=hir,mir`.
+
 ```bash
 blueberry check --path=hello/main.bb --emit=hir
 ```
-
-`--emit` also prints what the compiler made of your program at one of its stages: `tokens`, `cst` (the syntax tree), `hir` (the program, with the type of every expression), or `mir`. It can take several, separated by commas, like `--emit=hir,mir`.
 
 ## Building and Running
 
 > [!CAUTION]
 > Unimplemented
 
+`build` compiles a program into an executable, and `run` builds it, then runs it.
+
 ```bash
 blueberry build --path=hello/main.bb
 blueberry run --path=hello/main.bb
 ```
-
-`build` compiles a program into an executable, and `run` builds it, then runs it.
 
 ## Editor Support
 

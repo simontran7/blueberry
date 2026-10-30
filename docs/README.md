@@ -41,7 +41,7 @@ flowchart TD
     cst_of --> imports_of
 
     ModuleMap --> module_file_of
-    imports_of -- "supplies the path argument" --> module_file_of
+    imports_of --> module_file_of
 
     cst_of --> signature_hir_and_source_map_of --> signature_hir_of --> signature_type_of
     cst_of --> body_hir_and_source_map_of --> body_hir_of --> scopes_of

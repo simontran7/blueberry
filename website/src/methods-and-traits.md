@@ -5,6 +5,10 @@
 > [!CAUTION]
 > Unimplemented
 
+An `impl` block holds the functions of a type, and works for any named type: named records, named tuples, and variants. You call them through the type's name, like `Point::origin()`.
+
+A function whose first parameter is `self` is a method: you can also call it on a value with a `.`, and `self` is that value. `p.length_squared()` is just a shorter way to write `Point::length_squared(p)`.
+
 ```
 record Point {
     x: I32,
@@ -28,14 +32,12 @@ func main() {
 }
 ```
 
-An `impl` block holds the functions of a type, and works for any named type: named records, named tuples, and variants. You call them through the type's name, like `Point::origin()`.
-
-A function whose first parameter is `self` is a method: you can also call it on a value with a `.`, and `self` is that value. `p.length_squared()` is just a shorter way to write `Point::length_squared(p)`.
-
 ## Traits
 
 > [!CAUTION]
 > Unimplemented
+
+A trait names a set of functions that several types can have. `trait Area` declares `area` without a body, ending with a `;`, and each `impl Area for …` gives a type its own `area`. Then `p.area()` and `s.area()` both work.
 
 ```
 trait Area {
@@ -59,8 +61,6 @@ impl Area for Shape {
 }
 ```
 
-A trait names a set of functions that several types can have. `trait Area` declares `area` without a body, ending with a `;`, and each `impl Area for …` gives a type its own `area`. Then `p.area()` and `s.area()` both work.
-
 An `impl` of a trait must define every function of the trait. A trait can also give a function a body, as a default: a type that doesn't define that function gets the default instead.
 
 You can implement a trait for a type you didn't declare, like `impl Area for I32`, but only in the module that declares the trait or the type. That way, there's never more than one `impl` of a trait for a type, wherever it's used.
@@ -69,6 +69,10 @@ You can implement a trait for a type you didn't declare, like `impl Area for I32
 
 > [!CAUTION]
 > Unimplemented
+
+An `impl` block can hold constants too: they belong to the type, and you reach them through its name, like `Point::ORIGIN`.
+
+A trait can declare a constant without a value, which every `impl` of the trait must give, like `SIDES`. A trait constant with a value is a default, like a trait function with a body.
 
 ```
 impl Point {
@@ -92,7 +96,3 @@ func main() {
     let n = Square::SIDES;
 }
 ```
-
-An `impl` block can hold constants too: they belong to the type, and you reach them through its name, like `Point::ORIGIN`.
-
-A trait can declare a constant without a value, which every `impl` of the trait must give, like `SIDES`. A trait constant with a value is a default, like a trait function with a body.
