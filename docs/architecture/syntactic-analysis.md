@@ -1,9 +1,9 @@
 
 # Syntactic Analysis
 
-## Parser
+## Concrete Syntax Trees
 
-## Recursive Descent
+## Parser
 
 TO WRITE
 
