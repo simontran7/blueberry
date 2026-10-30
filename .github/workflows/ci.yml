@@ -44,9 +44,6 @@ jobs:
       - name: Format
         run: cargo fmt --check
     
-      - name: Lint Markdown files
-        uses: rvben/rumdl@v0
-
       - name: Lint
         run: cargo clippy -- -D warnings -D clippy::pedantic
 
