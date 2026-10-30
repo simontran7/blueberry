@@ -1,5 +1,5 @@
 use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
-use crate::core::common::span::{Span, TextSize};
+use crate::core::common::text_range::{AbsoluteTextRange, TextLength, TextOffset};
 use crate::core::semantic_analysis::ast_lowering::nodes::{
     self, ExpressionHandle, HirNodeSourceMap, TypeExpressionHandle,
 };
@@ -15,135 +15,135 @@ pub(crate) enum SemanticDiagnostic {
     TypeMismatch {
         expected: String,
         found: String,
-        span: Span,
-        return_type_span: Option<Span>,
+        range: AbsoluteTextRange,
+        return_type_range: Option<AbsoluteTextRange>,
         /// the number of elements of each, when both are tuples of different lengths
         tuple_lengths: Option<(usize, usize)>,
     },
     ImplicitUnitReturn {
         expected: String,
-        return_type_span: Span,
-        function_name_span: Option<Span>,
+        return_type_range: AbsoluteTextRange,
+        function_name_range: Option<AbsoluteTextRange>,
     },
     IfElseMismatch {
         expected: String,
         found: String,
-        then_span: Span,
-        else_span: Span,
+        then_range: AbsoluteTextRange,
+        else_range: AbsoluteTextRange,
     },
     IfWithoutElse {
         expected: String,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     ReturnWithoutValue {
-        span: Span,
+        range: AbsoluteTextRange,
     },
     MismatchedArgumentCount {
         expected: usize,
         found: usize,
-        callee_span: Span,
-        argument_labels: Box<[(Span, String)]>,
-        definition_span: Option<Span>,
+        callee_range: AbsoluteTextRange,
+        argument_labels: Box<[(AbsoluteTextRange, String)]>,
+        definition_range: Option<AbsoluteTextRange>,
     },
     UnresolvedName {
         name: String,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     UnresolvedModule {
         name: String,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     UnresolvedImport {
         path: Box<[String]>,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     MissingFromModule {
         name: String,
         module: String,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     NotAModule {
         name: String,
         found: &'static str,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     ExpectedValueFoundModule {
         kind: &'static str,
         name: String,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     UnknownType {
         name: String,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     UnknownField {
         field: String,
         ty: String,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     PrimitiveHasNoFields {
         ty: String,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     ExpectedFunction {
         found: String,
         callee_name: Option<String>,
-        callee_span: Span,
-        call_span: Span,
+        callee_range: AbsoluteTextRange,
+        call_range: AbsoluteTextRange,
     },
     UnaryOperatorCannotBeApplied {
         operator: String,
         found: String,
         is_unsigned: bool,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     BinaryOperatorCannotBeApplied {
         operator: nodes::BinaryOperator,
         lhs: String,
         rhs: String,
-        span: Span,
-        lhs_span: Span,
-        rhs_span: Span,
+        range: AbsoluteTextRange,
+        lhs_range: AbsoluteTextRange,
+        rhs_range: AbsoluteTextRange,
     },
     InvalidAssignmentTarget {
-        span: Span,
-        target_span: Span,
+        range: AbsoluteTextRange,
+        target_range: AbsoluteTextRange,
     },
     ReturnOutsideFunction {
-        span: Span,
+        range: AbsoluteTextRange,
     },
     BreakOutsideOfLoop {
-        span: Span,
+        range: AbsoluteTextRange,
     },
     ContinueOutsideOfLoop {
-        span: Span,
+        range: AbsoluteTextRange,
     },
     BreakWithValueFromWhile {
-        span: Span,
+        range: AbsoluteTextRange,
     },
     TypeMustBeKnown {
         /// where the type was needed
-        span: Span,
+        range: AbsoluteTextRange,
         /// the name of the `let` binding whose type is unknown, if that's what it is
         binding_name: Option<String>,
         /// what the unknown type belongs to: the `let` binding, or an expression
-        origin_span: Span,
+        origin_range: AbsoluteTextRange,
     },
     LiteralOutOfRange {
         literal: String,
         ty: String,
-        range: String,
+        type_range: String,
         suggested_ty: Option<String>,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     MainNotFound {
         file: String,
-        span: Span,
+        range: AbsoluteTextRange,
     },
     MainWrongType {
         expected: String,
         found: String,
-        span: Span,
+        range: AbsoluteTextRange,
     },
 }
 
@@ -217,7 +217,7 @@ pub(crate) enum UnresolvedSemanticDiagnostic<'db> {
     LiteralOutOfRange {
         expression_handle: ExpressionHandle,
         ty: Ty<'db>,
-        range: String,
+        type_range: String,
         suggested_ty: Option<Ty<'db>>,
     },
 }
@@ -235,9 +235,9 @@ pub(crate) enum TypeMismatchCause {
 
 pub(crate) struct OwnerSpans {
     pub(crate) file: SourceFileKey,
-    pub(crate) anchor: TextSize,
-    pub(crate) name: Option<Span>,
-    pub(crate) return_type: Option<Span>,
+    pub(crate) anchor: TextOffset,
+    pub(crate) name: Option<AbsoluteTextRange>,
+    pub(crate) return_type: Option<AbsoluteTextRange>,
 }
 
 impl SemanticDiagnostic {
@@ -246,8 +246,8 @@ impl SemanticDiagnostic {
             Self::TypeMismatch {
                 expected,
                 found,
-                span,
-                return_type_span,
+                range,
+                return_type_range,
                 tuple_lengths,
             } => {
                 // two tuples of different lengths are told apart by their lengths, which are
@@ -261,10 +261,10 @@ impl SemanticDiagnostic {
                     ),
                     None => expected_found(expected, found),
                 };
-                let mut labels = vec![primary(*span, message)];
-                if let Some(return_type_span) = return_type_span {
+                let mut labels = vec![primary(*range, message)];
+                if let Some(return_type_range) = return_type_range {
                     labels.push(secondary(
-                        *return_type_span,
+                        *return_type_range,
                         format!("expected {} because of return type", quote_type(expected)),
                     ));
                 }
@@ -278,38 +278,38 @@ impl SemanticDiagnostic {
                 };
                 DiagnosticDescription {
                     notes,
-                    ..description("E0308", "mismatched types", *span, labels)
+                    ..description("E0308", "mismatched types", *range, labels)
                 }
             }
             Self::ImplicitUnitReturn {
                 expected,
-                return_type_span,
-                function_name_span,
+                return_type_range,
+                function_name_range,
             } => {
-                let mut labels = vec![primary(*return_type_span, expected_found(expected, "()"))];
-                if let Some(function_name_span) = function_name_span {
+                let mut labels = vec![primary(*return_type_range, expected_found(expected, "()"))];
+                if let Some(function_name_range) = function_name_range {
                     labels.push(secondary(
-                        *function_name_span,
+                        *function_name_range,
                         "implicitly returns `()` as its body has no tail or `return` expression",
                     ));
                 }
-                description("E0308", "mismatched types", *return_type_span, labels)
+                description("E0308", "mismatched types", *return_type_range, labels)
             }
             Self::IfElseMismatch {
                 expected,
                 found,
-                then_span,
-                else_span,
+                then_range,
+                else_range,
             } => description(
                 "E0308",
                 "`if` and `else` have incompatible types",
-                *else_span,
+                *else_range,
                 vec![
-                    secondary(*then_span, "expected because of this"),
-                    primary(*else_span, expected_found(expected, found)),
+                    secondary(*then_range, "expected because of this"),
+                    primary(*else_range, expected_found(expected, found)),
                 ],
             ),
-            Self::IfWithoutElse { expected, span } => DiagnosticDescription {
+            Self::IfWithoutElse { expected, range } => DiagnosticDescription {
                 notes: Box::new(["`if` expressions without `else` evaluate to `()`".to_string()]),
                 helps: Box::new([
                     "consider adding an `else` block that evaluates to the expected type"
@@ -318,31 +318,31 @@ impl SemanticDiagnostic {
                 ..description(
                     "E0317",
                     "`if` may be missing an `else` clause",
-                    *span,
-                    vec![primary(*span, expected_found(expected, "()"))],
+                    *range,
+                    vec![primary(*range, expected_found(expected, "()"))],
                 )
             },
-            Self::ReturnWithoutValue { span } => description(
+            Self::ReturnWithoutValue { range } => description(
                 "E0069",
                 "`return;` in a function whose return type is not `()`",
-                *span,
-                vec![primary(*span, "return type is not `()`")],
+                *range,
+                vec![primary(*range, "return type is not `()`")],
             ),
             Self::MismatchedArgumentCount {
                 expected,
                 found,
-                callee_span,
+                callee_range,
                 argument_labels,
-                definition_span,
+                definition_range,
             } => {
-                let mut labels = vec![unlabeled(*callee_span)];
+                let mut labels = vec![unlabeled(*callee_range)];
                 labels.extend(
                     argument_labels
                         .iter()
-                        .map(|(span, message)| secondary(*span, message.clone())),
+                        .map(|(range, message)| secondary(*range, message.clone())),
                 );
-                if let Some(definition_span) = definition_span {
-                    labels.push(secondary(*definition_span, "function defined here"));
+                if let Some(definition_range) = definition_range {
+                    labels.push(secondary(*definition_range, "function defined here"));
                 }
                 description(
                     "E0061",
@@ -352,32 +352,36 @@ impl SemanticDiagnostic {
                         count(*found, "argument"),
                         if *found == 1 { "was" } else { "were" },
                     ),
-                    *callee_span,
+                    *callee_range,
                     labels,
                 )
             }
-            Self::UnresolvedName { name, span } => description(
+            Self::UnresolvedName { name, range } => description(
                 "E0425",
                 &format!("cannot find `{name}` in this scope"),
-                *span,
-                vec![primary(*span, "not found in this scope")],
+                *range,
+                vec![primary(*range, "not found in this scope")],
             ),
-            Self::UnresolvedModule { name, span } => {
+            Self::UnresolvedModule { name, range } => {
                 let message = format!("use of unresolved module `{name}`");
                 description(
                     "E0433",
                     &format!("failed to resolve: {message}"),
-                    *span,
-                    vec![primary(*span, message)],
+                    *range,
+                    vec![primary(*range, message)],
                 )
             }
-            Self::MissingFromModule { name, module, span } => description(
+            Self::MissingFromModule {
+                name,
+                module,
+                range,
+            } => description(
                 "E0425",
                 &format!("cannot find `{name}` in module `{module}`"),
-                *span,
-                vec![primary(*span, format!("not found in `{module}`"))],
+                *range,
+                vec![primary(*range, format!("not found in `{module}`"))],
             ),
-            Self::UnresolvedImport { path, span } => {
+            Self::UnresolvedImport { path, range } => {
                 let label = match path.split_last() {
                     Some((name, [])) => format!("no `{name}` in the root"),
                     Some((name, parent)) => format!("no `{name}` in `{}`", parent.join("::")),
@@ -386,48 +390,48 @@ impl SemanticDiagnostic {
                 description(
                     "E0432",
                     &format!("unresolved import `{}`", path.join("::")),
-                    *span,
-                    vec![primary(*span, label)],
+                    *range,
+                    vec![primary(*range, label)],
                 )
             }
-            Self::NotAModule { name, found, span } => {
+            Self::NotAModule { name, found, range } => {
                 let message = format!("`{name}` is {found}, not a module");
                 description(
                     "E0433",
                     &format!("failed to resolve: {message}"),
-                    *span,
-                    vec![primary(*span, message)],
+                    *range,
+                    vec![primary(*range, message)],
                 )
             }
-            Self::ExpectedValueFoundModule { kind, name, span } => description(
+            Self::ExpectedValueFoundModule { kind, name, range } => description(
                 "E0423",
                 &format!("expected {kind}, found module `{name}`"),
-                *span,
-                vec![primary(*span, format!("not a {kind}"))],
+                *range,
+                vec![primary(*range, format!("not a {kind}"))],
             ),
-            Self::UnknownType { name, span } => description(
+            Self::UnknownType { name, range } => description(
                 "E0412",
                 &format!("cannot find type `{name}` in this scope"),
-                *span,
-                vec![primary(*span, "not found in this scope")],
+                *range,
+                vec![primary(*range, "not found in this scope")],
             ),
-            Self::UnknownField { field, ty, span } => description(
+            Self::UnknownField { field, ty, range } => description(
                 "E0609",
                 &format!("no field `{field}` on type `{ty}`"),
-                *span,
-                vec![primary(*span, "unknown field")],
+                *range,
+                vec![primary(*range, "unknown field")],
             ),
-            Self::PrimitiveHasNoFields { ty, span } => description(
+            Self::PrimitiveHasNoFields { ty, range } => description(
                 "E0610",
                 &format!("`{ty}` is a primitive type and therefore doesn't have fields"),
-                *span,
-                vec![unlabeled(*span)],
+                *range,
+                vec![unlabeled(*range)],
             ),
             Self::ExpectedFunction {
                 found,
                 callee_name,
-                callee_span,
-                call_span,
+                callee_range,
+                call_range,
             } => {
                 let callee = match callee_name {
                     Some(name) => format!("`{name}` has type `{found}`"),
@@ -436,10 +440,10 @@ impl SemanticDiagnostic {
                 description(
                     "E0618",
                     &format!("expected function, found `{found}`"),
-                    *call_span,
+                    *call_range,
                     vec![
-                        secondary(*callee_span, callee),
-                        primary(*call_span, "call expression requires function"),
+                        secondary(*callee_range, callee),
+                        primary(*call_range, "call expression requires function"),
                     ],
                 )
             }
@@ -447,7 +451,7 @@ impl SemanticDiagnostic {
                 operator,
                 found,
                 is_unsigned,
-                span,
+                range,
             } => DiagnosticDescription {
                 notes: if *is_unsigned {
                     Box::new(["unsigned values cannot be negated".to_string()])
@@ -457,9 +461,9 @@ impl SemanticDiagnostic {
                 ..description(
                     "E0600",
                     &format!("cannot apply unary operator `{operator}` to type `{found}`"),
-                    *span,
+                    *range,
                     vec![primary(
-                        *span,
+                        *range,
                         format!("cannot apply unary operator `{operator}`"),
                     )],
                 )
@@ -468,9 +472,9 @@ impl SemanticDiagnostic {
                 operator,
                 lhs,
                 rhs,
-                span,
-                lhs_span,
-                rhs_span,
+                range,
+                lhs_range,
+                rhs_range,
             } => {
                 let message = match operator {
                     nodes::BinaryOperator::Add => format!("cannot add `{rhs}` to `{lhs}`"),
@@ -485,109 +489,112 @@ impl SemanticDiagnostic {
                 description(
                     "E0369",
                     &message,
-                    *span,
+                    *range,
                     vec![
-                        unlabeled(*span),
-                        secondary(*lhs_span, lhs.clone()),
-                        secondary(*rhs_span, rhs.clone()),
+                        unlabeled(*range),
+                        secondary(*lhs_range, lhs.clone()),
+                        secondary(*rhs_range, rhs.clone()),
                     ],
                 )
             }
-            Self::InvalidAssignmentTarget { span, target_span } => description(
+            Self::InvalidAssignmentTarget {
+                range,
+                target_range,
+            } => description(
                 "E0070",
                 "invalid left-hand side of assignment",
-                *span,
+                *range,
                 vec![
-                    unlabeled(*span),
-                    secondary(*target_span, "cannot assign to this expression"),
+                    unlabeled(*range),
+                    secondary(*target_range, "cannot assign to this expression"),
                 ],
             ),
-            Self::ReturnOutsideFunction { span } => description(
+            Self::ReturnOutsideFunction { range } => description(
                 "E0572",
                 "return statement outside of function body",
-                *span,
-                vec![unlabeled(*span)],
+                *range,
+                vec![unlabeled(*range)],
             ),
-            Self::BreakOutsideOfLoop { span } => description(
+            Self::BreakOutsideOfLoop { range } => description(
                 "E0268",
                 "`break` outside of a loop",
-                *span,
-                vec![primary(*span, "cannot `break` outside of a loop")],
+                *range,
+                vec![primary(*range, "cannot `break` outside of a loop")],
             ),
-            Self::ContinueOutsideOfLoop { span } => description(
+            Self::ContinueOutsideOfLoop { range } => description(
                 "E0268",
                 "`continue` outside of a loop",
-                *span,
-                vec![primary(*span, "cannot `continue` outside of a loop")],
+                *range,
+                vec![primary(*range, "cannot `continue` outside of a loop")],
             ),
-            Self::BreakWithValueFromWhile { span } => DiagnosticDescription {
+            Self::BreakWithValueFromWhile { range } => DiagnosticDescription {
                 helps: Box::new([
                     "use `break` on its own without a value inside this `while` loop".to_string(),
                 ]),
                 ..description(
                     "E0571",
                     "`break` with value from a `while` loop",
-                    *span,
-                    vec![primary(*span, "can only break with a value inside `loop`")],
+                    *range,
+                    vec![primary(*range, "can only break with a value inside `loop`")],
                 )
             },
             Self::TypeMustBeKnown {
-                span,
+                range,
                 binding_name,
-                origin_span,
+                origin_range,
             } => {
                 if let Some(name) = binding_name {
                     description(
                         "E0282",
                         "type annotations needed",
-                        *origin_span,
+                        *origin_range,
                         vec![
                             primary(
-                                *origin_span,
+                                *origin_range,
                                 format!("consider giving `{name}` an explicit type"),
                             ),
-                            secondary(*span, "type must be known at this point"),
+                            secondary(*range, "type must be known at this point"),
                         ],
                     )
                 } else {
-                    let mut labels = vec![primary(*span, "type must be known at this point")];
-                    if origin_span != span {
+                    let mut labels = vec![primary(*range, "type must be known at this point")];
+                    if origin_range != range {
                         labels.push(secondary(
-                            *origin_span,
+                            *origin_range,
                             "cannot infer the type of this expression",
                         ));
                     }
-                    description("E0282", "type annotations needed", *span, labels)
+                    description("E0282", "type annotations needed", *range, labels)
                 }
             }
-            Self::MainNotFound { file, span } => description(
+            Self::MainNotFound { file, range } => description(
                 "E0601",
                 &format!("`main` function not found in `{file}`"),
-                *span,
+                *range,
                 vec![primary(
-                    *span,
+                    *range,
                     format!("consider adding a `main` function to `{file}`"),
                 )],
             ),
             Self::MainWrongType {
                 expected,
                 found,
-                span,
+                range,
             } => description(
                 "E0580",
                 "`main` function has wrong type",
-                *span,
-                vec![primary(*span, expected_found(expected, found))],
+                *range,
+                vec![primary(*range, expected_found(expected, found))],
             ),
             Self::LiteralOutOfRange {
                 literal,
                 ty,
-                range,
+                type_range,
                 suggested_ty,
-                span,
+                range,
             } => DiagnosticDescription {
                 notes: Box::new([format!(
-                    "the literal `{literal}` does not fit into the type `{ty}` whose range is `{range}`"
+                    "the literal `{literal}` does not fit into the type `{ty}` whose range is `{type_range}`"
                 )]),
                 helps: suggested_ty
                     .iter()
@@ -596,8 +603,8 @@ impl SemanticDiagnostic {
                 ..description(
                     "E0103",
                     &format!("literal out of range for `{ty}`"),
-                    *span,
-                    vec![unlabeled(*span)],
+                    *range,
+                    vec![unlabeled(*range)],
                 )
             },
         }
@@ -613,8 +620,8 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
         semantics: &BodySemantics<'db>,
         owner: &OwnerSpans,
     ) -> SemanticDiagnostic {
-        let span_of = |expression_handle: ExpressionHandle| {
-            source_map.expression_span(expression_handle, owner.anchor)
+        let range_of = |expression_handle: ExpressionHandle| {
+            source_map.expression_range(expression_handle, owner.anchor)
         };
         let path_text = |expression_handle: ExpressionHandle| match body
             .store()
@@ -630,30 +637,30 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 found,
                 cause,
             } => match (*cause, owner.return_type) {
-                (TypeMismatchCause::ImplicitUnitReturn, Some(return_type_span)) => {
+                (TypeMismatchCause::ImplicitUnitReturn, Some(return_type_range)) => {
                     SemanticDiagnostic::ImplicitUnitReturn {
                         expected: expected.display(db).to_string(),
-                        return_type_span,
-                        function_name_span: owner.name,
+                        return_type_range,
+                        function_name_range: owner.name,
                     }
                 }
                 (TypeMismatchCause::IfElse { then_branch_handle }, _) => {
                     SemanticDiagnostic::IfElseMismatch {
                         expected: expected.display(db).to_string(),
                         found: found.display(db).to_string(),
-                        then_span: span_of(value_expression(body, then_branch_handle)),
-                        else_span: span_of(value_expression(body, *expression_handle)),
+                        then_range: range_of(value_expression(body, then_branch_handle)),
+                        else_range: range_of(value_expression(body, *expression_handle)),
                     }
                 }
                 (TypeMismatchCause::IfWithoutElse, _) => SemanticDiagnostic::IfWithoutElse {
                     expected: expected.display(db).to_string(),
-                    span: span_of(*expression_handle),
+                    range: range_of(*expression_handle),
                 },
                 (cause, _) => SemanticDiagnostic::TypeMismatch {
                     expected: expected.display(db).to_string(),
                     found: found.display(db).to_string(),
-                    span: span_of(*expression_handle),
-                    return_type_span: match cause {
+                    range: range_of(*expression_handle),
+                    return_type_range: match cause {
                         TypeMismatchCause::ReturnValue => owner.return_type,
                         _ => None,
                     },
@@ -670,7 +677,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
             Self::ReturnWithoutValue {
                 expression_handle, ..
             } => SemanticDiagnostic::ReturnWithoutValue {
-                span: span_of(*expression_handle),
+                range: range_of(*expression_handle),
             },
             Self::UnresolvedPath {
                 expression_handle,
@@ -682,25 +689,25 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 };
                 let segments = path.segments(db);
                 let segment = |index: usize| segments[index].text(db).to_string();
-                let span = span_of(*expression_handle);
+                let range = range_of(*expression_handle);
                 match *error {
                     ResolveError::Unresolved { .. } if segments.len() == 1 => {
                         SemanticDiagnostic::UnresolvedName {
                             name: segment(0),
-                            span,
+                            range,
                         }
                     }
                     ResolveError::Unresolved { segment_index } => {
                         SemanticDiagnostic::UnresolvedModule {
                             name: segment(segment_index),
-                            span,
+                            range,
                         }
                     }
                     ResolveError::MissingFromModule { segment_index } => {
                         SemanticDiagnostic::MissingFromModule {
                             name: segment(segment_index),
                             module: segment(segment_index - 1),
-                            span,
+                            range,
                         }
                     }
                     ResolveError::NotAModule {
@@ -716,7 +723,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                                 unreachable!("a module, or a failed import, can be qualified")
                             }
                         },
-                        span,
+                        range,
                     },
                 }
             }
@@ -724,7 +731,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 SemanticDiagnostic::ExpectedValueFoundModule {
                     kind: value_kind(body, *expression_handle),
                     name: path_text(*expression_handle).unwrap(),
-                    span: span_of(*expression_handle),
+                    range: range_of(*expression_handle),
                 }
             }
             Self::UnknownType {
@@ -737,7 +744,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 };
                 SemanticDiagnostic::UnknownType {
                     name: path.display(db).to_string(),
-                    span: source_map.type_expression_span(*type_expression_handle, owner.anchor),
+                    range: source_map.type_expression_range(*type_expression_handle, owner.anchor),
                 }
             }
             Self::UnknownField {
@@ -752,18 +759,18 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                     unreachable!("reported on named fields")
                 };
                 let field = name.text(db).to_string();
-                let end = span_of(*expression_handle).end();
-                let span = Span::new(end - TextSize::new(field.len()), end);
+                let end = range_of(*expression_handle).end();
+                let range = AbsoluteTextRange::new(end - TextLength::new(field.len()), end);
                 if *is_primitive {
                     SemanticDiagnostic::PrimitiveHasNoFields {
                         ty: ty.display(db).to_string(),
-                        span,
+                        range,
                     }
                 } else {
                     SemanticDiagnostic::UnknownField {
                         field,
                         ty: ty.display(db).to_string(),
-                        span,
+                        range,
                     }
                 }
             }
@@ -776,8 +783,8 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 SemanticDiagnostic::ExpectedFunction {
                     found: found.display(db).to_string(),
                     callee_name: path_text(*callee_handle),
-                    callee_span: span_of(*callee_handle),
-                    call_span: span_of(*call_handle),
+                    callee_range: range_of(*callee_handle),
+                    call_range: range_of(*call_handle),
                 }
             }
             Self::MismatchedArgumentCount {
@@ -799,7 +806,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                             let argument_handle = argument_handles[index];
                             let ty = semantics.expression_type(argument_handle).display(db);
                             (
-                                span_of(argument_handle),
+                                range_of(argument_handle),
                                 format!("unexpected argument #{} of type `{ty}`", index + 1),
                             )
                         })
@@ -809,23 +816,23 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                         .map(|index| {
                             let ty = parameters[index].display(db);
                             (
-                                span_of(*call_handle),
+                                range_of(*call_handle),
                                 format!("argument #{} of type `{ty}` is missing", index + 1),
                             )
                         })
                         .collect()
                 };
                 // Only a definition in the same file can be shown alongside the call.
-                let definition_span = function
+                let definition_range = function
                     .filter(|function| function.file(db) == owner.file)
                     .and_then(|function| function.to_ast_node(db).name())
-                    .map(|name| name.span());
+                    .map(|name| name.range());
                 SemanticDiagnostic::MismatchedArgumentCount {
                     expected: parameters.len(),
                     found: argument_handles.len(),
-                    callee_span: span_of(*callee_handle),
+                    callee_range: range_of(*callee_handle),
                     argument_labels,
-                    definition_span,
+                    definition_range,
                 }
             }
             Self::UnaryOperatorCannotBeApplied {
@@ -840,7 +847,7 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                 },
                 found: found.display(db).to_string(),
                 is_unsigned: *is_unsigned,
-                span: span_of(*expression_handle),
+                range: range_of(*expression_handle),
             },
             Self::BinaryOperatorCannotBeApplied {
                 expression_handle,
@@ -860,43 +867,43 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                     operator: *operator,
                     lhs: lhs.display(db).to_string(),
                     rhs: rhs.display(db).to_string(),
-                    span: span_of(*expression_handle),
-                    lhs_span: span_of(*lhs_handle),
-                    rhs_span: span_of(*rhs_handle),
+                    range: range_of(*expression_handle),
+                    lhs_range: range_of(*lhs_handle),
+                    rhs_range: range_of(*rhs_handle),
                 }
             }
             Self::InvalidAssignmentTarget {
                 assignment_handle,
                 target_handle,
             } => SemanticDiagnostic::InvalidAssignmentTarget {
-                span: span_of(*assignment_handle),
-                target_span: span_of(*target_handle),
+                range: range_of(*assignment_handle),
+                target_range: range_of(*target_handle),
             },
             Self::BreakOutsideOfLoop { expression_handle } => {
                 SemanticDiagnostic::BreakOutsideOfLoop {
-                    span: span_of(*expression_handle),
+                    range: range_of(*expression_handle),
                 }
             }
             Self::ContinueOutsideOfLoop { expression_handle } => {
                 SemanticDiagnostic::ContinueOutsideOfLoop {
-                    span: span_of(*expression_handle),
+                    range: range_of(*expression_handle),
                 }
             }
             Self::BreakWithValueFromWhile { expression_handle } => {
                 SemanticDiagnostic::BreakWithValueFromWhile {
-                    span: span_of(*expression_handle),
+                    range: range_of(*expression_handle),
                 }
             }
             Self::ReturnOutsideFunction { expression_handle } => {
                 SemanticDiagnostic::ReturnOutsideFunction {
-                    span: span_of(*expression_handle),
+                    range: range_of(*expression_handle),
                 }
             }
             Self::TypeMustBeKnown {
                 expression_handle,
                 origin,
             } => {
-                let (binding_name, origin_span) = match origin {
+                let (binding_name, origin_range) = match origin {
                     VariableOrigin::LocalBinding(binding_handle) => (
                         Some(
                             body.store()
@@ -905,29 +912,29 @@ impl<'db> UnresolvedSemanticDiagnostic<'db> {
                                 .text(db)
                                 .to_string(),
                         ),
-                        source_map.local_binding_span(*binding_handle, owner.anchor),
+                        source_map.local_binding_range(*binding_handle, owner.anchor),
                     ),
-                    VariableOrigin::Expression(origin_handle) => (None, span_of(*origin_handle)),
+                    VariableOrigin::Expression(origin_handle) => (None, range_of(*origin_handle)),
                 };
                 SemanticDiagnostic::TypeMustBeKnown {
-                    span: span_of(*expression_handle),
+                    range: range_of(*expression_handle),
                     binding_name,
-                    origin_span,
+                    origin_range,
                 }
             }
             Self::LiteralOutOfRange {
                 expression_handle,
                 ty,
-                range,
+                type_range,
                 suggested_ty,
             } => SemanticDiagnostic::LiteralOutOfRange {
                 literal: owner.file.contents(db)
-                    [std::ops::Range::from(span_of(*expression_handle))]
+                    [std::ops::Range::from(range_of(*expression_handle))]
                 .to_string(),
                 ty: ty.display(db).to_string(),
-                range: range.clone(),
+                type_range: type_range.clone(),
                 suggested_ty: suggested_ty.map(|suggested_ty| suggested_ty.display(db).to_string()),
-                span: span_of(*expression_handle),
+                range: range_of(*expression_handle),
             },
         }
     }
@@ -975,38 +982,38 @@ fn count(n: usize, noun: &str) -> String {
 fn description(
     code: &'static str,
     message: &str,
-    span: Span,
+    range: AbsoluteTextRange,
     labels: Vec<DiagnosticLabel>,
 ) -> DiagnosticDescription {
     DiagnosticDescription {
         code,
         message: message.to_string(),
-        span,
+        range,
         labels: labels.into_boxed_slice(),
         notes: Box::new([]),
         helps: Box::new([]),
     }
 }
 
-fn primary(span: Span, message: impl Into<String>) -> DiagnosticLabel {
+fn primary(range: AbsoluteTextRange, message: impl Into<String>) -> DiagnosticLabel {
     DiagnosticLabel {
-        span,
+        range,
         message: Some(message.into()),
         severity: LabelSeverity::Primary,
     }
 }
 
-fn secondary(span: Span, message: impl Into<String>) -> DiagnosticLabel {
+fn secondary(range: AbsoluteTextRange, message: impl Into<String>) -> DiagnosticLabel {
     DiagnosticLabel {
-        span,
+        range,
         message: Some(message.into()),
         severity: LabelSeverity::Secondary,
     }
 }
 
-fn unlabeled(span: Span) -> DiagnosticLabel {
+fn unlabeled(range: AbsoluteTextRange) -> DiagnosticLabel {
     DiagnosticLabel {
-        span,
+        range,
         message: None,
         severity: LabelSeverity::Primary,
     }

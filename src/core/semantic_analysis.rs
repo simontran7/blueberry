@@ -6,7 +6,7 @@ pub(crate) mod type_checking;
 
 use std::sync::Arc;
 
-use crate::core::common::span::{Span, TextSize};
+use crate::core::common::text_range::{AbsoluteTextRange, TextOffset};
 use crate::core::module_map::{ModuleMap, ModulePath};
 
 use crate::core::semantic_analysis::ast_lowering::nodes::{
@@ -33,7 +33,9 @@ use crate::core::syntactic_analysis::cst_of;
 pub(crate) mod signature {
     use std::sync::Arc;
 
-    use crate::core::semantic_analysis::ast_lowering::nodes::{HirNodeSourceMap, Signature};
+    use crate::core::semantic_analysis::ast_lowering::nodes::{
+        HirNodeSourceMap, Signature, SignatureKind,
+    };
     use crate::core::semantic_analysis::ast_lowering::signature_lowerer::SignatureLowerer;
     use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
     use crate::core::semantic_analysis::type_checking::type_expression_resolution::resolve_type_expression;
@@ -47,8 +49,8 @@ pub(crate) mod signature {
         let resolve = |annotation_handle| {
             resolve_type_expression(db, signature.store(), annotation_handle).ty
         };
-        match &**signature {
-            Signature::Function(function) => {
+        match signature.kind() {
+            SignatureKind::Function(function) => {
                 let parameters = function
                     .parameter_annotations()
                     .iter()
@@ -59,7 +61,7 @@ pub(crate) mod signature {
                     .map_or_else(|| Ty::unit(db), resolve);
                 Ty::function(db, parameters, return_type)
             }
-            Signature::Constant(constant) => {
+            SignatureKind::Constant(constant) => {
                 constant.annotation().map_or_else(|| Ty::error(db), resolve)
             }
         }
@@ -255,16 +257,16 @@ pub(crate) fn definition_diagnostics_of<'db>(
             OwnerSpans {
                 file,
                 anchor,
-                name: node.name().map(|name| name.span()),
+                name: node.name().map(|name| name.range()),
                 return_type: node
                     .return_type_annotation()
-                    .map(|annotation| annotation.red().span()),
+                    .map(|annotation| annotation.red().range()),
             }
         }
         Definition::Constant(key) => OwnerSpans {
             file,
             anchor,
-            name: key.to_ast_node(db).name().map(|name| name.span()),
+            name: key.to_ast_node(db).name().map(|name| name.range()),
             return_type: None,
         },
     };
@@ -301,7 +303,7 @@ pub(crate) fn import_diagnostics_of(
                         .iter()
                         .map(|segment| segment.text(db).to_string())
                         .collect(),
-                    span: path.red().span(),
+                    range: path.red().range(),
                 })
         })
         .collect()
@@ -320,10 +322,10 @@ pub(crate) fn entry_point_diagnostics_of(
         });
     let Some(main) = main else {
         let file_name = file.path(db).file_name().unwrap_or_default();
-        let end = TextSize::new(file.contents(db).len());
+        let end = TextOffset::new(file.contents(db).len());
         return vec![SemanticDiagnostic::MainNotFound {
             file: file_name.to_string_lossy().into_owned(),
-            span: Span::new(end, end),
+            range: AbsoluteTextRange::new(end, end),
         }];
     };
 
@@ -336,14 +338,14 @@ pub(crate) fn entry_point_diagnostics_of(
     let Definition::Function(key) = main else {
         unreachable!("`main` was found among the functions");
     };
-    let span = key
+    let range = key
         .to_ast_node(db)
         .name()
-        .map_or_else(|| main.span(db), |name| name.span());
+        .map_or_else(|| main.range(db), |name| name.range());
     vec![SemanticDiagnostic::MainWrongType {
         expected: expected.display(db).to_string(),
         found: ty.display(db).to_string(),
-        span,
+        range,
     }]
 }
 
@@ -401,20 +403,16 @@ fn unknown_type_diagnostics<'db>(
     db: &'db dyn crate::Db,
     store: &HirNodeStore<'db>,
     source_map: &HirNodeSourceMap,
-    anchor: TextSize,
+    anchor: TextOffset,
     annotation_handles: impl IntoIterator<Item = TypeExpressionHandle>,
 ) -> Vec<SemanticDiagnostic> {
     let mut diagnostics = Vec::new();
     for annotation_handle in annotation_handles {
         let resolved = resolve_type_expression(db, store, annotation_handle);
-        for type_expression_handle in resolved.unknown_paths {
-            let nodes::TypeExpression::Path(path) = store.type_expression(type_expression_handle)
-            else {
-                unreachable!("only path type expressions can be unknown")
-            };
+        for unknown_path in resolved.unknown_paths {
             diagnostics.push(SemanticDiagnostic::UnknownType {
-                name: path.display(db).to_string(),
-                span: source_map.type_expression_span(type_expression_handle, anchor),
+                name: unknown_path.path.display(db).to_string(),
+                range: source_map.type_expression_range(unknown_path.handle, anchor),
             });
         }
     }

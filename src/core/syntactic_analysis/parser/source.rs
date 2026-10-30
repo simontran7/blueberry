@@ -1,9 +1,9 @@
 use crate::core::lexical_analysis::token_stream::{TokenKind, TokenStream};
 
-/// The parser's input: only the significant tokens of a `TokenStream`, with trivia removed. Like
-/// the `TokenStream`, it always ends with an `Eof` token.
+/// The parser's input: only the significant tokens of a [`TokenStream`], with trivia removed. Like
+/// the [`TokenStream`], it always ends with an [`Eof`](crate::core::lexical_analysis::token_stream::TokenKind::Eof) token.
 ///
-/// The parser never sees trivia. The `CstBuilder` walks the full `TokenStream` and puts the trivia
+/// The parser never sees trivia. The [`CstAssembler`](crate::core::syntactic_analysis::cst::cst_assembler::CstAssembler) walks the full [`TokenStream`] and puts the trivia
 /// back into the tree, using `token_index` to map a significant token back to its full-stream index.
 pub(crate) struct Source {
     kinds: Box<[TokenKind]>,
@@ -25,7 +25,7 @@ impl Source {
         }
     }
 
-    /// Returns the kind of the `index`th significant token. Any index past the end is `Eof`.
+    /// Returns the kind of the `index`th significant token. Any index past the end is [`Eof`](crate::core::lexical_analysis::token_stream::TokenKind::Eof).
     pub(crate) fn kind_at(&self, index: usize) -> TokenKind {
         self.kinds[index.min(self.kinds.len() - 1)]
     }

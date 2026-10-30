@@ -36,7 +36,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         }
     }
 
-    pub(crate) fn lower_function(mut self, signature_type: Ty<'db>) -> MirBody<'db> {
+    pub(crate) fn lower_function(self, signature_type: Ty<'db>) -> MirBody<'db> {
         let TyKind::Function {
             parameters,
             r#return,
@@ -48,7 +48,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             parameter_types: parameters
                 .iter()
                 .copied()
-                .filter(|&ty| !self.is_zero_sized(ty))
+                .filter(|&ty| !ty.is_zero_sized(self.db))
                 .collect(),
             return_type: *r#return,
         };
@@ -56,7 +56,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         MirBody { signature, cfg }
     }
 
-    pub(crate) fn lower_constant(mut self, declared_type: Ty<'db>) -> MirBody<'db> {
+    pub(crate) fn lower_constant(self, declared_type: Ty<'db>) -> MirBody<'db> {
         let signature = Signature {
             parameter_types: Box::new([]),
             return_type: declared_type,
@@ -65,7 +65,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         MirBody { signature, cfg }
     }
 
-    fn lower_body(&mut self) -> Cfg<'db> {
+    fn lower_body(mut self) -> Cfg<'db> {
         let body = self.body;
         let entry_block_handle = self.cfg.create_block();
         self.cfg.add_block(entry_block_handle);
@@ -73,7 +73,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
         for &binding_handle in body.parameters() {
             let ty = self.semantics.local_binding_type(binding_handle);
-            if self.is_zero_sized(ty) {
+            if ty.is_zero_sized(self.db) {
                 continue;
             }
             let lowered_value_handle = self.cfg.append_block_parameter(entry_block_handle, ty);
@@ -133,8 +133,8 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 ty,
             ),
             nodes::Expression::Boolean(value) => Some(self.cfg.emit_boolean_literal(*value, ty)),
-            nodes::Expression::Integer(value) => {
-                Some(self.cfg.emit_integer_literal(ty, value.unwrap()))
+            nodes::Expression::Integer { magnitude } => {
+                Some(self.cfg.emit_integer_literal(ty, magnitude.unwrap()))
             }
             nodes::Expression::UnaryOperation {
                 operator,
@@ -196,7 +196,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             }
             element_value_handles.extend(element_value_handle);
         }
-        if self.is_zero_sized(ty) {
+        if ty.is_zero_sized(self.db) {
             return None;
         }
         Some(self.cfg.emit_tuple(&element_value_handles, ty))
@@ -209,7 +209,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         ty: Ty<'db>,
     ) -> Option<ValueHandle> {
         let receiver_value_handle = self.lower_expression(receiver_handle);
-        if self.cfg.is_filled_here() || self.is_zero_sized(ty) {
+        if self.cfg.is_filled_here() || ty.is_zero_sized(self.db) {
             return None;
         }
         Some(
@@ -275,14 +275,14 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
     ) -> Option<ValueHandle> {
         match self.semantics.path_resolution(expression_handle).unwrap() {
             Resolution::Local(binding_handle) => {
-                if self.is_zero_sized(ty) {
+                if ty.is_zero_sized(self.db) {
                     return None;
                 }
                 let block = self.current_block();
                 Some(self.cfg.read_variable(binding_handle, ty, block))
             }
             Resolution::Constant(constant) => {
-                if self.is_zero_sized(ty) {
+                if ty.is_zero_sized(self.db) {
                     return None;
                 }
                 Some(self.cfg.emit_constant(constant, ty))
@@ -406,7 +406,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             operand_value_handles.extend(argument_value_handle);
         }
 
-        let result_types = if self.is_zero_sized(ty) || self.is_bottom(ty) {
+        let result_types = if ty.is_zero_sized(self.db) || ty.is_bottom(self.db) {
             Vec::new()
         } else {
             vec![ty]
@@ -420,7 +420,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 .emit_call_indirect(&operand_value_handles, &result_types),
         };
 
-        if self.is_bottom(ty) {
+        if ty.is_bottom(self.db) {
             self.cfg.emit_unreachable();
             return None;
         }
@@ -471,7 +471,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
             return None;
         }
 
-        let produces_value = !self.is_zero_sized(ty) && !self.is_bottom(ty);
+        let produces_value = !ty.is_zero_sized(self.db) && !ty.is_bottom(self.db);
 
         let then_block_handle = self.cfg.create_block();
         let else_block_handle = else_branch_handle.map(|_| self.cfg.create_block());
@@ -619,7 +619,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
         // do NOT seal body_block_handle here, as the back-edge hasn't been emitted yet
 
-        let produces_value = !self.is_zero_sized(ty) && !self.is_bottom(ty);
+        let produces_value = !ty.is_zero_sized(self.db) && !ty.is_bottom(self.db);
 
         let result_parameter_handle =
             produces_value.then(|| self.cfg.append_block_parameter(exit_block_handle, ty));
@@ -700,16 +700,5 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
 
     fn current_block(&self) -> BlockHandle {
         self.cfg.current_block().unwrap()
-    }
-
-    fn is_zero_sized(&self, ty: Ty<'db>) -> bool {
-        match ty.kind(self.db) {
-            TyKind::Tuple(elements) => elements.iter().all(|&element| self.is_zero_sized(element)),
-            _ => false,
-        }
-    }
-
-    fn is_bottom(&self, ty: Ty<'db>) -> bool {
-        matches!(ty.kind(self.db), TyKind::Bottom)
     }
 }

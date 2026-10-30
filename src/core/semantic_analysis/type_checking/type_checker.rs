@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::core::common::handle_collections::handle_map::SideHandleMap;
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::ast_lowering::nodes::{
@@ -37,6 +35,7 @@ struct TypeChecker<'a, 'db> {
     is_reachable: bool,
     loop_frames: Vec<LoopFrame<'db>>,
     pending_negations: Vec<(ExpressionHandle, Ty<'db>)>,
+    pending_literals: Vec<PendingLiteral>,
     result: BodySemantics<'db>,
 }
 
@@ -59,6 +58,15 @@ enum BodyOwner<'db> {
     /// a constant, which isn't called, so there's nothing to return from, and it can't have a
     /// `return`
     Constant,
+}
+
+struct PendingLiteral {
+    literal_handle: ExpressionHandle,
+    // a signed integer literal is actually composed of an outer unary negation and an inner
+    // unsigned literal (`-128` is `Negation(Integer(128))`), so this is the outer node, if any
+    negation_handle: Option<ExpressionHandle>,
+    // `None` when the literal is too big to even be read
+    magnitude: Option<u128>,
 }
 
 struct LoopFrame<'db> {
@@ -84,7 +92,7 @@ struct BinaryOperatorRule {
 }
 
 enum OperandTypes {
-    /// both operands are `Bool`
+    /// both operands are [`Bool`](crate::core::semantic_analysis::type_checking::types::TyKind::Bool)
     Bool,
     /// both operands have the same type, whichever it is
     Same,
@@ -133,7 +141,7 @@ pub(crate) fn check_constant<'db>(
 ) -> BodySemantics<'db> {
     let mut checker = TypeChecker::new(db, body, scopes, BodyOwner::Constant);
 
-    let expectation = Expectation::of_type(db, declared_type);
+    let expectation = Expectation::Type(declared_type);
     let ty = checker.check_expression(body.root(), expectation);
     checker.coerce_or_report(ty, expectation, body.root());
 
@@ -218,6 +226,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             is_reachable: true,
             loop_frames: Vec::new(),
             pending_negations: Vec::new(),
+            pending_literals: Vec::new(),
             result: BodySemantics::new(),
         }
     }
@@ -297,7 +306,9 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 value_handle,
             } => self.check_assignment(expression_handle, *target_handle, *value_handle),
             nodes::Expression::Boolean(_) => Ty::bool(self.db),
-            nodes::Expression::Integer(_) => self.check_integer_literal(expectation),
+            nodes::Expression::Integer { magnitude } => {
+                self.check_integer_literal(expression_handle, *magnitude, expectation)
+            }
             nodes::Expression::Path(path) => self.check_path(expression_handle, *path),
             // A syntax error, already reported by the parser.
             nodes::Expression::Error => Ty::error(self.db),
@@ -305,21 +316,26 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
 
         self.result.expressions.add(expression_handle, ty);
 
-        if self.is_bottom(ty) {
+        if self.inference.shallow_resolve(ty).is_bottom(self.db) {
             self.is_reachable = false;
         }
 
         ty
     }
 
-    fn is_bottom(&mut self, ty: Ty<'db>) -> bool {
-        matches!(
-            self.inference.shallow_resolve(ty).kind(self.db),
-            TyKind::Bottom
-        )
-    }
+    fn check_integer_literal(
+        &mut self,
+        literal_handle: ExpressionHandle,
+        magnitude: Option<u128>,
+        expectation: Expectation<'db>,
+    ) -> Ty<'db> {
+        // its type might not be known yet, so it's checked in `finish`
+        self.pending_literals.push(PendingLiteral {
+            literal_handle,
+            magnitude,
+            negation_handle: None,
+        });
 
-    fn check_integer_literal(&mut self, expectation: Expectation<'db>) -> Ty<'db> {
         if let Some(expected) = expectation.expected_type(&mut self.inference)
             && let TyKind::Signed(_) | TyKind::Unsigned(_) = expected.kind(self.db)
         {
@@ -383,7 +399,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         {
             expected_elements
                 .iter()
-                .map(|&ty| Expectation::of_type(self.db, ty))
+                .map(|&ty| Expectation::Type(ty))
                 .collect()
         } else {
             vec![Expectation::None; element_handles.len()]
@@ -435,8 +451,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             TyKind::Bottom => return Ty::bottom(self.db),
             TyKind::InferenceVariable(InferenceVariable::General(_)) => {
                 // poisons the unknown, so that it's only reported once
-                let (_, Some(origin)) = self.inference.deep_resolve_with_poisoning(receiver_ty)
-                else {
+                let (_, Some(origin)) = self.inference.zonk_and_poison(receiver_ty) else {
                     unreachable!("the receiver is an unsolved variable, so it has an origin");
                 };
                 self.result
@@ -467,7 +482,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 | TyKind::Unsigned(_)
                 | TyKind::InferenceVariable(InferenceVariable::Integer(_))
         );
-        let receiver_ty = self.inference.deep_resolve(receiver_ty);
+        let receiver_ty = self.inference.zonk(receiver_ty);
         self.result
             .add_diagnostic(UnresolvedSemanticDiagnostic::UnknownField {
                 expression_handle,
@@ -493,7 +508,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         let expectation = match expectation.expected_type(&mut self.inference) {
             Some(ty) => match ty.kind(self.db) {
                 TyKind::InferenceVariable(_) => Expectation::None,
-                _ => Expectation::of_type(self.db, ty),
+                _ => Expectation::Type(ty),
             },
             None => Expectation::None,
         };
@@ -503,7 +518,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             CoercionFunnel::from_expectation(expectation, &mut self.inference, expression_handle);
 
         // typecheck condition
-        let condition_expectation = Expectation::of_type(self.db, Ty::bool(self.db));
+        let condition_expectation = Expectation::Type(Ty::bool(self.db));
         let condition_ty = self.check_expression(condition_handle, condition_expectation);
         self.coerce_or_report(condition_ty, condition_expectation, condition_handle);
         let condition_reachable = std::mem::replace(&mut self.is_reachable, true); // saves the condition's reachability, and resets it for the branches
@@ -578,7 +593,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                         self.check_expression(*expression_handle, Expectation::None);
                     } else {
                         // e.g. an `if` without a semicolon, followed by more statements
-                        let expectation = Expectation::of_type(self.db, Ty::unit(self.db));
+                        let expectation = Expectation::Type(Ty::unit(self.db));
                         let ty = self.check_expression(*expression_handle, expectation);
                         self.coerce_or_report(ty, expectation, *expression_handle);
                     }
@@ -631,10 +646,10 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             Some(annotation_handle) => {
                 let resolved =
                     resolve_type_expression(self.db, self.body.store(), annotation_handle);
-                for type_expression_handle in resolved.unknown_paths {
+                for unknown_path in resolved.unknown_paths {
                     self.result
                         .add_diagnostic(UnresolvedSemanticDiagnostic::UnknownType {
-                            type_expression_handle,
+                            type_expression_handle: unknown_path.handle,
                         });
                 }
                 resolved.ty
@@ -643,7 +658,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 .inference
                 .make_general_inference_variable(VariableOrigin::LocalBinding(binding_handle)),
         };
-        let expectation = Expectation::of_type(self.db, annotated_ty);
+        let expectation = Expectation::Type(annotated_ty);
         let initializer_ty = self.check_expression(initializer_handle, expectation);
         self.coerce_or_report(initializer_ty, expectation, initializer_handle);
         self.result.local_bindings.add(binding_handle, annotated_ty);
@@ -670,7 +685,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         });
 
         // the body's value is discarded each time around, so it must be `()`
-        let body_expectation = Expectation::of_type(self.db, Ty::unit(self.db));
+        let body_expectation = Expectation::Type(Ty::unit(self.db));
         let body_ty = self.check_expression(loop_body_handle, body_expectation);
         self.coerce_or_report(body_ty, body_expectation, loop_body_handle);
 
@@ -704,7 +719,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         };
 
         let value_expectation = match &frame.kind {
-            LoopKind::Loop(funnel) => Expectation::of_type(self.db, funnel.expected),
+            LoopKind::Loop(funnel) => Expectation::Type(funnel.expected),
             LoopKind::While => Expectation::None,
         };
         let value = value_handle.map(|value_handle| {
@@ -731,8 +746,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                     self.result
                         .add_diagnostic(UnresolvedSemanticDiagnostic::TypeMismatch {
                             expression_handle: loop_value_handle,
-                            expected: self.inference.deep_resolve(mismatch.expected),
-                            found: self.inference.deep_resolve(mismatch.found),
+                            expected: self.inference.zonk(mismatch.expected),
+                            found: self.inference.zonk(mismatch.found),
                             cause: TypeMismatchCause::General,
                         });
                 }
@@ -799,7 +814,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             unreachable!("only a function's body returns a value");
         };
 
-        let expectation = Expectation::of_type(self.db, return_funnel.expected);
+        let expectation = Expectation::Type(return_funnel.expected);
         let value_ty = self.check_expression(value_handle, expectation);
 
         // the funnel is looked up again after the value is checked, since a `return` inside the
@@ -811,8 +826,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             self.result
                 .add_diagnostic(UnresolvedSemanticDiagnostic::TypeMismatch {
                     expression_handle: value_handle,
-                    expected: self.inference.deep_resolve(mismatch.expected),
-                    found: self.inference.deep_resolve(mismatch.found),
+                    expected: self.inference.zonk(mismatch.expected),
+                    found: self.inference.zonk(mismatch.found),
                     cause: TypeMismatchCause::ReturnValue,
                 });
         }
@@ -837,8 +852,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             // already reported
             TyKind::Error => (None, Ty::error(self.db)),
             TyKind::InferenceVariable(InferenceVariable::General(_)) => {
-                let (_, Some(origin)) = self.inference.deep_resolve_with_poisoning(callee_ty)
-                else {
+                let (_, Some(origin)) = self.inference.zonk_and_poison(callee_ty) else {
                     unreachable!("the callee is an unsolved variable, so it has an origin");
                 };
                 self.result
@@ -853,7 +867,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             | TyKind::Unsigned(_)
             | TyKind::Bool
             | TyKind::Tuple(_) => {
-                let found = self.inference.deep_resolve(callee_ty);
+                let found = self.inference.zonk(callee_ty);
                 self.result
                     .add_diagnostic(UnresolvedSemanticDiagnostic::ExpectedFunction {
                         call_handle,
@@ -878,8 +892,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             };
             let parameters = parameters
                 .iter()
-                .map(|&ty| self.inference.deep_resolve(ty))
-                .collect(); // deep resolve for diagnostics
+                .map(|&ty| self.inference.zonk(ty))
+                .collect(); // zonk for diagnostics
             self.result
                 .add_diagnostic(UnresolvedSemanticDiagnostic::MismatchedArgumentCount {
                     call_handle,
@@ -891,7 +905,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         for (index, &argument_handle) in argument_handles.iter().enumerate() {
             match parameters.get(index) {
                 Some(&parameter) => {
-                    let expectation = Expectation::of_type(self.db, parameter);
+                    let expectation = Expectation::Type(parameter);
                     let argument_ty = self.check_expression(argument_handle, expectation);
                     self.coerce_or_report(argument_ty, expectation, argument_handle);
                 }
@@ -915,6 +929,13 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         match operator {
             nodes::UnaryOperator::Negation => {
                 let operand_ty = self.check_expression(operand_handle, expectation);
+                if let nodes::Expression::Integer { .. } =
+                    self.body.store().expression(operand_handle)
+                {
+                    // checking the literal just added it to the pending ones
+                    self.pending_literals.last_mut().unwrap().negation_handle =
+                        Some(expression_handle);
+                }
 
                 let is_integer = self.unify_with_integer(operand_ty).is_ok();
                 let is_unsigned = matches!(
@@ -926,7 +947,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                         UnresolvedSemanticDiagnostic::UnaryOperatorCannotBeApplied {
                             expression_handle,
                             operator,
-                            found: self.inference.deep_resolve(operand_ty),
+                            found: self.inference.zonk(operand_ty),
                             is_unsigned,
                         },
                     );
@@ -940,7 +961,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
                 operand_ty
             }
             nodes::UnaryOperator::Not => {
-                let expectation = Expectation::of_type(self.db, Ty::bool(self.db));
+                let expectation = Expectation::Type(Ty::bool(self.db));
                 let operand_ty = self.check_expression(operand_handle, expectation);
                 self.coerce_or_report(operand_ty, expectation, operand_handle);
                 Ty::bool(self.db)
@@ -956,7 +977,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         rhs_handle: ExpressionHandle,
     ) -> Ty<'db> {
         let Some(operator) = operator else {
-            // A syntax error, already reported by the parser: check both sides so they still get types and diagnostics
+            // A syntax error, already reported by the parser, but we still check both sides to surface more errors
             self.check_expression(lhs_handle, Expectation::None);
             self.check_expression(rhs_handle, Expectation::None);
             return Ty::error(self.db);
@@ -966,7 +987,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         let bool = Ty::bool(self.db);
 
         let lhs_expectation = if let OperandTypes::Bool = rule.operands {
-            Expectation::of_type(self.db, bool)
+            Expectation::Type(bool)
         } else {
             Expectation::None
         };
@@ -984,13 +1005,15 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             // the rhs must be a `Bool` even when the lhs isn't. Without this, in `5 and x`,
             // `x` would be checked as an integer, or in `(return 1) and 5`, the `5`
             // wouldn't be checked at all.
-            Expectation::of_type(self.db, bool)
-        } else if self.is_bottom(lhs_ty) || operator_cannot_be_applied {
+            Expectation::Type(bool)
+        } else if self.inference.shallow_resolve(lhs_ty).is_bottom(self.db)
+            || operator_cannot_be_applied
+        {
             // a diverging lhs, or a lhs that the operator can't be applied to says nothing about the rhs's type
             Expectation::None
         } else {
             // the rhs must have the lhs's type
-            Expectation::of_type(self.db, lhs_ty)
+            Expectation::Type(lhs_ty)
         };
         let rhs_ty = self.check_expression(rhs_handle, rhs_expectation);
         self.coerce_or_report(rhs_ty, rhs_expectation, rhs_handle);
@@ -1003,8 +1026,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         }
 
         if operator_cannot_be_applied {
-            let lhs = self.inference.deep_resolve(lhs_ty);
-            let rhs = self.inference.deep_resolve(rhs_ty);
+            let lhs = self.inference.zonk(lhs_ty);
+            let rhs = self.inference.zonk(rhs_ty);
             self.result.add_diagnostic(
                 UnresolvedSemanticDiagnostic::BinaryOperatorCannotBeApplied {
                     expression_handle,
@@ -1029,7 +1052,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         value_handle: ExpressionHandle,
     ) -> Ty<'db> {
         let target_ty = self.check_expression(target_handle, Expectation::None);
-        let value_expectation = Expectation::of_type(self.db, target_ty);
+        let value_expectation = Expectation::Type(target_ty);
         let value_ty = self.check_expression(value_handle, value_expectation);
         self.coerce_or_report(value_ty, value_expectation, value_handle);
 
@@ -1065,10 +1088,12 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
 
         self.check_pending_negations();
 
-        // each unknown is poisoned the first time it's found, and so reported only once
+        // zonking: write each solution back into the types recorded during checking, now that the
+        // inference table is complete. Each unknown is poisoned the first time it's found, and so
+        // reported only once.
         let mut unknowns = Vec::new();
         for (expression_handle, ty) in &mut self.result.expressions {
-            let (resolved, origin) = self.inference.deep_resolve_with_poisoning(*ty);
+            let (resolved, origin) = self.inference.zonk_and_poison(*ty);
             *ty = resolved;
             if let Some(origin) = origin {
                 unknowns.push((expression_handle, origin));
@@ -1084,7 +1109,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         }
 
         for (_, ty) in &mut self.result.local_bindings {
-            let (resolved, _) = self.inference.deep_resolve_with_poisoning(*ty);
+            let (resolved, _) = self.inference.zonk_and_poison(*ty);
             *ty = resolved;
             // we don't report the bindings' unknowns, because a binding has the same type as its
             // initializer, which is an expression, so its unknowns were already reported just above.
@@ -1099,7 +1124,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
         for (expression_handle, operand_ty) in std::mem::take(&mut self.pending_negations) {
             let resolved = self.inference.shallow_resolve(operand_ty);
             if let TyKind::Unsigned(_) = resolved.kind(self.db) {
-                let found = self.inference.deep_resolve(resolved);
+                let found = self.inference.zonk(resolved);
                 self.result.add_diagnostic(
                     UnresolvedSemanticDiagnostic::UnaryOperatorCannotBeApplied {
                         expression_handle,
@@ -1113,60 +1138,36 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
     }
 
     fn check_literal_ranges(&mut self) {
-        let negations: HashMap<ExpressionHandle, ExpressionHandle> = self
-            .body
-            .store()
-            .expressions()
-            .filter_map(|(negation_handle, expression)| match expression {
-                nodes::Expression::UnaryOperation {
-                    operator: nodes::UnaryOperator::Negation,
-                    operand_handle,
-                } => Some((*operand_handle, negation_handle)),
-                _ => None,
-            })
-            .collect();
+        for literal in std::mem::take(&mut self.pending_literals) {
+            let ty = self.result.expression_type(literal.literal_handle);
 
-        let literals: Vec<_> = self
-            .result
-            .expressions
-            .iter()
-            .filter_map(|(expression_handle, ty)| {
-                match self.body.store().expression(expression_handle) {
-                    nodes::Expression::Integer(value) => Some((expression_handle, value, *ty)),
-                    _ => None,
-                }
-            })
-            .collect();
-
-        for (literal_handle, value, ty) in literals {
             let Some(range) = ty.integer_range(self.db) else {
-                continue;
+                continue; // error type, from an error that's already reported
             };
-            // only a type that has negative values can hold `-5`, so for any other, the negation
-            // is reported by itself
-            let negation_handle = negations
-                .get(&literal_handle)
-                .copied()
-                .filter(|_| *range.start() < 0);
-            // `None` when the literal is too big to even be read
-            let signed_value = value.map(|value| {
-                let magnitude = i128::try_from(value).unwrap_or(i128::MAX);
-                if negation_handle.is_some() {
-                    -magnitude
-                } else {
-                    magnitude
-                }
-            });
 
-            if !signed_value.is_some_and(|value| range.contains(&value)) {
-                let suggested_ty =
-                    signed_value.and_then(|value| ty.wider_integer_type(self.db, value));
+            // negating an unsigned type is its own error reported in `check_unary_operation` or
+            // `check_pending_negations`, so here the negation only counts for a signed type
+            let is_negated =
+                literal.negation_handle.is_some() && matches!(ty.kind(self.db), TyKind::Signed(_)); // needs to check that `ty` is signed because a user can write `let x: U8 = -5`
+
+            let value = {
+                let magnitude = literal
+                    .magnitude
+                    .and_then(|magnitude| i128::try_from(magnitude).ok())
+                    .unwrap_or(i128::MAX);
+                if is_negated { -magnitude } else { magnitude }
+            };
+            if !range.contains(&value) {
                 self.result
                     .add_diagnostic(UnresolvedSemanticDiagnostic::LiteralOutOfRange {
-                        expression_handle: negation_handle.unwrap_or(literal_handle),
+                        expression_handle: if is_negated {
+                            literal.negation_handle.unwrap()
+                        } else {
+                            literal.literal_handle
+                        },
                         ty,
-                        range: format!("{}..={}", range.start(), range.end()),
-                        suggested_ty,
+                        type_range: format!("{}..={}", range.start(), range.end()),
+                        suggested_ty: ty.wider_integer_type(self.db, value),
                     });
             }
         }
@@ -1184,8 +1185,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             self.result
                 .add_diagnostic(UnresolvedSemanticDiagnostic::TypeMismatch {
                     expression_handle,
-                    expected: self.inference.deep_resolve(mismatch.expected),
-                    found: self.inference.deep_resolve(mismatch.found),
+                    expected: self.inference.zonk(mismatch.expected),
+                    found: self.inference.zonk(mismatch.found),
                     cause: TypeMismatchCause::General,
                 });
         }
@@ -1202,8 +1203,8 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
             self.result
                 .add_diagnostic(UnresolvedSemanticDiagnostic::TypeMismatch {
                     expression_handle,
-                    expected: self.inference.deep_resolve(mismatch.expected),
-                    found: self.inference.deep_resolve(mismatch.found),
+                    expected: self.inference.zonk(mismatch.expected),
+                    found: self.inference.zonk(mismatch.found),
                     cause,
                 });
         }
@@ -1211,7 +1212,7 @@ impl<'a, 'db> TypeChecker<'a, 'db> {
 
     /// Unifies `ty` with some integer type, without choosing which.
     ///
-    /// `Bottom` is accepted too, since a diverging expression never produces a value.
+    /// [`Bottom`](crate::core::semantic_analysis::type_checking::types::TyKind::Bottom) is accepted too, since a diverging expression never produces a value.
     fn unify_with_integer(&mut self, ty: Ty<'db>) -> Result<(), ()> {
         let ty = self.inference.shallow_resolve(ty);
         match ty.kind(self.db) {
@@ -1254,13 +1255,6 @@ impl nodes::BinaryOperator {
 }
 
 impl<'db> Expectation<'db> {
-    fn of_type(db: &'db dyn crate::Db, ty: Ty<'db>) -> Self {
-        match ty.kind(db) {
-            TyKind::Error => Self::None,
-            _ => Self::Type(ty),
-        }
-    }
-
     fn expected_type(self, table: &mut InferenceTable<'db>) -> Option<Ty<'db>> {
         match self {
             Self::Type(ty) => Some(table.shallow_resolve(ty)),
@@ -1321,7 +1315,7 @@ mod tests {
 
     use crate::core::db::BlueberryDatabase;
     use crate::core::module_map::{ModuleMap, ModulePath};
-    use crate::core::semantic_analysis::ast_lowering::dumper::HirBodyDumper;
+    use crate::core::semantic_analysis::ast_lowering::dumper::{DumpTypes, HirBodyDumper};
     use crate::core::source_file_key::SourceFileKey;
 
     #[test]
@@ -1330,7 +1324,7 @@ mod tests {
             let input = fs::read_to_string(path).unwrap();
             let db = BlueberryDatabase::default();
             let file = SourceFileKey::new(&db, path.to_path_buf(), input);
-            insta::assert_snapshot!(HirBodyDumper::dump_file_with_types(&db, file));
+            insta::assert_snapshot!(HirBodyDumper::dump_file(&db, file, DumpTypes::Include));
         });
     }
 
@@ -1341,7 +1335,7 @@ mod tests {
             let modules = ModuleMap::load(&db, path.parent().unwrap()).unwrap();
             let main = ModulePath::from_file_path(FilePath::new("main.bb"));
             let file = modules.files(&db)[&main];
-            insta::assert_snapshot!(HirBodyDumper::dump_file_with_types(&db, file));
+            insta::assert_snapshot!(HirBodyDumper::dump_file(&db, file, DumpTypes::Include));
         });
     }
 }

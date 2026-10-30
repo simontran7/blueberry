@@ -1,7 +1,7 @@
 use std::fmt::Write;
 use std::sync::Arc;
 
-use crate::core::common::span::{Span, TextSize};
+use crate::core::common::text_range::{AbsoluteTextRange, TextOffset};
 use crate::core::semantic_analysis::ast_lowering::nodes::{
     self, ExpressionHandle, HirNodeSourceMap, StatementHandle,
 };
@@ -17,13 +17,24 @@ use crate::core::source_file_key::SourceFileKey;
 pub(crate) struct HirBodyDumper<'db> {
     db: &'db dyn crate::Db,
     source: &'db str,
-    with_types: bool,
+    types: DumpTypes,
+}
+
+/// Whether a dump includes each expression's type, and the diagnostics.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DumpTypes {
+    Include,
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "only the HIR snapshot tests omit types")
+    )]
+    Omit,
 }
 
 struct BodyTypes<'db> {
     semantics: Arc<BodySemantics<'db>>,
     source_map: Arc<HirNodeSourceMap>,
-    anchor: TextSize,
+    anchor: TextOffset,
 }
 
 struct Node {
@@ -32,20 +43,15 @@ struct Node {
 }
 
 impl<'db> HirBodyDumper<'db> {
-    #[cfg(test)]
-    pub(crate) fn dump_file(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
-        Self::dump(db, file, false)
-    }
-
-    pub(crate) fn dump_file_with_types(db: &'db dyn crate::Db, file: SourceFileKey) -> String {
-        Self::dump(db, file, true)
-    }
-
-    fn dump(db: &'db dyn crate::Db, file: SourceFileKey, with_types: bool) -> String {
+    pub(crate) fn dump_file(
+        db: &'db dyn crate::Db,
+        file: SourceFileKey,
+        types: DumpTypes,
+    ) -> String {
         let dumper = Self {
             db,
             source: file.contents(db),
-            with_types,
+            types,
         };
         let mut out = String::new();
         for (index, definition) in top_level_definitions_of(db, file)
@@ -58,7 +64,7 @@ impl<'db> HirBodyDumper<'db> {
             }
             dumper.definition(*definition).write(&mut out);
         }
-        if with_types {
+        if types == DumpTypes::Include {
             out.push_str(&dumper.diagnostics(file));
         }
         out
@@ -75,7 +81,7 @@ impl<'db> HirBodyDumper<'db> {
                         .cloned()
                 }),
         );
-        diagnostics.sort_by_key(|diagnostic| diagnostic.describe().span.start());
+        diagnostics.sort_by_key(|diagnostic| diagnostic.describe().range.start());
         let mut out = String::new();
         if !diagnostics.is_empty() {
             out.push_str("\ndiagnostics\n");
@@ -89,7 +95,7 @@ impl<'db> HirBodyDumper<'db> {
     fn definition(&self, definition: Definition<'db>) -> Node {
         let signature = signature::hir_of(self.db, definition);
         let body = body::hir_of(self.db, definition);
-        let types = self.with_types.then(|| BodyTypes {
+        let types = (self.types == DumpTypes::Include).then(|| BodyTypes {
             semantics: body::types_of(self.db, definition).clone(),
             source_map: body::source_map_of(self.db, definition),
             anchor: definition.anchor(self.db),
@@ -97,8 +103,8 @@ impl<'db> HirBodyDumper<'db> {
         let types = types.as_ref();
         let store = signature.store();
         let name = signature.name().text(self.db);
-        let label = match &**signature {
-            nodes::Signature::Function(function) => {
+        let label = match &signature.kind {
+            nodes::SignatureKind::Function(function) => {
                 let parameters: Vec<String> = body
                     .parameter_handles
                     .iter()
@@ -125,7 +131,7 @@ impl<'db> HirBodyDumper<'db> {
                         });
                 format!("function {name}({}){returns}", parameters.join(", "))
             }
-            nodes::Signature::Constant(constant) => {
+            nodes::SignatureKind::Constant(constant) => {
                 let ty = constant
                     .annotation
                     .map_or_else(String::new, |annotation_handle| {
@@ -147,8 +153,10 @@ impl<'db> HirBodyDumper<'db> {
         expression_handle: ExpressionHandle,
     ) -> Node {
         let node = match body.store().expression(expression_handle) {
-            nodes::Expression::Integer(Some(value)) => Node::leaf(format!("Integer {value}")),
-            nodes::Expression::Integer(None) => Node::leaf("Integer (too large)"),
+            nodes::Expression::Integer {
+                magnitude: Some(magnitude),
+            } => Node::leaf(format!("Integer {magnitude}")),
+            nodes::Expression::Integer { magnitude: None } => Node::leaf("Integer (too large)"),
             nodes::Expression::Boolean(value) => Node::leaf(format!("Boolean {value}")),
             nodes::Expression::Path(path) => Node::leaf(format!("Path {}", path.display(self.db))),
             nodes::Expression::Tuple { element_run } => Node::new(
@@ -291,7 +299,7 @@ impl<'db> HirBodyDumper<'db> {
                     &self.range(
                         types
                             .source_map
-                            .expression_span(expression_handle, types.anchor),
+                            .expression_range(expression_handle, types.anchor),
                     ),
                 )
                 .typed(
@@ -364,14 +372,14 @@ impl<'db> HirBodyDumper<'db> {
         let mut line = format!(
             "  {} {} '{}': {}",
             description.code,
-            self.range(description.span),
-            self.text(description.span),
+            self.range(description.range),
+            self.text(description.range),
             description.message
         );
         let main_label = description
             .labels
             .iter()
-            .position(|label| label.span == description.span && label.message.is_some());
+            .position(|label| label.range == description.range && label.message.is_some());
         if let Some(index) = main_label {
             let message = description.labels[index].message.as_ref().unwrap();
             write!(line, " ({message})").unwrap();
@@ -385,8 +393,8 @@ impl<'db> HirBodyDumper<'db> {
                 writeln!(
                     line,
                     "    {} '{}': {message}",
-                    self.range(label.span),
-                    self.text(label.span)
+                    self.range(label.range),
+                    self.text(label.range)
                 )
                 .unwrap();
             }
@@ -400,12 +408,16 @@ impl<'db> HirBodyDumper<'db> {
         line
     }
 
-    fn range(&self, span: Span) -> String {
-        format!("{}..{}", usize::from(span.start()), usize::from(span.end()))
+    fn range(&self, range: AbsoluteTextRange) -> String {
+        format!(
+            "{}..{}",
+            usize::from(range.start()),
+            usize::from(range.end())
+        )
     }
 
-    fn text(&self, span: Span) -> String {
-        let text = self.source[std::ops::Range::from(span)]
+    fn text(&self, range: AbsoluteTextRange) -> String {
+        let text = self.source[std::ops::Range::from(range)]
             .split_whitespace()
             .collect::<Vec<_>>()
             .join(" ");
@@ -493,7 +505,7 @@ mod tests {
                 let input = fs::read_to_string(path).unwrap();
                 let db = BlueberryDatabase::default();
                 let file = SourceFileKey::new(&db, path.to_path_buf(), input);
-                insta::assert_snapshot!(HirBodyDumper::dump_file(&db, file));
+                insta::assert_snapshot!(HirBodyDumper::dump_file(&db, file, DumpTypes::Omit));
             }
         );
     }

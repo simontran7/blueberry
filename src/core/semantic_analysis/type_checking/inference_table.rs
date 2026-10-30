@@ -81,22 +81,19 @@ impl<'db> InferenceTable<'db> {
         }
     }
 
-    /// Replaces every solved variable inside `ty` with its solution, at every depth, leaving
-    /// unsolved ones as they are.
-    pub(crate) fn deep_resolve(&mut self, ty: Ty<'db>) -> Ty<'db> {
+    /// Zonks `ty`: replaces every solved variable inside it with its solution, at every depth,
+    /// leaving unsolved ones as they are.
+    pub(crate) fn zonk(&mut self, ty: Ty<'db>) -> Ty<'db> {
         let ty = self.shallow_resolve(ty);
-        ty.map_children(self.db, |child| self.deep_resolve(child))
+        ty.map_children(self.db, |child| self.zonk(child))
     }
 
-    /// Resolves `ty` like [`Self::deep_resolve`], but gives up on each unsolved general variable in
-    /// it, by solving it to the error type in the table.
+    /// Zonks `ty` like [`Self::zonk`], and poisons each unsolved general variable in it: gives up
+    /// on it, by solving it to the error type in the table.
     ///
     /// Returns the resolved type, and the origin of the first unsolved variable, if any, so that the
     /// caller can report "type annotations needed".
-    pub(crate) fn deep_resolve_with_poisoning(
-        &mut self,
-        ty: Ty<'db>,
-    ) -> (Ty<'db>, Option<VariableOrigin>) {
+    pub(crate) fn zonk_and_poison(&mut self, ty: Ty<'db>) -> (Ty<'db>, Option<VariableOrigin>) {
         fn poison<'db>(
             table: &mut InferenceTable<'db>,
             ty: Ty<'db>,
@@ -262,7 +259,7 @@ impl<'db> InferenceTable<'db> {
 
     /// Coerces `from` to `to`.
     pub(crate) fn coerce(&mut self, from: Ty<'db>, to: Ty<'db>) -> Result<(), TypeMismatch<'db>> {
-        if matches!(self.shallow_resolve(from).kind(self.db), TyKind::Bottom) {
+        if self.shallow_resolve(from).is_bottom(self.db) {
             if let TyKind::InferenceVariable(InferenceVariable::General(variable_handle)) =
                 self.shallow_resolve(to).kind(self.db)
             {
@@ -274,7 +271,7 @@ impl<'db> InferenceTable<'db> {
         self.unify(to, from)
     }
 
-    /// Solves every integer variable that's still unsolved to `I32`
+    /// Solves every integer variable that's still unsolved to [`I32`](crate::core::semantic_analysis::type_checking::types::SignedIntTy::I32)
     pub(crate) fn fallback_integer_variables(&mut self) {
         let i32 = Ty::signed(self.db, SignedIntTy::I32);
         for value in self.integer_inference_variables.values_mut() {
@@ -282,7 +279,7 @@ impl<'db> InferenceTable<'db> {
         }
     }
 
-    /// Solves every set that's still unsolved and was coerced from `Bottom` to `Bottom`.
+    /// Solves every set that's still unsolved and was coerced from [`Bottom`](crate::core::semantic_analysis::type_checking::types::TyKind::Bottom) to `Bottom`.
     pub(crate) fn fallback_general_variables(&mut self) {
         let bottom = Ty::bottom(self.db);
         for value in self.general_inference_variables.values_mut() {

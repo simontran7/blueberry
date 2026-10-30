@@ -97,3 +97,7 @@ func operator_cannot_be_applied() {
     let a = (1, 2) + 1;
     let b = true * 2;
 }
+
+func too_big_for_an_unknown_type() {
+    let big: Qux = 3_000_000_000;
+}

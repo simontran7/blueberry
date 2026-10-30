@@ -2,7 +2,7 @@ use std::ops::{Index, IndexMut};
 
 use crate::core::syntactic_analysis::cst::SyntaxKind;
 
-/// The parser's output: a flat stream of events, which the `CstBuilder` replays into a tree.
+/// The parser's output: a flat stream of events, which the [`CstAssembler`](crate::core::syntactic_analysis::cst::cst_assembler::CstAssembler) replays into a tree.
 pub(crate) struct Sink {
     events: Vec<Event>,
 }
@@ -17,7 +17,7 @@ pub(crate) enum Event {
     AddDiagnostic {
         /// Index into the parser's diagnostics.
         index: usize,
-        /// Index into the `TokenStream` of the token the diagnostic points at (the `Eof` token if
+        /// Index into the [`TokenStream`](crate::core::lexical_analysis::token_stream::TokenStream) of the token the diagnostic points at (the [`Eof`](crate::core::lexical_analysis::token_stream::TokenKind::Eof) token if
         /// it points at the end of the file).
         token_index: usize,
     },

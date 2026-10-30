@@ -110,7 +110,7 @@ impl<'db> ScopeTree<'db> {
         self.containing_scopes.add(expression_handle, parent_handle);
 
         match body.store().expression(expression_handle) {
-            nodes::Expression::Integer(_)
+            nodes::Expression::Integer { .. }
             | nodes::Expression::Boolean(_)
             | nodes::Expression::Path(_)
             | nodes::Expression::Error

@@ -33,7 +33,9 @@ impl<'db> BodyLowerer<'db> {
     pub(crate) fn lower_expression(&mut self, expression: ast::Expression) -> ExpressionHandle {
         match expression {
             ast::Expression::IntegerLiteral(literal) => self.builder.add_expression(
-                nodes::Expression::Integer(literal.value().ok()),
+                nodes::Expression::Integer {
+                    magnitude: literal.value().ok(),
+                },
                 literal.red(),
             ),
             ast::Expression::BooleanLiteral(literal) => self.builder.add_expression(
@@ -253,15 +255,15 @@ impl<'db> BodyLowerer<'db> {
                     .as_ref()
                     .map(|token| token.lexeme().to_string())
                     .unwrap_or_default();
-                let name_span = name_token
+                let name_range = name_token
                     .as_ref()
-                    .map_or_else(|| let_statement.red().span(), RedToken::span);
+                    .map_or_else(|| let_statement.red().range(), RedToken::range);
                 let name_handle = self.builder.add_local_binding(
                     nodes::LocalBinding {
                         name: Symbol::new(self.db, name),
                         mutable: let_statement.is_mutable(),
                     },
-                    name_span,
+                    name_range,
                 );
 
                 let annotation_handle = let_statement
@@ -318,15 +320,15 @@ impl<'db> BodyLowerer<'db> {
                     .as_ref()
                     .map(|token| token.lexeme().to_string())
                     .unwrap_or_default();
-                let name_span = name_token
+                let name_range = name_token
                     .as_ref()
-                    .map_or_else(|| parameter.red().span(), RedToken::span);
+                    .map_or_else(|| parameter.red().range(), RedToken::range);
                 self.builder.add_local_binding(
                     nodes::LocalBinding {
                         name: Symbol::new(self.db, name),
                         mutable: false,
                     },
-                    name_span,
+                    name_range,
                 )
             })
             .collect()

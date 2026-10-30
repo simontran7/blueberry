@@ -44,13 +44,15 @@ impl<'db> SignatureLowerer<'db> {
             .map(|annotation| self.lower_type_expression(&annotation));
 
         let (store, source_map) = self.builder.finish();
-        let signature = nodes::FunctionSignature {
+        let signature = nodes::Signature {
             name,
             store,
-            parameter_annotation_handles,
-            return_type_annotation,
+            kind: nodes::SignatureKind::Function(nodes::FunctionSignature {
+                parameter_annotation_handles,
+                return_type_annotation,
+            }),
         };
-        (nodes::Signature::Function(signature), source_map)
+        (signature, source_map)
     }
 
     pub(crate) fn lower_constant(
@@ -64,12 +66,12 @@ impl<'db> SignatureLowerer<'db> {
             .map(|annotation| self.lower_type_expression(&annotation));
 
         let (store, source_map) = self.builder.finish();
-        let signature = nodes::ConstantSignature {
+        let signature = nodes::Signature {
             name,
             store,
-            annotation,
+            kind: nodes::SignatureKind::Constant(nodes::ConstantSignature { annotation }),
         };
-        (nodes::Signature::Constant(signature), source_map)
+        (signature, source_map)
     }
 
     fn lower_name(&self, name: Option<RedToken>) -> Symbol<'db> {

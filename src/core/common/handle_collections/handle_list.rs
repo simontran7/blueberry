@@ -5,7 +5,7 @@ use crate::core::common::handle_collections::Handle;
 
 /// A 4-byte handle to a growable, mutable list of `H`s living in a [`HandleArrayListAllocator`].
 ///
-/// `start` is the index in the allocator's backing storage `HandleArrayListAllocator::data` where
+/// `start` is the index in the allocator's backing storage [`HandleArrayListAllocator::data`] where
 /// this list's elements begin. The live element count lives in the header, at index
 /// `start - 1`. This common trick keeps the handle 4 bytes large and `Copy` (unlike a `Vec`,
 /// which would be 24 bytes and owned).
@@ -234,13 +234,6 @@ impl<H: Handle> HandleArrayListAllocator<H> {
             data: Vec::new(),
             free: Vec::new(),
         }
-    }
-
-    /// Drops every [`HandleArrayList`]'s contents and free-list state, returning the allocator to its initial empty state.
-    pub(crate) fn reset(&mut self) {
-        // Any `HandleArrayList` into this allocator is invalidated.
-        self.data.clear();
-        self.free.clear();
     }
 
     /// Returns the index of the block's header that can fit `count` elements.

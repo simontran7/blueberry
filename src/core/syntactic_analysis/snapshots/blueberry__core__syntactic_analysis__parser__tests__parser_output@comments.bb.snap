@@ -1,84 +1,85 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
+assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/comments.bb
 ---
 File
 ├─InlineComment
 │   Lexeme: "// leading comment"
-│   Span: [0, 18)
+│   Text Range: [0, 18)
 ├─Whitespace
 │   Lexeme: "\n"
-│   Span: [18, 19)
+│   Text Range: [18, 19)
 ├─FunctionDefinition
 │ ├─Func
 │ │   Lexeme: "func"
-│ │   Span: [19, 23)
+│ │   Text Range: [19, 23)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [23, 24)
+│ │   Text Range: [23, 24)
 │ ├─Identifier
 │ │   Lexeme: "f"
-│ │   Span: [24, 25)
+│ │   Text Range: [24, 25)
 │ ├─ParameterList
 │ │ ├─OpenParen
 │ │ │   Lexeme: "("
-│ │ │   Span: [25, 26)
+│ │ │   Text Range: [25, 26)
 │ │ └─CloseParen
 │ │     Lexeme: ")"
-│ │     Span: [26, 27)
-│ │ Span: [25, 27)
+│ │     Text Range: [26, 27)
+│ │ Text Range: [25, 27)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [27, 28)
+│ │   Text Range: [27, 28)
 │ └─Block
 │   ├─OpenBrace
 │   │   Lexeme: "{"
-│   │   Span: [28, 29)
+│   │   Text Range: [28, 29)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [29, 34)
+│   │   Text Range: [29, 34)
 │   ├─ExpressionStatement
 │   │ ├─BinaryOperation
 │   │ │ ├─IntegerLiteral
 │   │ │ │ └─Integer
 │   │ │ │     Lexeme: "1"
-│   │ │ │     Span: [34, 35)
-│   │ │ │ Span: [34, 35)
+│   │ │ │     Text Range: [34, 35)
+│   │ │ │ Text Range: [34, 35)
 │   │ │ ├─Whitespace
 │   │ │ │   Lexeme: " "
-│   │ │ │   Span: [35, 36)
+│   │ │ │   Text Range: [35, 36)
 │   │ │ ├─Plus
 │   │ │ │   Lexeme: "+"
-│   │ │ │   Span: [36, 37)
+│   │ │ │   Text Range: [36, 37)
 │   │ │ ├─Whitespace
 │   │ │ │   Lexeme: " "
-│   │ │ │   Span: [37, 38)
+│   │ │ │   Text Range: [37, 38)
 │   │ │ └─IntegerLiteral
 │   │ │   └─Integer
 │   │ │       Lexeme: "2"
-│   │ │       Span: [38, 39)
-│   │ │   Span: [38, 39)
-│   │ │ Span: [34, 39)
+│   │ │       Text Range: [38, 39)
+│   │ │   Text Range: [38, 39)
+│   │ │ Text Range: [34, 39)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [39, 40)
-│   │ Span: [34, 40)
+│   │     Text Range: [39, 40)
+│   │ Text Range: [34, 40)
 │   ├─Whitespace
 │   │   Lexeme: " "
-│   │   Span: [40, 41)
+│   │   Text Range: [40, 41)
 │   ├─InlineComment
 │   │   Lexeme: "// trailing comment"
-│   │   Span: [41, 60)
+│   │   Text Range: [41, 60)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [60, 61)
+│   │   Text Range: [60, 61)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [61, 62)
-│   Span: [28, 62)
-│ Span: [19, 62)
+│       Text Range: [61, 62)
+│   Text Range: [28, 62)
+│ Text Range: [19, 62)
 └─Whitespace
     Lexeme: "\n"
-    Span: [62, 63)
-Span: [0, 63)
+    Text Range: [62, 63)
+Text Range: [0, 63)

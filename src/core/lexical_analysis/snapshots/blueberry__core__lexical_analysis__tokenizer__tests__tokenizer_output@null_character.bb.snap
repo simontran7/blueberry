@@ -1,10 +1,11 @@
 ---
 source: src/core/lexical_analysis/tokenizer.rs
+assertion_line: 192
 expression: dump
 input_file: src/core/lexical_analysis/snapshot_inputs/null_character.bb
 ---
 --------------------------------
-Index    Kind            Span           
+Index    Kind            Text Range     
 --------------------------------
 #0       `a`             [0, 1)         
 #1       `error token`   [1, 2)         
@@ -12,4 +13,4 @@ Index    Kind            Span
 #3       `end of file`   [3, 3)         
 
 --- diagnostics ---
-UnknownToken { character: '\0', span: Span { start: TextSize(1), end: TextSize(2) } }
+UnknownToken { character: '\0', range: AbsoluteTextRange { start: TextOffset(1), end: TextOffset(2) } }

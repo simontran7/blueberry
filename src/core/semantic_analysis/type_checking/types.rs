@@ -113,27 +113,8 @@ impl<'db> Ty<'db> {
         })
     }
 
-    /// Returns the values that the integer type `self` can hold, or `None` if it isn't one.
-    pub(crate) fn integer_range(self, db: &'db dyn crate::Db) -> Option<RangeInclusive<i128>> {
-        let (min, max): (i128, i128) = match self.kind(db) {
-            TyKind::Signed(SignedIntTy::I8) => (i8::MIN.into(), i8::MAX.into()),
-            TyKind::Signed(SignedIntTy::I16) => (i16::MIN.into(), i16::MAX.into()),
-            TyKind::Signed(SignedIntTy::I32) => (i32::MIN.into(), i32::MAX.into()),
-            TyKind::Signed(SignedIntTy::I64) => (i64::MIN.into(), i64::MAX.into()),
-            TyKind::Unsigned(UnsignedIntTy::U8) => (0, u8::MAX.into()),
-            TyKind::Unsigned(UnsignedIntTy::U16) => (0, u16::MAX.into()),
-            TyKind::Unsigned(UnsignedIntTy::U32) => (0, u32::MAX.into()),
-            TyKind::Unsigned(UnsignedIntTy::U64) => (0, u64::MAX.into()),
-            _ => return None,
-        };
-        Some(min..=max)
-    }
-
     /// Returns an integer type that can hold `value`, to suggest instead of the integer type
     /// `self`.
-    ///
-    /// Like rustc, the unsigned type of the same size comes first, then the bigger types of the
-    /// same signedness, from smallest to biggest.
     pub(crate) fn wider_integer_type(self, db: &'db dyn crate::Db, value: i128) -> Option<Self> {
         let signed = |ty| Self::signed(db, ty);
         let unsigned = |ty| Self::unsigned(db, ty);
@@ -172,11 +153,28 @@ impl<'db> Ty<'db> {
             | TyKind::InferenceVariable(_)
             | TyKind::Error => Vec::new(),
         };
+
         candidates.into_iter().find(|candidate| {
             candidate
                 .integer_range(db)
                 .is_some_and(|range| range.contains(&value))
         })
+    }
+
+    /// Returns the values that the integer type `self` can hold, or `None` if it isn't one.
+    pub(crate) fn integer_range(self, db: &'db dyn crate::Db) -> Option<RangeInclusive<i128>> {
+        let (min, max): (i128, i128) = match self.kind(db) {
+            TyKind::Signed(SignedIntTy::I8) => (i8::MIN.into(), i8::MAX.into()),
+            TyKind::Signed(SignedIntTy::I16) => (i16::MIN.into(), i16::MAX.into()),
+            TyKind::Signed(SignedIntTy::I32) => (i32::MIN.into(), i32::MAX.into()),
+            TyKind::Signed(SignedIntTy::I64) => (i64::MIN.into(), i64::MAX.into()),
+            TyKind::Unsigned(UnsignedIntTy::U8) => (0, u8::MAX.into()),
+            TyKind::Unsigned(UnsignedIntTy::U16) => (0, u16::MAX.into()),
+            TyKind::Unsigned(UnsignedIntTy::U32) => (0, u32::MAX.into()),
+            TyKind::Unsigned(UnsignedIntTy::U64) => (0, u64::MAX.into()),
+            _ => return None,
+        };
+        Some(min..=max)
     }
 
     pub(crate) fn children(self, db: &'db dyn crate::Db) -> impl Iterator<Item = Ty<'db>> + 'db {
@@ -199,6 +197,17 @@ impl<'db> Ty<'db> {
     pub(crate) fn is_poisoned(self, db: &'db dyn crate::Db) -> bool {
         matches!(self.kind(db), TyKind::Error)
             || self.children(db).any(|child| child.is_poisoned(db))
+    }
+
+    pub(crate) fn is_bottom(self, db: &'db dyn crate::Db) -> bool {
+        matches!(self.kind(db), TyKind::Bottom)
+    }
+
+    pub(crate) fn is_zero_sized(self, db: &'db dyn crate::Db) -> bool {
+        match self.kind(db) {
+            TyKind::Tuple(elements) => elements.iter().all(|&element| element.is_zero_sized(db)),
+            _ => false,
+        }
     }
 
     pub(crate) fn map_children(

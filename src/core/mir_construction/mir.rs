@@ -408,6 +408,10 @@ impl<'db> Cfg<'db> {
         self.layout.exit_handle = Some(block_handle);
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "inserting mid-CFG, which no lowering needs yet")
+    )]
     pub(crate) fn add_block_before(
         &mut self,
         block_handle: BlockHandle,
@@ -515,6 +519,10 @@ impl<'db> Cfg<'db> {
         }
     }
 
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "inserting mid-CFG, which no lowering needs yet")
+    )]
     pub(crate) fn add_instruction_before(
         &mut self,
         instruction: Instruction<'db>,
@@ -606,6 +614,7 @@ impl<'db> Cfg<'db> {
         }
     }
 
+    #[expect(dead_code, reason = "inserting mid-CFG, which no lowering needs yet")]
     pub(crate) fn split_block(
         &mut self,
         new_block_handle: BlockHandle,

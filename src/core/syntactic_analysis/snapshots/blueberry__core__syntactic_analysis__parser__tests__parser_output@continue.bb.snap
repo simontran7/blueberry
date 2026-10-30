@@ -1,5 +1,6 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
+assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/continue.bb
 ---
@@ -7,102 +8,102 @@ File
 ├─FunctionDefinition
 │ ├─Func
 │ │   Lexeme: "func"
-│ │   Span: [0, 4)
+│ │   Text Range: [0, 4)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [4, 5)
+│ │   Text Range: [4, 5)
 │ ├─Identifier
 │ │   Lexeme: "f"
-│ │   Span: [5, 6)
+│ │   Text Range: [5, 6)
 │ ├─ParameterList
 │ │ ├─OpenParen
 │ │ │   Lexeme: "("
-│ │ │   Span: [6, 7)
+│ │ │   Text Range: [6, 7)
 │ │ └─CloseParen
 │ │     Lexeme: ")"
-│ │     Span: [7, 8)
-│ │ Span: [6, 8)
+│ │     Text Range: [7, 8)
+│ │ Text Range: [6, 8)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [8, 9)
+│ │   Text Range: [8, 9)
 │ └─Block
 │   ├─OpenBrace
 │   │   Lexeme: "{"
-│   │   Span: [9, 10)
+│   │   Text Range: [9, 10)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [10, 15)
+│   │   Text Range: [10, 15)
 │   ├─ExpressionStatement
 │   │ └─WhileLoop
 │   │   ├─While
 │   │   │   Lexeme: "while"
-│   │   │   Span: [15, 20)
+│   │   │   Text Range: [15, 20)
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
-│   │   │   Span: [20, 21)
+│   │   │   Text Range: [20, 21)
 │   │   ├─BinaryOperation
 │   │   │ ├─PathExpression
 │   │   │ │ └─Path
 │   │   │ │   └─PathSegment
 │   │   │ │     └─Identifier
 │   │   │ │         Lexeme: "x"
-│   │   │ │         Span: [21, 22)
-│   │   │ │     Span: [21, 22)
-│   │   │ │   Span: [21, 22)
-│   │   │ │ Span: [21, 22)
+│   │   │ │         Text Range: [21, 22)
+│   │   │ │     Text Range: [21, 22)
+│   │   │ │   Text Range: [21, 22)
+│   │   │ │ Text Range: [21, 22)
 │   │   │ ├─Whitespace
 │   │   │ │   Lexeme: " "
-│   │   │ │   Span: [22, 23)
+│   │   │ │   Text Range: [22, 23)
 │   │   │ ├─LessThan
 │   │   │ │   Lexeme: "<"
-│   │   │ │   Span: [23, 24)
+│   │   │ │   Text Range: [23, 24)
 │   │   │ ├─Whitespace
 │   │   │ │   Lexeme: " "
-│   │   │ │   Span: [24, 25)
+│   │   │ │   Text Range: [24, 25)
 │   │   │ └─IntegerLiteral
 │   │   │   └─Integer
 │   │   │       Lexeme: "10"
-│   │   │       Span: [25, 27)
-│   │   │   Span: [25, 27)
-│   │   │ Span: [21, 27)
+│   │   │       Text Range: [25, 27)
+│   │   │   Text Range: [25, 27)
+│   │   │ Text Range: [21, 27)
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
-│   │   │   Span: [27, 28)
+│   │   │   Text Range: [27, 28)
 │   │   └─Block
 │   │     ├─OpenBrace
 │   │     │   Lexeme: "{"
-│   │     │   Span: [28, 29)
+│   │     │   Text Range: [28, 29)
 │   │     ├─Whitespace
 │   │     │   Lexeme: "\n        "
-│   │     │   Span: [29, 38)
+│   │     │   Text Range: [29, 38)
 │   │     ├─ExpressionStatement
 │   │     │ ├─ContinueExpression
 │   │     │ │ └─Continue
 │   │     │ │     Lexeme: "continue"
-│   │     │ │     Span: [38, 46)
-│   │     │ │ Span: [38, 46)
+│   │     │ │     Text Range: [38, 46)
+│   │     │ │ Text Range: [38, 46)
 │   │     │ └─Semicolon
 │   │     │     Lexeme: ";"
-│   │     │     Span: [46, 47)
-│   │     │ Span: [38, 47)
+│   │     │     Text Range: [46, 47)
+│   │     │ Text Range: [38, 47)
 │   │     ├─Whitespace
 │   │     │   Lexeme: "\n    "
-│   │     │   Span: [47, 52)
+│   │     │   Text Range: [47, 52)
 │   │     └─CloseBrace
 │   │         Lexeme: "}"
-│   │         Span: [52, 53)
-│   │     Span: [28, 53)
-│   │   Span: [15, 53)
-│   │ Span: [15, 53)
+│   │         Text Range: [52, 53)
+│   │     Text Range: [28, 53)
+│   │   Text Range: [15, 53)
+│   │ Text Range: [15, 53)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [53, 54)
+│   │   Text Range: [53, 54)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [54, 55)
-│   Span: [9, 55)
-│ Span: [0, 55)
+│       Text Range: [54, 55)
+│   Text Range: [9, 55)
+│ Text Range: [0, 55)
 └─Whitespace
     Lexeme: "\n"
-    Span: [55, 56)
-Span: [0, 56)
+    Text Range: [55, 56)
+Text Range: [0, 56)

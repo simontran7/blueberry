@@ -1,10 +1,11 @@
 ---
 source: src/core/lexical_analysis/tokenizer.rs
+assertion_line: 192
 expression: dump
 input_file: src/core/lexical_analysis/snapshot_inputs/basic.bb
 ---
 --------------------------------
-Index    Kind            Span           
+Index    Kind            Text Range     
 --------------------------------
 #0       `inline comment` [0, 29)        
 #1       `whitespace`    [29, 30)       

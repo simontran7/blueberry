@@ -6,7 +6,7 @@ pub(crate) fn render_diagnostic(description: DiagnosticDescription, filename: &s
     let mut report = Report::build(
         ReportKind::Error,
         filename,
-        usize::from(description.span.start()),
+        usize::from(description.range.start()),
     )
     .with_code(description.code)
     .with_message(description.message);
@@ -16,7 +16,7 @@ pub(crate) fn render_diagnostic(description: DiagnosticDescription, filename: &s
             LabelSeverity::Primary => Color::Red,
             LabelSeverity::Secondary => Color::Blue,
         };
-        let mut ariadne_label = Label::new((filename, label.span.into())).with_color(color);
+        let mut ariadne_label = Label::new((filename, label.range.into())).with_color(color);
         if let Some(message) = label.message {
             ariadne_label = ariadne_label.with_message(message);
         }

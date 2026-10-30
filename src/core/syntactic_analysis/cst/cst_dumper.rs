@@ -22,7 +22,7 @@ impl<'cst> CstDumper<'cst> {
         self.dump_children(self.root, "");
         writeln!(
             self.dump,
-            "Span: [{}, {})",
+            "Text Range: [{}, {})",
             0,
             usize::from(self.root.width())
         )
@@ -48,7 +48,7 @@ impl<'cst> CstDumper<'cst> {
 
                     writeln!(self.dump, "{indent}{connector}{:?}", child_node.kind()).unwrap();
                     self.dump_children(child_node, &child_indent);
-                    writeln!(self.dump, "{child_indent}Span: [{start}, {end})").unwrap();
+                    writeln!(self.dump, "{child_indent}Text Range: [{start}, {end})").unwrap();
                 }
                 GreenChild::Token(token) => {
                     let start = self.offset;
@@ -57,7 +57,7 @@ impl<'cst> CstDumper<'cst> {
 
                     writeln!(self.dump, "{indent}{connector}{:?}", token.kind()).unwrap();
                     writeln!(self.dump, "{child_indent}  Lexeme: {:?}", token.lexeme()).unwrap();
-                    writeln!(self.dump, "{child_indent}  Span: [{start}, {end})").unwrap();
+                    writeln!(self.dump, "{child_indent}  Text Range: [{start}, {end})").unwrap();
                 }
             }
         }

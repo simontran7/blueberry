@@ -1,6 +1,6 @@
 use std::str::Chars;
 
-use crate::core::common::span::{Span, TextSize};
+use crate::core::common::text_range::{AbsoluteTextRange, TextOffset};
 use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
 use crate::core::lexical_analysis::token_stream::{TokenKind, TokenStream};
 
@@ -27,7 +27,7 @@ impl<'src> Tokenizer<'src> {
             self.tokens.add(kind, end);
         }
         self.tokens
-            .add(TokenKind::Eof, TextSize::new(self.offset()));
+            .add(TokenKind::Eof, TextOffset::new(self.offset()));
 
         (self.tokens, self.diagnostics)
     }
@@ -44,7 +44,7 @@ impl<'src> Tokenizer<'src> {
         self.source.len() - self.cursor.as_str().len()
     }
 
-    fn tokenize_one(&mut self) -> (TokenKind, TextSize) {
+    fn tokenize_one(&mut self) -> (TokenKind, TextOffset) {
         let start = self.offset();
         let current = self.peek().unwrap();
         self.advance();
@@ -130,12 +130,15 @@ impl<'src> Tokenizer<'src> {
             _ => {
                 self.diagnostics.push(LexicalDiagnostic::UnknownToken {
                     character: current,
-                    span: Span::new(TextSize::new(start), TextSize::new(self.offset())),
+                    range: AbsoluteTextRange::new(
+                        TextOffset::new(start),
+                        TextOffset::new(self.offset()),
+                    ),
                 });
                 TokenKind::Error
             }
         };
-        (kind, TextSize::new(self.offset()))
+        (kind, TextOffset::new(self.offset()))
     }
 
     fn eat_whitespace(&mut self) {

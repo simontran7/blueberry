@@ -1,14 +1,14 @@
 ---
 source: src/core/semantic_analysis/type_checking/type_checker.rs
-assertion_line: 1336
-expression: "HirBodyDumper::dump_file_with_types(&db, file)"
+assertion_line: 1323
+expression: "HirBodyDumper::dump_file(&db, file, DumpTypes::Include)"
 input_file: src/core/semantic_analysis/type_checking/snapshot_inputs/errors.bb
 ---
 constant WRONG: Bool
 └─ Integer 5 20..21: I32
 
 constant UNKNOWN: Foo
-└─ Integer 5 44..45: I32
+└─ Integer 5 44..45: {error}
 
 function mismatches(x: I32) -> Bool
 └─ Block 80..163: {error}
@@ -34,7 +34,7 @@ function names()
    │  └─ initializer: Path missing 192..199: {error}
    ├─ Let b: {error}
    │  ├─ type: Baz
-   │  └─ initializer: Integer 1 218..219: I32
+   │  └─ initializer: Integer 1 218..219: {error}
    └─ Expression ;
       └─ Call 225..244: {error}
          ├─ callee: Path missing_function 225..241: {error}
@@ -132,7 +132,7 @@ function poisoned()
    ├─ Let a: {error}
    │  └─ initializer: Binary + 802..813: {error}
    │     ├─ Path missing 802..809: {error}
-   │     └─ Integer 1 812..813: I32
+   │     └─ Integer 1 812..813: {error}
    ├─ Let b: {error}
    │  └─ initializer: Call 827..836: {error}
    │     └─ callee: Path missing 827..834: {error}
@@ -212,6 +212,12 @@ function operator_cannot_be_applied()
          ├─ Boolean true 1356..1360: Bool
          └─ Integer 2 1363..1364: I32
 
+function too_big_for_an_unknown_type()
+└─ Block 1404..1441: ()
+   └─ Let big: {error}
+      ├─ type: Qux
+      └─ initializer: Integer 3000000000 1425..1438: {error}
+
 diagnostics
   E0308 20..21 '5': mismatched types (expected `Bool`, found integer)
   E0412 38..41 'Foo': cannot find type `Foo` in this scope (not found in this scope)
@@ -282,3 +288,4 @@ diagnostics
   E0369 1356..1364 'true * 2': cannot multiply `Bool` by `{integer}`
     1356..1360 'true': Bool
     1363..1364 '2': {integer}
+  E0412 1419..1422 'Qux': cannot find type `Qux` in this scope (not found in this scope)

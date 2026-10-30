@@ -23,7 +23,7 @@ To [snapshot test](https://www.cs.cornell.edu/~asampson/blog/turnt.html), bluebe
 mod tests {
     use super::*;
     use crate::core::lexical_analysis::tokenizer::Tokenizer;
-    use crate::core::syntactic_analysis::cst::cst_builder::CstBuilder;
+    use crate::core::syntactic_analysis::cst::cst_assembler::CstAssembler;
     use std::fs;
 
     #[test]
@@ -33,7 +33,7 @@ mod tests {
             let (tokens, _diagnostics) = Tokenizer::new(&input).tokenize();
 
             let (sink, diagnostics) = Parser::new(&tokens).parse();
-            let (cst, diagnostics) = CstBuilder::new(&input, &tokens, sink, diagnostics).build();
+            let (cst, diagnostics) = CstAssembler::new(&input, &tokens, sink, diagnostics).assemble();
 
 
             // ...

@@ -1,12 +1,12 @@
 pub(crate) mod ast;
-pub(crate) mod cst_builder;
+pub(crate) mod cst_assembler;
 pub(crate) mod cst_dumper;
 
 use std::sync::Arc;
 
 use smol_str::SmolStr;
 
-use crate::core::common::span::{Span, TextSize};
+use crate::core::common::text_range::{AbsoluteTextRange, TextLength, TextOffset};
 use crate::core::lexical_analysis::token_stream::TokenKind;
 
 pub(crate) type GreenChild = NodeOrToken<Arc<GreenNode>, Arc<GreenToken>>;
@@ -16,7 +16,7 @@ pub(crate) type RedChild = NodeOrToken<RedNode, RedToken>;
 #[derive(PartialEq, Eq)]
 pub(crate) struct GreenNode {
     kind: SyntaxKind,
-    width: TextSize,
+    width: TextLength,
     children: Vec<GreenChild>,
 }
 
@@ -138,7 +138,7 @@ pub(crate) struct RedNode {
     parent: Option<Arc<RedNode>>,
     green: Arc<GreenNode>,
     index: u32,
-    offset: TextSize,
+    offset: TextOffset,
 }
 
 #[derive(Clone)]
@@ -146,13 +146,13 @@ pub(crate) struct RedToken {
     parent: Arc<RedNode>,
     green: Arc<GreenToken>,
     index: u32,
-    offset: TextSize,
+    offset: TextOffset,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, salsa::SalsaValue)]
 pub(crate) struct RedNodeTag {
     pub(crate) kind: SyntaxKind,
-    pub(crate) span: Span,
+    pub(crate) range: AbsoluteTextRange,
 }
 
 #[derive(PartialEq, Eq)]
@@ -173,7 +173,7 @@ impl GreenNode {
     pub(crate) fn new(kind: SyntaxKind) -> Self {
         Self {
             kind,
-            width: TextSize::new(0),
+            width: TextLength::new(0),
             children: Vec::new(),
         }
     }
@@ -182,7 +182,7 @@ impl GreenNode {
         self.kind
     }
 
-    pub(crate) fn width(&self) -> TextSize {
+    pub(crate) fn width(&self) -> TextLength {
         self.width
     }
 
@@ -213,8 +213,8 @@ impl GreenToken {
         &self.text
     }
 
-    pub(crate) fn width(&self) -> TextSize {
-        TextSize::new(self.text.len())
+    pub(crate) fn width(&self) -> TextLength {
+        TextLength::new(self.text.len())
     }
 }
 
@@ -276,7 +276,7 @@ impl RedNode {
             parent: None,
             green,
             index: 0,
-            offset: TextSize::new(0),
+            offset: TextOffset::new(0),
         }
     }
 
@@ -290,12 +290,12 @@ impl RedNode {
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
-    pub(crate) fn offset(&self) -> TextSize {
+    pub(crate) fn offset(&self) -> TextOffset {
         self.offset
     }
 
-    pub(crate) fn span(&self) -> Span {
-        Span::new(self.offset, self.offset + self.green.width())
+    pub(crate) fn range(&self) -> AbsoluteTextRange {
+        AbsoluteTextRange::new(self.offset, self.offset + self.green.width())
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
@@ -368,12 +368,12 @@ impl RedToken {
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
-    pub(crate) fn offset(&self) -> TextSize {
+    pub(crate) fn offset(&self) -> TextOffset {
         self.offset
     }
 
-    pub(crate) fn span(&self) -> Span {
-        Span::new(self.offset, self.offset + self.green.width())
+    pub(crate) fn range(&self) -> AbsoluteTextRange {
+        AbsoluteTextRange::new(self.offset, self.offset + self.green.width())
     }
 
     #[expect(dead_code, reason = "red-tree navigation API, for the language server")]
@@ -392,25 +392,18 @@ impl RedNodeTag {
     pub(crate) fn new(node: &RedNode) -> Self {
         Self {
             kind: node.kind(),
-            span: node.span(),
-        }
-    }
-
-    pub(crate) fn relative_to(self, anchor: TextSize) -> Self {
-        Self {
-            kind: self.kind,
-            span: self.span.relative_to(anchor),
+            range: node.range(),
         }
     }
 
     pub(crate) fn to_red_node(self, root: &RedNode) -> Option<RedNode> {
         std::iter::successors(Some(root.clone()), |node| {
             node.children().find_map(|child| match child {
-                RedChild::Node(child) if child.span().contains(self.span) => Some(child),
+                RedChild::Node(child) if child.range().contains(self.range) => Some(child),
                 _ => None,
             })
         })
-        .find(|node| node.kind() == self.kind && node.span() == self.span)
+        .find(|node| node.kind() == self.kind && node.range() == self.range)
     }
 }
 

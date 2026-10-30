@@ -8,7 +8,9 @@ use crate::core::syntactic_analysis::cst::{GreenChild, GreenNode};
 use crate::core::syntactic_analysis::parser::sink::{Event, Sink};
 use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
 
-pub(crate) struct CstBuilder<'src> {
+/// Assembles the CST in one go, by replaying the parser's [`Sink`] events over the full
+/// [`TokenStream`], putting back the trivia the parser never saw.
+pub(crate) struct CstAssembler<'src> {
     source: &'src str,
     tokens: &'src TokenStream,
     sink: Sink,
@@ -21,7 +23,7 @@ struct TokenCursor<'src> {
     index: usize,
 }
 
-impl<'src> CstBuilder<'src> {
+impl<'src> CstAssembler<'src> {
     pub(crate) fn new(
         source: &'src str,
         tokens: &'src TokenStream,
@@ -36,7 +38,7 @@ impl<'src> CstBuilder<'src> {
         }
     }
 
-    pub(crate) fn build(mut self) -> (Arc<GreenNode>, Vec<SyntaxDiagnostic>) {
+    pub(crate) fn assemble(mut self) -> (Arc<GreenNode>, Vec<SyntaxDiagnostic>) {
         let mut cursor = TokenCursor::new(self.source, self.tokens);
         let mut events = std::mem::replace(&mut self.sink, Sink::new()).into_events();
         let mut diagnostics = std::mem::take(&mut self.diagnostics);
@@ -98,7 +100,7 @@ impl<'src> CstBuilder<'src> {
                     cursor.add_token(parent);
                 }
                 Event::AddDiagnostic { index, token_index } => {
-                    diagnostics[index].resolve(self.tokens.span_at(token_index));
+                    diagnostics[index].resolve(self.tokens.range_at(token_index));
                 }
             }
         }
@@ -141,7 +143,7 @@ impl<'src> TokenCursor<'src> {
 
     fn add_token(&mut self, parent: &mut GreenNode) {
         let kind = self.tokens.kind_at(self.index).unwrap();
-        let text = &self.source[Range::from(self.tokens.span_at(self.index))];
+        let text = &self.source[Range::from(self.tokens.range_at(self.index))];
         parent.add_child(GreenChild::Token(Arc::new(GreenToken::new(
             kind.into(),
             text.into(),

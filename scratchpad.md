@@ -1,5 +1,3 @@
-`check_literal_ranges`
-
 - [ ] [dumper.rs](src/core/semantic_analysis/ast_lowering/dumper.rs): `HirBodyDumper`, which prints the snapshots
 - [ ] [semantic_diagnostic.rs](src/core/semantic_analysis/semantic_diagnostic.rs): the two enums, and `resolve`
 - [ ] `definition_diagnostics_of`, and the private helpers at the bottom it uses (`unknown_type_diagnostics`, `collect_definitions`)

@@ -1,10 +1,10 @@
 use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
-use crate::core::common::span::Span;
+use crate::core::common::text_range::AbsoluteTextRange;
 
 #[derive(Debug, Clone)]
 pub(crate) enum SyntaxDiagnostic {
     UnexpectedToken {
-        span: Option<Span>,
+        range: Option<AbsoluteTextRange>,
         expected: String,
         found: String,
     },
@@ -13,7 +13,7 @@ pub(crate) enum SyntaxDiagnostic {
 impl SyntaxDiagnostic {
     pub(crate) fn new(expected: String, found: String) -> Self {
         Self::UnexpectedToken {
-            span: None,
+            range: None,
             expected,
             found,
         }
@@ -21,17 +21,17 @@ impl SyntaxDiagnostic {
 
     pub(crate) fn describe(&self) -> DiagnosticDescription {
         let Self::UnexpectedToken {
-            span,
+            range,
             expected,
             found,
         } = self;
-        let span = span.unwrap();
+        let range = range.unwrap();
         DiagnosticDescription {
             code: "E0101",
             message: format!("expected `{expected}`, found `{found}`"),
-            span,
+            range,
             labels: Box::new([DiagnosticLabel {
-                span,
+                range,
                 message: Some(format!("expected `{expected}`")),
                 severity: LabelSeverity::Primary,
             }]),
@@ -40,8 +40,8 @@ impl SyntaxDiagnostic {
         }
     }
 
-    pub(crate) fn resolve(&mut self, span: Span) {
-        let Self::UnexpectedToken { span: s, .. } = self;
-        *s = Some(span);
+    pub(crate) fn resolve(&mut self, range: AbsoluteTextRange) {
+        let Self::UnexpectedToken { range: s, .. } = self;
+        *s = Some(range);
     }
 }

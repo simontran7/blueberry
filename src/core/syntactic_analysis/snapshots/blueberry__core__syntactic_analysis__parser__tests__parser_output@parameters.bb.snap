@@ -1,5 +1,6 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
+assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/parameters.bb
 ---
@@ -7,121 +8,121 @@ File
 ├─FunctionDefinition
 │ ├─Func
 │ │   Lexeme: "func"
-│ │   Span: [0, 4)
+│ │   Text Range: [0, 4)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [4, 5)
+│ │   Text Range: [4, 5)
 │ ├─Identifier
 │ │   Lexeme: "add"
-│ │   Span: [5, 8)
+│ │   Text Range: [5, 8)
 │ ├─ParameterList
 │ │ ├─OpenParen
 │ │ │   Lexeme: "("
-│ │ │   Span: [8, 9)
+│ │ │   Text Range: [8, 9)
 │ │ ├─Parameter
 │ │ │ ├─Identifier
 │ │ │ │   Lexeme: "x"
-│ │ │ │   Span: [9, 10)
+│ │ │ │   Text Range: [9, 10)
 │ │ │ ├─Colon
 │ │ │ │   Lexeme: ":"
-│ │ │ │   Span: [10, 11)
+│ │ │ │   Text Range: [10, 11)
 │ │ │ ├─Whitespace
 │ │ │ │   Lexeme: " "
-│ │ │ │   Span: [11, 12)
+│ │ │ │   Text Range: [11, 12)
 │ │ │ ├─PathType
 │ │ │ │ └─Path
 │ │ │ │   └─PathSegment
 │ │ │ │     └─Identifier
 │ │ │ │         Lexeme: "I32"
-│ │ │ │         Span: [12, 15)
-│ │ │ │     Span: [12, 15)
-│ │ │ │   Span: [12, 15)
-│ │ │ │ Span: [12, 15)
+│ │ │ │         Text Range: [12, 15)
+│ │ │ │     Text Range: [12, 15)
+│ │ │ │   Text Range: [12, 15)
+│ │ │ │ Text Range: [12, 15)
 │ │ │ └─Comma
 │ │ │     Lexeme: ","
-│ │ │     Span: [15, 16)
-│ │ │ Span: [9, 16)
+│ │ │     Text Range: [15, 16)
+│ │ │ Text Range: [9, 16)
 │ │ ├─Whitespace
 │ │ │   Lexeme: " "
-│ │ │   Span: [16, 17)
+│ │ │   Text Range: [16, 17)
 │ │ ├─Parameter
 │ │ │ ├─Identifier
 │ │ │ │   Lexeme: "y"
-│ │ │ │   Span: [17, 18)
+│ │ │ │   Text Range: [17, 18)
 │ │ │ ├─Colon
 │ │ │ │   Lexeme: ":"
-│ │ │ │   Span: [18, 19)
+│ │ │ │   Text Range: [18, 19)
 │ │ │ ├─Whitespace
 │ │ │ │   Lexeme: " "
-│ │ │ │   Span: [19, 20)
+│ │ │ │   Text Range: [19, 20)
 │ │ │ ├─PathType
 │ │ │ │ └─Path
 │ │ │ │   └─PathSegment
 │ │ │ │     └─Identifier
 │ │ │ │         Lexeme: "I32"
-│ │ │ │         Span: [20, 23)
-│ │ │ │     Span: [20, 23)
-│ │ │ │   Span: [20, 23)
-│ │ │ │ Span: [20, 23)
+│ │ │ │         Text Range: [20, 23)
+│ │ │ │     Text Range: [20, 23)
+│ │ │ │   Text Range: [20, 23)
+│ │ │ │ Text Range: [20, 23)
 │ │ │ └─Comma
 │ │ │     Lexeme: ","
-│ │ │     Span: [23, 24)
-│ │ │ Span: [17, 24)
+│ │ │     Text Range: [23, 24)
+│ │ │ Text Range: [17, 24)
 │ │ ├─Whitespace
 │ │ │   Lexeme: " "
-│ │ │   Span: [24, 25)
+│ │ │   Text Range: [24, 25)
 │ │ ├─Parameter
 │ │ │ ├─Identifier
 │ │ │ │   Lexeme: "z"
-│ │ │ │   Span: [25, 26)
+│ │ │ │   Text Range: [25, 26)
 │ │ │ ├─Colon
 │ │ │ │   Lexeme: ":"
-│ │ │ │   Span: [26, 27)
+│ │ │ │   Text Range: [26, 27)
 │ │ │ ├─Whitespace
 │ │ │ │   Lexeme: " "
-│ │ │ │   Span: [27, 28)
+│ │ │ │   Text Range: [27, 28)
 │ │ │ └─PathType
 │ │ │   └─Path
 │ │ │     └─PathSegment
 │ │ │       └─Identifier
 │ │ │           Lexeme: "I32"
-│ │ │           Span: [28, 31)
-│ │ │       Span: [28, 31)
-│ │ │     Span: [28, 31)
-│ │ │   Span: [28, 31)
-│ │ │ Span: [25, 31)
+│ │ │           Text Range: [28, 31)
+│ │ │       Text Range: [28, 31)
+│ │ │     Text Range: [28, 31)
+│ │ │   Text Range: [28, 31)
+│ │ │ Text Range: [25, 31)
 │ │ └─CloseParen
 │ │     Lexeme: ")"
-│ │     Span: [31, 32)
-│ │ Span: [8, 32)
+│ │     Text Range: [31, 32)
+│ │ Text Range: [8, 32)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [32, 33)
+│ │   Text Range: [32, 33)
 │ ├─ThinArrow
 │ │   Lexeme: "->"
-│ │   Span: [33, 35)
+│ │   Text Range: [33, 35)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [35, 36)
+│ │   Text Range: [35, 36)
 │ ├─PathType
 │ │ └─Path
 │ │   └─PathSegment
 │ │     └─Identifier
 │ │         Lexeme: "I32"
-│ │         Span: [36, 39)
-│ │     Span: [36, 39)
-│ │   Span: [36, 39)
-│ │ Span: [36, 39)
+│ │         Text Range: [36, 39)
+│ │     Text Range: [36, 39)
+│ │   Text Range: [36, 39)
+│ │ Text Range: [36, 39)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [39, 40)
+│ │   Text Range: [39, 40)
 │ └─Block
 │   ├─OpenBrace
 │   │   Lexeme: "{"
-│   │   Span: [40, 41)
+│   │   Text Range: [40, 41)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [41, 46)
+│   │   Text Range: [41, 46)
 │   ├─ExpressionStatement
 │   │ └─BinaryOperation
 │   │   ├─BinaryOperation
@@ -130,58 +131,58 @@ File
 │   │   │ │   └─PathSegment
 │   │   │ │     └─Identifier
 │   │   │ │         Lexeme: "x"
-│   │   │ │         Span: [46, 47)
-│   │   │ │     Span: [46, 47)
-│   │   │ │   Span: [46, 47)
-│   │   │ │ Span: [46, 47)
+│   │   │ │         Text Range: [46, 47)
+│   │   │ │     Text Range: [46, 47)
+│   │   │ │   Text Range: [46, 47)
+│   │   │ │ Text Range: [46, 47)
 │   │   │ ├─Whitespace
 │   │   │ │   Lexeme: " "
-│   │   │ │   Span: [47, 48)
+│   │   │ │   Text Range: [47, 48)
 │   │   │ ├─Plus
 │   │   │ │   Lexeme: "+"
-│   │   │ │   Span: [48, 49)
+│   │   │ │   Text Range: [48, 49)
 │   │   │ ├─Whitespace
 │   │   │ │   Lexeme: " "
-│   │   │ │   Span: [49, 50)
+│   │   │ │   Text Range: [49, 50)
 │   │   │ └─PathExpression
 │   │   │   └─Path
 │   │   │     └─PathSegment
 │   │   │       └─Identifier
 │   │   │           Lexeme: "y"
-│   │   │           Span: [50, 51)
-│   │   │       Span: [50, 51)
-│   │   │     Span: [50, 51)
-│   │   │   Span: [50, 51)
-│   │   │ Span: [46, 51)
+│   │   │           Text Range: [50, 51)
+│   │   │       Text Range: [50, 51)
+│   │   │     Text Range: [50, 51)
+│   │   │   Text Range: [50, 51)
+│   │   │ Text Range: [46, 51)
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
-│   │   │   Span: [51, 52)
+│   │   │   Text Range: [51, 52)
 │   │   ├─Plus
 │   │   │   Lexeme: "+"
-│   │   │   Span: [52, 53)
+│   │   │   Text Range: [52, 53)
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
-│   │   │   Span: [53, 54)
+│   │   │   Text Range: [53, 54)
 │   │   └─PathExpression
 │   │     └─Path
 │   │       └─PathSegment
 │   │         └─Identifier
 │   │             Lexeme: "z"
-│   │             Span: [54, 55)
-│   │         Span: [54, 55)
-│   │       Span: [54, 55)
-│   │     Span: [54, 55)
-│   │   Span: [46, 55)
-│   │ Span: [46, 55)
+│   │             Text Range: [54, 55)
+│   │         Text Range: [54, 55)
+│   │       Text Range: [54, 55)
+│   │     Text Range: [54, 55)
+│   │   Text Range: [46, 55)
+│   │ Text Range: [46, 55)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [55, 56)
+│   │   Text Range: [55, 56)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [56, 57)
-│   Span: [40, 57)
-│ Span: [0, 57)
+│       Text Range: [56, 57)
+│   Text Range: [40, 57)
+│ Text Range: [0, 57)
 └─Whitespace
     Lexeme: "\n"
-    Span: [57, 58)
-Span: [0, 58)
+    Text Range: [57, 58)
+Text Range: [0, 58)

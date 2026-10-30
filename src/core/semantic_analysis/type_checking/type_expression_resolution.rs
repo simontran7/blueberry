@@ -8,7 +8,13 @@ pub(crate) struct ResolvedTypeExpression<'db> {
     /// the type it names
     pub(crate) ty: Ty<'db>,
     /// the paths that name no type
-    pub(crate) unknown_paths: Vec<TypeExpressionHandle>,
+    pub(crate) unknown_paths: Vec<UnknownPath<'db>>,
+}
+
+/// A path in a type expression that names no type.
+pub(crate) struct UnknownPath<'db> {
+    pub(crate) handle: TypeExpressionHandle,
+    pub(crate) path: nodes::Path<'db>,
 }
 
 /// Resolves `type_expression_handle` to the type it names.
@@ -28,14 +34,17 @@ pub(crate) fn resolve_type_expression<'db>(
             }
             _ => ResolvedTypeExpression {
                 ty: Ty::error(db),
-                unknown_paths: vec![type_expression_handle],
+                unknown_paths: vec![UnknownPath {
+                    handle: type_expression_handle,
+                    path: *path,
+                }],
             },
         },
         nodes::TypeExpression::Tuple(element_run) => {
             let element_handles = store.type_expression_handles(*element_run);
-
             let mut elements = Vec::with_capacity(element_handles.len());
             let mut unknown_paths = Vec::new();
+
             for &element_handle in element_handles {
                 let element = resolve_type_expression(db, store, element_handle);
                 elements.push(element.ty);

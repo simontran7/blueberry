@@ -1,5 +1,6 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
+assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/block.bb
 ---
@@ -7,63 +8,63 @@ File
 ├─FunctionDefinition
 │ ├─Func
 │ │   Lexeme: "func"
-│ │   Span: [0, 4)
+│ │   Text Range: [0, 4)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [4, 5)
+│ │   Text Range: [4, 5)
 │ ├─Identifier
 │ │   Lexeme: "f"
-│ │   Span: [5, 6)
+│ │   Text Range: [5, 6)
 │ ├─ParameterList
 │ │ ├─OpenParen
 │ │ │   Lexeme: "("
-│ │ │   Span: [6, 7)
+│ │ │   Text Range: [6, 7)
 │ │ └─CloseParen
 │ │     Lexeme: ")"
-│ │     Span: [7, 8)
-│ │ Span: [6, 8)
+│ │     Text Range: [7, 8)
+│ │ Text Range: [6, 8)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [8, 9)
+│ │   Text Range: [8, 9)
 │ └─Block
 │   ├─OpenBrace
 │   │   Lexeme: "{"
-│   │   Span: [9, 10)
+│   │   Text Range: [9, 10)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [10, 15)
+│   │   Text Range: [10, 15)
 │   ├─ExpressionStatement
 │   │ └─BinaryOperation
 │   │   ├─IntegerLiteral
 │   │   │ └─Integer
 │   │   │     Lexeme: "1"
-│   │   │     Span: [15, 16)
-│   │   │ Span: [15, 16)
+│   │   │     Text Range: [15, 16)
+│   │   │ Text Range: [15, 16)
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
-│   │   │   Span: [16, 17)
+│   │   │   Text Range: [16, 17)
 │   │   ├─Plus
 │   │   │   Lexeme: "+"
-│   │   │   Span: [17, 18)
+│   │   │   Text Range: [17, 18)
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
-│   │   │   Span: [18, 19)
+│   │   │   Text Range: [18, 19)
 │   │   └─IntegerLiteral
 │   │     └─Integer
 │   │         Lexeme: "2"
-│   │         Span: [19, 20)
-│   │     Span: [19, 20)
-│   │   Span: [15, 20)
-│   │ Span: [15, 20)
+│   │         Text Range: [19, 20)
+│   │     Text Range: [19, 20)
+│   │   Text Range: [15, 20)
+│   │ Text Range: [15, 20)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [20, 21)
+│   │   Text Range: [20, 21)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [21, 22)
-│   Span: [9, 22)
-│ Span: [0, 22)
+│       Text Range: [21, 22)
+│   Text Range: [9, 22)
+│ Text Range: [0, 22)
 └─Whitespace
     Lexeme: "\n"
-    Span: [22, 23)
-Span: [0, 23)
+    Text Range: [22, 23)
+Text Range: [0, 23)

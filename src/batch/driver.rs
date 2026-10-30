@@ -92,7 +92,7 @@ fn compile(path: &Path, emit: &[EmitKind]) {
         if checked == file {
             diagnostics.extend(compiler.entry_point_diagnostics(checked));
         }
-        diagnostics.sort_by_key(|diagnostic| diagnostic.span.start());
+        diagnostics.sort_by_key(|diagnostic| diagnostic.range.start());
         diagnostics
     }) {
         return;

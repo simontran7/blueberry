@@ -18,14 +18,14 @@ impl<'src> TokenDumper<'src> {
         // dump header
         dump.push_str(&"-".repeat(32));
         dump.push('\n');
-        writeln!(dump, "{:<8} {:<15} {:<15}", "Index", "Kind", "Span").unwrap();
+        writeln!(dump, "{:<8} {:<15} {:<15}", "Index", "Kind", "Text Range").unwrap();
         dump.push_str(&"-".repeat(32));
         dump.push('\n');
 
         // dump tokens row by row
-        for (i, (kind, span)) in self.tokens.kinds().zip(self.tokens.spans()).enumerate() {
-            let start = usize::from(span.start());
-            let end = usize::from(span.end());
+        for (i, (kind, range)) in self.tokens.kinds().zip(self.tokens.ranges()).enumerate() {
+            let start = usize::from(range.start());
+            let end = usize::from(range.end());
 
             let kind = if kind.has_lexeme() {
                 self.source[start..end].to_string()

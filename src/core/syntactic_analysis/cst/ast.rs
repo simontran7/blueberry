@@ -1,4 +1,4 @@
-use crate::core::common::span::Span;
+use crate::core::common::text_range::AbsoluteTextRange;
 use crate::core::syntactic_analysis::cst::ast::support::{child, children, nth_child, token};
 use crate::core::syntactic_analysis::cst::{RedChild, RedNode, RedToken, SyntaxKind};
 
@@ -17,8 +17,8 @@ pub(crate) trait AstNode {
         dead_code,
         reason = "typed AST accessor, kept complete ahead of its users"
     )]
-    fn span(&self) -> Span {
-        self.red().span()
+    fn range(&self) -> AbsoluteTextRange {
+        self.red().range()
     }
 }
 

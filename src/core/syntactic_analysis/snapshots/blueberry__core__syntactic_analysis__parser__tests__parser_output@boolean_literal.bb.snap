@@ -1,5 +1,6 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
+assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/boolean_literal.bb
 ---
@@ -7,63 +8,63 @@ File
 ├─FunctionDefinition
 │ ├─Func
 │ │   Lexeme: "func"
-│ │   Span: [0, 4)
+│ │   Text Range: [0, 4)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [4, 5)
+│ │   Text Range: [4, 5)
 │ ├─Identifier
 │ │   Lexeme: "f"
-│ │   Span: [5, 6)
+│ │   Text Range: [5, 6)
 │ ├─ParameterList
 │ │ ├─OpenParen
 │ │ │   Lexeme: "("
-│ │ │   Span: [6, 7)
+│ │ │   Text Range: [6, 7)
 │ │ └─CloseParen
 │ │     Lexeme: ")"
-│ │     Span: [7, 8)
-│ │ Span: [6, 8)
+│ │     Text Range: [7, 8)
+│ │ Text Range: [6, 8)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [8, 9)
+│ │   Text Range: [8, 9)
 │ └─Block
 │   ├─OpenBrace
 │   │   Lexeme: "{"
-│   │   Span: [9, 10)
+│   │   Text Range: [9, 10)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [10, 15)
+│   │   Text Range: [10, 15)
 │   ├─ExpressionStatement
 │   │ ├─BooleanLiteral
 │   │ │ └─True
 │   │ │     Lexeme: "true"
-│   │ │     Span: [15, 19)
-│   │ │ Span: [15, 19)
+│   │ │     Text Range: [15, 19)
+│   │ │ Text Range: [15, 19)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [19, 20)
-│   │ Span: [15, 20)
+│   │     Text Range: [19, 20)
+│   │ Text Range: [15, 20)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [20, 25)
+│   │   Text Range: [20, 25)
 │   ├─ExpressionStatement
 │   │ ├─BooleanLiteral
 │   │ │ └─False
 │   │ │     Lexeme: "false"
-│   │ │     Span: [25, 30)
-│   │ │ Span: [25, 30)
+│   │ │     Text Range: [25, 30)
+│   │ │ Text Range: [25, 30)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [30, 31)
-│   │ Span: [25, 31)
+│   │     Text Range: [30, 31)
+│   │ Text Range: [25, 31)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [31, 32)
+│   │   Text Range: [31, 32)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [32, 33)
-│   Span: [9, 33)
-│ Span: [0, 33)
+│       Text Range: [32, 33)
+│   Text Range: [9, 33)
+│ Text Range: [0, 33)
 └─Whitespace
     Lexeme: "\n"
-    Span: [33, 34)
-Span: [0, 34)
+    Text Range: [33, 34)
+Text Range: [0, 34)

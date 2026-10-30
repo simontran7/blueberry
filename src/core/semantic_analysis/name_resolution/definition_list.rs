@@ -1,5 +1,5 @@
-use crate::core::common::span::{Span, TextSize};
 use crate::core::common::symbol::Symbol;
+use crate::core::common::text_range::{AbsoluteTextRange, TextOffset};
 use crate::core::semantic_analysis::keys::{ConstantKey, DefinitionSource, FunctionKey};
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::RedNodeTag;
@@ -67,14 +67,14 @@ impl<'db> Definition<'db> {
         }
     }
 
-    pub(crate) fn anchor(self, db: &'db dyn crate::Db) -> TextSize {
-        self.span(db).start()
+    pub(crate) fn anchor(self, db: &'db dyn crate::Db) -> TextOffset {
+        self.range(db).start()
     }
 
-    pub(crate) fn span(self, db: &'db dyn crate::Db) -> Span {
+    pub(crate) fn range(self, db: &'db dyn crate::Db) -> AbsoluteTextRange {
         match self {
-            Self::Function(key) => key.node(db).span,
-            Self::Constant(key) => key.node(db).span,
+            Self::Function(key) => key.node(db).range,
+            Self::Constant(key) => key.node(db).range,
         }
     }
 

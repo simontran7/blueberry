@@ -1,5 +1,6 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
+assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/break.bb
 ---
@@ -7,111 +8,111 @@ File
 ├─FunctionDefinition
 │ ├─Func
 │ │   Lexeme: "func"
-│ │   Span: [0, 4)
+│ │   Text Range: [0, 4)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [4, 5)
+│ │   Text Range: [4, 5)
 │ ├─Identifier
 │ │   Lexeme: "f"
-│ │   Span: [5, 6)
+│ │   Text Range: [5, 6)
 │ ├─ParameterList
 │ │ ├─OpenParen
 │ │ │   Lexeme: "("
-│ │ │   Span: [6, 7)
+│ │ │   Text Range: [6, 7)
 │ │ └─CloseParen
 │ │     Lexeme: ")"
-│ │     Span: [7, 8)
-│ │ Span: [6, 8)
+│ │     Text Range: [7, 8)
+│ │ Text Range: [6, 8)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [8, 9)
+│ │   Text Range: [8, 9)
 │ └─Block
 │   ├─OpenBrace
 │   │   Lexeme: "{"
-│   │   Span: [9, 10)
+│   │   Text Range: [9, 10)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [10, 15)
+│   │   Text Range: [10, 15)
 │   ├─ExpressionStatement
 │   │ └─InfiniteLoop
 │   │   ├─Loop
 │   │   │   Lexeme: "loop"
-│   │   │   Span: [15, 19)
+│   │   │   Text Range: [15, 19)
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
-│   │   │   Span: [19, 20)
+│   │   │   Text Range: [19, 20)
 │   │   └─Block
 │   │     ├─OpenBrace
 │   │     │   Lexeme: "{"
-│   │     │   Span: [20, 21)
+│   │     │   Text Range: [20, 21)
 │   │     ├─Whitespace
 │   │     │   Lexeme: "\n        "
-│   │     │   Span: [21, 30)
+│   │     │   Text Range: [21, 30)
 │   │     ├─ExpressionStatement
 │   │     │ ├─BreakExpression
 │   │     │ │ └─Break
 │   │     │ │     Lexeme: "break"
-│   │     │ │     Span: [30, 35)
-│   │     │ │ Span: [30, 35)
+│   │     │ │     Text Range: [30, 35)
+│   │     │ │ Text Range: [30, 35)
 │   │     │ └─Semicolon
 │   │     │     Lexeme: ";"
-│   │     │     Span: [35, 36)
-│   │     │ Span: [30, 36)
+│   │     │     Text Range: [35, 36)
+│   │     │ Text Range: [30, 36)
 │   │     ├─Whitespace
 │   │     │   Lexeme: "\n        "
-│   │     │   Span: [36, 45)
+│   │     │   Text Range: [36, 45)
 │   │     ├─ExpressionStatement
 │   │     │ ├─BreakExpression
 │   │     │ │ ├─Break
 │   │     │ │ │   Lexeme: "break"
-│   │     │ │ │   Span: [45, 50)
+│   │     │ │ │   Text Range: [45, 50)
 │   │     │ │ ├─Whitespace
 │   │     │ │ │   Lexeme: " "
-│   │     │ │ │   Span: [50, 51)
+│   │     │ │ │   Text Range: [50, 51)
 │   │     │ │ └─BinaryOperation
 │   │     │ │   ├─IntegerLiteral
 │   │     │ │   │ └─Integer
 │   │     │ │   │     Lexeme: "1"
-│   │     │ │   │     Span: [51, 52)
-│   │     │ │   │ Span: [51, 52)
+│   │     │ │   │     Text Range: [51, 52)
+│   │     │ │   │ Text Range: [51, 52)
 │   │     │ │   ├─Whitespace
 │   │     │ │   │   Lexeme: " "
-│   │     │ │   │   Span: [52, 53)
+│   │     │ │   │   Text Range: [52, 53)
 │   │     │ │   ├─Plus
 │   │     │ │   │   Lexeme: "+"
-│   │     │ │   │   Span: [53, 54)
+│   │     │ │   │   Text Range: [53, 54)
 │   │     │ │   ├─Whitespace
 │   │     │ │   │   Lexeme: " "
-│   │     │ │   │   Span: [54, 55)
+│   │     │ │   │   Text Range: [54, 55)
 │   │     │ │   └─IntegerLiteral
 │   │     │ │     └─Integer
 │   │     │ │         Lexeme: "2"
-│   │     │ │         Span: [55, 56)
-│   │     │ │     Span: [55, 56)
-│   │     │ │   Span: [51, 56)
-│   │     │ │ Span: [45, 56)
+│   │     │ │         Text Range: [55, 56)
+│   │     │ │     Text Range: [55, 56)
+│   │     │ │   Text Range: [51, 56)
+│   │     │ │ Text Range: [45, 56)
 │   │     │ └─Semicolon
 │   │     │     Lexeme: ";"
-│   │     │     Span: [56, 57)
-│   │     │ Span: [45, 57)
+│   │     │     Text Range: [56, 57)
+│   │     │ Text Range: [45, 57)
 │   │     ├─Whitespace
 │   │     │   Lexeme: "\n    "
-│   │     │   Span: [57, 62)
+│   │     │   Text Range: [57, 62)
 │   │     └─CloseBrace
 │   │         Lexeme: "}"
-│   │         Span: [62, 63)
-│   │     Span: [20, 63)
-│   │   Span: [15, 63)
-│   │ Span: [15, 63)
+│   │         Text Range: [62, 63)
+│   │     Text Range: [20, 63)
+│   │   Text Range: [15, 63)
+│   │ Text Range: [15, 63)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [63, 64)
+│   │   Text Range: [63, 64)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [64, 65)
-│   Span: [9, 65)
-│ Span: [0, 65)
+│       Text Range: [64, 65)
+│   Text Range: [9, 65)
+│ Text Range: [0, 65)
 └─Whitespace
     Lexeme: "\n"
-    Span: [65, 66)
-Span: [0, 66)
+    Text Range: [65, 66)
+Text Range: [0, 66)

@@ -1,5 +1,6 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
+assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/error_recovery.bb
 ---
@@ -7,227 +8,227 @@ File
 ├─FunctionDefinition
 │ ├─Func
 │ │   Lexeme: "func"
-│ │   Span: [0, 4)
+│ │   Text Range: [0, 4)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [4, 5)
+│ │   Text Range: [4, 5)
 │ ├─Identifier
 │ │   Lexeme: "f"
-│ │   Span: [5, 6)
+│ │   Text Range: [5, 6)
 │ ├─ParameterList
 │ │ ├─OpenParen
 │ │ │   Lexeme: "("
-│ │ │   Span: [6, 7)
+│ │ │   Text Range: [6, 7)
 │ │ └─CloseParen
 │ │     Lexeme: ")"
-│ │     Span: [7, 8)
-│ │ Span: [6, 8)
+│ │     Text Range: [7, 8)
+│ │ Text Range: [6, 8)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [8, 9)
+│ │   Text Range: [8, 9)
 │ └─Block
 │   ├─OpenBrace
 │   │   Lexeme: "{"
-│   │   Span: [9, 10)
+│   │   Text Range: [9, 10)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [10, 15)
+│   │   Text Range: [10, 15)
 │   ├─Error
 │   │ └─CloseParen
 │   │     Lexeme: ")"
-│   │     Span: [15, 16)
-│   │ Span: [15, 16)
+│   │     Text Range: [15, 16)
+│   │ Text Range: [15, 16)
 │   ├─Error
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [16, 17)
-│   │ Span: [16, 17)
+│   │     Text Range: [16, 17)
+│   │ Text Range: [16, 17)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [17, 22)
+│   │   Text Range: [17, 22)
 │   ├─LetStatement
 │   │ ├─Let
 │   │ │   Lexeme: "let"
-│   │ │   Span: [22, 25)
+│   │ │   Text Range: [22, 25)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
-│   │ │   Span: [25, 26)
+│   │ │   Text Range: [25, 26)
 │   │ ├─Identifier
 │   │ │   Lexeme: "x"
-│   │ │   Span: [26, 27)
+│   │ │   Text Range: [26, 27)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
-│   │ │   Span: [27, 28)
+│   │ │   Text Range: [27, 28)
 │   │ ├─Equal
 │   │ │   Lexeme: "="
-│   │ │   Span: [28, 29)
+│   │ │   Text Range: [28, 29)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
-│   │ │   Span: [29, 30)
+│   │ │   Text Range: [29, 30)
 │   │ ├─IntegerLiteral
 │   │ │ └─Integer
 │   │ │     Lexeme: "1"
-│   │ │     Span: [30, 31)
-│   │ │ Span: [30, 31)
+│   │ │     Text Range: [30, 31)
+│   │ │ Text Range: [30, 31)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [31, 32)
-│   │ Span: [22, 32)
+│   │     Text Range: [31, 32)
+│   │ Text Range: [22, 32)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [32, 33)
+│   │   Text Range: [32, 33)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [33, 34)
-│   Span: [9, 34)
-│ Span: [0, 34)
+│       Text Range: [33, 34)
+│   Text Range: [9, 34)
+│ Text Range: [0, 34)
 ├─Whitespace
 │   Lexeme: "\n\n"
-│   Span: [34, 36)
+│   Text Range: [34, 36)
 ├─FunctionDefinition
 │ ├─Func
 │ │   Lexeme: "func"
-│ │   Span: [36, 40)
+│ │   Text Range: [36, 40)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [40, 41)
+│ │   Text Range: [40, 41)
 │ ├─Identifier
 │ │   Lexeme: "fib"
-│ │   Span: [41, 44)
+│ │   Text Range: [41, 44)
 │ ├─ParameterList
 │ │ ├─OpenParen
 │ │ │   Lexeme: "("
-│ │ │   Span: [44, 45)
+│ │ │   Text Range: [44, 45)
 │ │ ├─Parameter
 │ │ │ ├─Identifier
 │ │ │ │   Lexeme: "n"
-│ │ │ │   Span: [45, 46)
+│ │ │ │   Text Range: [45, 46)
 │ │ │ ├─Colon
 │ │ │ │   Lexeme: ":"
-│ │ │ │   Span: [46, 47)
+│ │ │ │   Text Range: [46, 47)
 │ │ │ ├─Whitespace
 │ │ │ │   Lexeme: " "
-│ │ │ │   Span: [47, 48)
+│ │ │ │   Text Range: [47, 48)
 │ │ │ └─PathType
 │ │ │   └─Path
 │ │ │     └─PathSegment
 │ │ │       └─Identifier
 │ │ │           Lexeme: "i32"
-│ │ │           Span: [48, 51)
-│ │ │       Span: [48, 51)
-│ │ │     Span: [48, 51)
-│ │ │   Span: [48, 51)
-│ │ │ Span: [45, 51)
+│ │ │           Text Range: [48, 51)
+│ │ │       Text Range: [48, 51)
+│ │ │     Text Range: [48, 51)
+│ │ │   Text Range: [48, 51)
+│ │ │ Text Range: [45, 51)
 │ │ └─CloseParen
 │ │     Lexeme: ")"
-│ │     Span: [51, 52)
-│ │ Span: [44, 52)
+│ │     Text Range: [51, 52)
+│ │ Text Range: [44, 52)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [52, 53)
+│ │   Text Range: [52, 53)
 │ ├─ThinArrow
 │ │   Lexeme: "->"
-│ │   Span: [53, 55)
+│ │   Text Range: [53, 55)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [55, 56)
+│ │   Text Range: [55, 56)
 │ ├─PathType
 │ │ └─Path
 │ │   └─PathSegment
 │ │     └─Identifier
 │ │         Lexeme: "i32"
-│ │         Span: [56, 59)
-│ │     Span: [56, 59)
-│ │   Span: [56, 59)
-│ │ Span: [56, 59)
+│ │         Text Range: [56, 59)
+│ │     Text Range: [56, 59)
+│ │   Text Range: [56, 59)
+│ │ Text Range: [56, 59)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [59, 60)
+│ │   Text Range: [59, 60)
 │ └─Block
 │   ├─OpenBrace
 │   │   Lexeme: "{"
-│   │   Span: [60, 61)
+│   │   Text Range: [60, 61)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [61, 66)
+│   │   Text Range: [61, 66)
 │   ├─LetStatement
 │   │ ├─Let
 │   │ │   Lexeme: "let"
-│   │ │   Span: [66, 69)
+│   │ │   Text Range: [66, 69)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
-│   │ │   Span: [69, 70)
+│   │ │   Text Range: [69, 70)
 │   │ ├─Identifier
 │   │ │   Lexeme: "x"
-│   │ │   Span: [70, 71)
+│   │ │   Text Range: [70, 71)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
-│   │ │   Span: [71, 72)
+│   │ │   Text Range: [71, 72)
 │   │ ├─Equal
 │   │ │   Lexeme: "="
-│   │ │   Span: [72, 73)
+│   │ │   Text Range: [72, 73)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
-│   │ │   Span: [73, 74)
+│   │ │   Text Range: [73, 74)
 │   │ └─BinaryOperation
 │   │   ├─IntegerLiteral
 │   │   │ └─Integer
 │   │   │     Lexeme: "1"
-│   │   │     Span: [74, 75)
-│   │   │ Span: [74, 75)
+│   │   │     Text Range: [74, 75)
+│   │   │ Text Range: [74, 75)
 │   │   ├─Whitespace
 │   │   │   Lexeme: " "
-│   │   │   Span: [75, 76)
+│   │   │   Text Range: [75, 76)
 │   │   └─Plus
 │   │       Lexeme: "+"
-│   │       Span: [76, 77)
-│   │   Span: [74, 77)
-│   │ Span: [66, 77)
+│   │       Text Range: [76, 77)
+│   │   Text Range: [74, 77)
+│   │ Text Range: [66, 77)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [77, 82)
+│   │   Text Range: [77, 82)
 │   ├─LetStatement
 │   │ ├─Let
 │   │ │   Lexeme: "let"
-│   │ │   Span: [82, 85)
+│   │ │   Text Range: [82, 85)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
-│   │ │   Span: [85, 86)
+│   │ │   Text Range: [85, 86)
 │   │ ├─Identifier
 │   │ │   Lexeme: "y"
-│   │ │   Span: [86, 87)
+│   │ │   Text Range: [86, 87)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
-│   │ │   Span: [87, 88)
+│   │ │   Text Range: [87, 88)
 │   │ ├─Equal
 │   │ │   Lexeme: "="
-│   │ │   Span: [88, 89)
+│   │ │   Text Range: [88, 89)
 │   │ ├─Whitespace
 │   │ │   Lexeme: " "
-│   │ │   Span: [89, 90)
+│   │ │   Text Range: [89, 90)
 │   │ ├─IntegerLiteral
 │   │ │ └─Integer
 │   │ │     Lexeme: "2"
-│   │ │     Span: [90, 91)
-│   │ │ Span: [90, 91)
+│   │ │     Text Range: [90, 91)
+│   │ │ Text Range: [90, 91)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [91, 92)
-│   │ Span: [82, 92)
+│   │     Text Range: [91, 92)
+│   │ Text Range: [82, 92)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [92, 93)
+│   │   Text Range: [92, 93)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [93, 94)
-│   Span: [60, 94)
-│ Span: [36, 94)
+│       Text Range: [93, 94)
+│   Text Range: [60, 94)
+│ Text Range: [36, 94)
 └─Whitespace
     Lexeme: "\n"
-    Span: [94, 95)
-Span: [0, 95)
+    Text Range: [94, 95)
+Text Range: [0, 95)
 
 --- diagnostics ---
-UnexpectedToken { span: Some(Span { start: TextSize(15), end: TextSize(16) }), expected: "statement", found: ")" }
-UnexpectedToken { span: Some(Span { start: TextSize(16), end: TextSize(17) }), expected: "statement", found: ";" }
-UnexpectedToken { span: Some(Span { start: TextSize(82), end: TextSize(85) }), expected: ";", found: "let" }
+UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(15), end: TextOffset(16) }), expected: "statement", found: ")" }
+UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(16), end: TextOffset(17) }), expected: "statement", found: ";" }
+UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(82), end: TextOffset(85) }), expected: ";", found: "let" }

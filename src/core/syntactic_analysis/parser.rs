@@ -587,7 +587,7 @@ impl Parser {
 
         // set the forward parent of `anchor` to the new event
         if let Event::OpenNode { forward_parent, .. } = &mut self.sink[anchor.open_index] {
-            *forward_parent = Some(marker.index - anchor.open_index); // `CstBuilder::build` walks forward parents by offset
+            *forward_parent = Some(marker.index - anchor.open_index); // `CstAssembler::assemble` walks forward parents by offset
         } else {
             unreachable!()
         }
@@ -710,7 +710,7 @@ mod tests {
 
     use super::*;
     use crate::core::lexical_analysis::tokenizer::Tokenizer;
-    use crate::core::syntactic_analysis::cst::cst_builder::CstBuilder;
+    use crate::core::syntactic_analysis::cst::cst_assembler::CstAssembler;
     use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
     use std::fs;
 
@@ -721,7 +721,8 @@ mod tests {
             let (tokens, _diagnostics) = Tokenizer::new(&input).tokenize();
 
             let (sink, diagnostics) = Parser::new(&tokens).parse();
-            let (cst, diagnostics) = CstBuilder::new(&input, &tokens, sink, diagnostics).build();
+            let (cst, diagnostics) =
+                CstAssembler::new(&input, &tokens, sink, diagnostics).assemble();
 
             let mut dump = CstDumper::new(&cst).dump();
             if !diagnostics.is_empty() {

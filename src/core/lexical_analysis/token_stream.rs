@@ -1,11 +1,11 @@
 use core::fmt;
 
-use crate::core::common::span::{Span, TextSize};
+use crate::core::common::text_range::{AbsoluteTextRange, TextOffset};
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct TokenStream {
     kinds: Vec<TokenKind>,
-    starts: Vec<TextSize>,
+    starts: Vec<TextOffset>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -72,7 +72,7 @@ impl TokenStream {
     pub(crate) fn new() -> Self {
         Self {
             kinds: Vec::new(),
-            starts: vec![TextSize::new(0)],
+            starts: vec![TextOffset::new(0)],
         }
     }
 
@@ -84,19 +84,19 @@ impl TokenStream {
         self.kinds.get(index).copied()
     }
 
-    pub(crate) fn span_at(&self, index: usize) -> Span {
-        Span::new(self.starts[index], self.starts[index + 1])
+    pub(crate) fn range_at(&self, index: usize) -> AbsoluteTextRange {
+        AbsoluteTextRange::new(self.starts[index], self.starts[index + 1])
     }
 
     pub(crate) fn kinds(&self) -> impl Iterator<Item = TokenKind> {
         self.kinds.iter().copied()
     }
 
-    pub(crate) fn spans(&self) -> impl Iterator<Item = Span> {
-        (0..self.count()).map(|index| self.span_at(index))
+    pub(crate) fn ranges(&self) -> impl Iterator<Item = AbsoluteTextRange> {
+        (0..self.count()).map(|index| self.range_at(index))
     }
 
-    pub(crate) fn add(&mut self, kind: TokenKind, end: TextSize) {
+    pub(crate) fn add(&mut self, kind: TokenKind, end: TextOffset) {
         assert!(
             *self.starts.last().unwrap() <= end,
             "a token can't end before it starts"

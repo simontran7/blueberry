@@ -26,7 +26,7 @@ Every function, constant and block is given a **key** (`FunctionKey`, `ConstantK
 
 `salsa` matches a key to its previous version by these fields (and, for keys with identical fields, by the order they're created in), so editing one function, constant, or block leaves every other key, and so every other cached result, unchanged.
 
-Each key also records where its node currently is (its kind and span, a `RedNodeTag`), so that its syntax node can be found again (`.to_ast_node(db)`). This field is _tracked_: when text only moves, it changes without changing the key's identity, and only the queries reading it (e.g., lowering) re-run. Their results come out identical, so nothing after them is recomputed.
+Each key also records where its node currently is (its kind and range, a `RedNodeTag`), so that its syntax node can be found again (`.to_ast_node(db)`). This field is _tracked_: when text only moves, it changes without changing the key's identity, and only the queries reading it (e.g., lowering) re-run. Their results come out identical, so nothing after them is recomputed.
 
 _In the code:_ `keys.rs`; keys are created while collecting definitions (`top_level_definitions_of`, `block_definitions_of`) and while lowering bodies (blocks)
 
@@ -67,7 +67,7 @@ Alongside each body, a **source map** (a `HirNodeSourceMap`) is built, recording
 
 The HIR itself stores no positions in the text. This way, an edit that only moves text (e.g. adding whitespace or a comment) leaves the HIR unchanged, so the HIR, and every result computed from it (scopes, types, MIR), stays cached.
 
-The source map's spans are **relative**: each one is measured from the start of its definition (its **anchor**, `Definition::anchor`) rather than from the start of the file. Most edits happen outside any given definition, and an edit above a definition only moves its anchor, so its source map stays unchanged too. A span is turned back into a position in the file only when it's needed, e.g. when a diagnostic is reported, by adding the anchor's current position (`expression_span(handle, anchor)`, `type_expression_span(handle, anchor)`).
+The source map's ranges are **relative** (a `RelativeTextRange`): each one is measured from the start of its definition (its **anchor**, `Definition::anchor`) rather than from the start of the file. Most edits happen outside any given definition, and an edit above a definition only moves its anchor, so its source map stays unchanged too. A range is turned back into a range of the file only when it's needed, e.g. when a diagnostic is reported, by adding the anchor's current position (`expression_range(handle, anchor)`, `type_expression_range(handle, anchor)`), which gives an `AbsoluteTextRange`. The two are separate types, so a relative range can't reach a diagnostic without being anchored first.
 
 For example, adding a line above `func b` shifts `b` in the file, but not `b`'s nodes relative to `b`:
 
@@ -82,7 +82,7 @@ func b() {                      func b() {          ← anchor moves: 13 → 26
 Lowering produces the HIR and its source map together (`body::hir_and_source_map_of`), but they're cached separately: `body::hir_of` returns only the HIR, so when an edit changes only the source map, salsa sees that `body::hir_of`'s result didn't change, and doesn't recompute anything that depends on it.
 
 The source map is the bridge between the two:
-- **HIR to text**, for diagnostics: a diagnostic stores the handle of the node it's about (e.g. an `ExpressionHandle`), and its span is only looked up through the source map when it's reported
+- **HIR to text**, for diagnostics: a diagnostic stores the handle of the node it's about (e.g. an `ExpressionHandle`), and its range is only looked up through the source map when it's reported
 - **text to HIR**, for editor features such as hover or go-to-definition: the syntax node under the cursor is mapped back to its handle, whose type can then be looked up (not built yet)
 
 _In the code:_ `body::hir_of(d)`, `body::source_map_of(d)`
@@ -243,9 +243,9 @@ Following the approach of Milner's **Algorithm J**, inference variables are stor
 
 Since solutions are looked up in the inference table rather than written into every type, a type may mention an inference variable that has _already_ been solved (i.e., is no longer unknown). This means that before looking at a type, the type checker must **shallowly resolve** it (via `.shallow_resolve(ty)`). Shallow resolving means following chains of inference variables if any, but it won't recurse in the inner types (e.g., `fn(?0) -> I32` is returned as is).
 
-In contrast, **deep resolving** (via `.deep_resolve(ty)`) replaces every solved inference variable _inside_ the type (e.g., `fn(?0) -> I32` becomes `fn(Bool) -> I32` if `?0 := Bool`).
+In contrast, **zonking** (via `.zonk(ty)`) replaces every solved inference variable _inside_ the type (e.g., `fn(?0) -> I32` becomes `fn(Bool) -> I32` if `?0 := Bool`). Its variant `.zonk_and_poison(ty)` also gives up on every inference variable still unsolved, by solving it to the `Error` type (see [Finishing a Body](#finishing-a-body)).
 
-As a rule of thumb, the type checker shallow resolves when it only needs to look at a type's outer shape while checking (e.g., "is this an integer type?"), and deep resolves when it needs the entire type, i.e., to display it in a diagnostic, to check whether an error type is hidden anywhere inside it, and at the end, when every unknown is replaced with its solution.
+As a rule of thumb, the type checker shallow resolves when it only needs to look at a type's outer shape while checking (e.g., "is this an integer type?"), and zonks when it needs the entire type, i.e., to display it in a diagnostic, to check whether an error type is hidden anywhere inside it, and at the end, when every unknown is replaced with its solution.
 
 Concretely, the type checker shallow resolves a type right before matching on its kind, i.e., whenever it asks a question about the type's outer shape:
 
@@ -606,7 +606,7 @@ Once the walk is over, every unknown is replaced with its solution:
 1. every integer variable still unsolved defaults to `I32`
 2. every general variable still unsolved and coerced from `Bottom` defaults to `Bottom` (see [Coercing `Bottom` into an Unsolved Inference Variable](#coercing-bottom-into-an-unsolved-inference-variable))
 3. every negation of an integer variable is checked again, now that the variable's type is known: if it became unsigned, the negation is reported
-4. every expression's and binding's type is deep resolved; an inference variable still unsolved becomes the `Error` type, and a "type annotations needed" diagnostic is reported (once per variable)
+4. every expression's and binding's type is **zonked and poisoned**: each solution is written back into the types recorded during the walk, since solving updated only the inference table. An inference variable still unsolved becomes the `Error` type, and a "type annotations needed" diagnostic is reported (once per variable)
 5. every integer literal is checked to fit in its now-known type
 
 #### Type Annotations Needed
@@ -621,9 +621,9 @@ The diagnostic points at where the unknown came from. Each general variable reco
    │             ┬ type must be known at this point
 ```
 
-The origin is a HIR handle (a `LocalBindingHandle` or an `ExpressionHandle`), so `body::types_of` stays independent of positions: the span is only looked up, through the source map, when the diagnostic is resolved (see [Diagnostics](#diagnostics)).
+The origin is a HIR handle (a `LocalBindingHandle` or an `ExpressionHandle`), so `body::types_of` stays independent of positions: the range is only looked up, through the source map, when the diagnostic is resolved (see [Diagnostics](#diagnostics)).
 
-_In the code:_ `VariableOrigin`, `InferenceTable::deep_resolve_with_poisoning`
+_In the code:_ `VariableOrigin`, `InferenceTable::zonk_and_poison`
 
 The result, a `BodySemantics`, holds the body's semantics: each expression's type, each binding's type, what each path refers to, and the body's diagnostics.
 
@@ -688,6 +688,6 @@ While walking a body, the type checker records each problem as an `UnresolvedSem
 
 Each expression is checked against its context exactly once (its parent either coerces it, or pours it into a funnel), so an expression never gets two mismatches.
 
-When a diagnostic is reported, it's **resolved** into a `SemanticDiagnostic` (via `.resolve(..)`), looking up its spans through the source map. A mismatch's cause decides its message, e.g. "`if` and `else` have incompatible types" rather than "mismatched types".
+When a diagnostic is reported, it's **resolved** into a `SemanticDiagnostic` (via `.resolve(..)`), looking up its ranges through the source map. A mismatch's cause decides its message, e.g. "`if` and `else` have incompatible types" rather than "mismatched types".
 
 The diagnostics of one definition (unknown types in its signature, and its body's resolved diagnostics) are given by `definition_diagnostics_of(definition)`.

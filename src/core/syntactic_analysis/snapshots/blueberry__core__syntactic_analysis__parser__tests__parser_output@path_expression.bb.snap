@@ -1,5 +1,6 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
+assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/path_expression.bb
 ---
@@ -7,48 +8,48 @@ File
 ├─FunctionDefinition
 │ ├─Func
 │ │   Lexeme: "func"
-│ │   Span: [0, 4)
+│ │   Text Range: [0, 4)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [4, 5)
+│ │   Text Range: [4, 5)
 │ ├─Identifier
 │ │   Lexeme: "f"
-│ │   Span: [5, 6)
+│ │   Text Range: [5, 6)
 │ ├─ParameterList
 │ │ ├─OpenParen
 │ │ │   Lexeme: "("
-│ │ │   Span: [6, 7)
+│ │ │   Text Range: [6, 7)
 │ │ └─CloseParen
 │ │     Lexeme: ")"
-│ │     Span: [7, 8)
-│ │ Span: [6, 8)
+│ │     Text Range: [7, 8)
+│ │ Text Range: [6, 8)
 │ ├─Whitespace
 │ │   Lexeme: " "
-│ │   Span: [8, 9)
+│ │   Text Range: [8, 9)
 │ └─Block
 │   ├─OpenBrace
 │   │   Lexeme: "{"
-│   │   Span: [9, 10)
+│   │   Text Range: [9, 10)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [10, 15)
+│   │   Text Range: [10, 15)
 │   ├─ExpressionStatement
 │   │ ├─PathExpression
 │   │ │ └─Path
 │   │ │   └─PathSegment
 │   │ │     └─Identifier
 │   │ │         Lexeme: "x"
-│   │ │         Span: [15, 16)
-│   │ │     Span: [15, 16)
-│   │ │   Span: [15, 16)
-│   │ │ Span: [15, 16)
+│   │ │         Text Range: [15, 16)
+│   │ │     Text Range: [15, 16)
+│   │ │   Text Range: [15, 16)
+│   │ │ Text Range: [15, 16)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [16, 17)
-│   │ Span: [15, 17)
+│   │     Text Range: [16, 17)
+│   │ Text Range: [15, 17)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [17, 22)
+│   │   Text Range: [17, 22)
 │   ├─ExpressionStatement
 │   │ ├─PathExpression
 │   │ │ └─Path
@@ -56,26 +57,26 @@ File
 │   │ │   │ └─PathSegment
 │   │ │   │   └─Identifier
 │   │ │   │       Lexeme: "a"
-│   │ │   │       Span: [22, 23)
-│   │ │   │   Span: [22, 23)
-│   │ │   │ Span: [22, 23)
+│   │ │   │       Text Range: [22, 23)
+│   │ │   │   Text Range: [22, 23)
+│   │ │   │ Text Range: [22, 23)
 │   │ │   ├─ColonColon
 │   │ │   │   Lexeme: "::"
-│   │ │   │   Span: [23, 25)
+│   │ │   │   Text Range: [23, 25)
 │   │ │   └─PathSegment
 │   │ │     └─Identifier
 │   │ │         Lexeme: "b"
-│   │ │         Span: [25, 26)
-│   │ │     Span: [25, 26)
-│   │ │   Span: [22, 26)
-│   │ │ Span: [22, 26)
+│   │ │         Text Range: [25, 26)
+│   │ │     Text Range: [25, 26)
+│   │ │   Text Range: [22, 26)
+│   │ │ Text Range: [22, 26)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [26, 27)
-│   │ Span: [22, 27)
+│   │     Text Range: [26, 27)
+│   │ Text Range: [22, 27)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [27, 32)
+│   │   Text Range: [27, 32)
 │   ├─ExpressionStatement
 │   │ ├─Call
 │   │ │ ├─PathExpression
@@ -85,51 +86,51 @@ File
 │   │ │ │   │ │ └─PathSegment
 │   │ │ │   │ │   └─Identifier
 │   │ │ │   │ │       Lexeme: "a"
-│   │ │ │   │ │       Span: [32, 33)
-│   │ │ │   │ │   Span: [32, 33)
-│   │ │ │   │ │ Span: [32, 33)
+│   │ │ │   │ │       Text Range: [32, 33)
+│   │ │ │   │ │   Text Range: [32, 33)
+│   │ │ │   │ │ Text Range: [32, 33)
 │   │ │ │   │ ├─ColonColon
 │   │ │ │   │ │   Lexeme: "::"
-│   │ │ │   │ │   Span: [33, 35)
+│   │ │ │   │ │   Text Range: [33, 35)
 │   │ │ │   │ └─PathSegment
 │   │ │ │   │   └─Identifier
 │   │ │ │   │       Lexeme: "b"
-│   │ │ │   │       Span: [35, 36)
-│   │ │ │   │   Span: [35, 36)
-│   │ │ │   │ Span: [32, 36)
+│   │ │ │   │       Text Range: [35, 36)
+│   │ │ │   │   Text Range: [35, 36)
+│   │ │ │   │ Text Range: [32, 36)
 │   │ │ │   ├─ColonColon
 │   │ │ │   │   Lexeme: "::"
-│   │ │ │   │   Span: [36, 38)
+│   │ │ │   │   Text Range: [36, 38)
 │   │ │ │   └─PathSegment
 │   │ │ │     └─Identifier
 │   │ │ │         Lexeme: "c"
-│   │ │ │         Span: [38, 39)
-│   │ │ │     Span: [38, 39)
-│   │ │ │   Span: [32, 39)
-│   │ │ │ Span: [32, 39)
+│   │ │ │         Text Range: [38, 39)
+│   │ │ │     Text Range: [38, 39)
+│   │ │ │   Text Range: [32, 39)
+│   │ │ │ Text Range: [32, 39)
 │   │ │ └─ArgumentList
 │   │ │   ├─OpenParen
 │   │ │   │   Lexeme: "("
-│   │ │   │   Span: [39, 40)
+│   │ │   │   Text Range: [39, 40)
 │   │ │   ├─Argument
 │   │ │   │ └─IntegerLiteral
 │   │ │   │   └─Integer
 │   │ │   │       Lexeme: "1"
-│   │ │   │       Span: [40, 41)
-│   │ │   │   Span: [40, 41)
-│   │ │   │ Span: [40, 41)
+│   │ │   │       Text Range: [40, 41)
+│   │ │   │   Text Range: [40, 41)
+│   │ │   │ Text Range: [40, 41)
 │   │ │   └─CloseParen
 │   │ │       Lexeme: ")"
-│   │ │       Span: [41, 42)
-│   │ │   Span: [39, 42)
-│   │ │ Span: [32, 42)
+│   │ │       Text Range: [41, 42)
+│   │ │   Text Range: [39, 42)
+│   │ │ Text Range: [32, 42)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [42, 43)
-│   │ Span: [32, 43)
+│   │     Text Range: [42, 43)
+│   │ Text Range: [32, 43)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [43, 48)
+│   │   Text Range: [43, 48)
 │   ├─ExpressionStatement
 │   │ ├─BinaryOperation
 │   │ │ ├─Call
@@ -139,37 +140,37 @@ File
 │   │ │ │ │   │ └─PathSegment
 │   │ │ │ │   │   └─Identifier
 │   │ │ │ │   │       Lexeme: "b"
-│   │ │ │ │   │       Span: [48, 49)
-│   │ │ │ │   │   Span: [48, 49)
-│   │ │ │ │   │ Span: [48, 49)
+│   │ │ │ │   │       Text Range: [48, 49)
+│   │ │ │ │   │   Text Range: [48, 49)
+│   │ │ │ │   │ Text Range: [48, 49)
 │   │ │ │ │   ├─ColonColon
 │   │ │ │ │   │   Lexeme: "::"
-│   │ │ │ │   │   Span: [49, 51)
+│   │ │ │ │   │   Text Range: [49, 51)
 │   │ │ │ │   └─PathSegment
 │   │ │ │ │     └─Identifier
 │   │ │ │ │         Lexeme: "f"
-│   │ │ │ │         Span: [51, 52)
-│   │ │ │ │     Span: [51, 52)
-│   │ │ │ │   Span: [48, 52)
-│   │ │ │ │ Span: [48, 52)
+│   │ │ │ │         Text Range: [51, 52)
+│   │ │ │ │     Text Range: [51, 52)
+│   │ │ │ │   Text Range: [48, 52)
+│   │ │ │ │ Text Range: [48, 52)
 │   │ │ │ └─ArgumentList
 │   │ │ │   ├─OpenParen
 │   │ │ │   │   Lexeme: "("
-│   │ │ │   │   Span: [52, 53)
+│   │ │ │   │   Text Range: [52, 53)
 │   │ │ │   └─CloseParen
 │   │ │ │       Lexeme: ")"
-│   │ │ │       Span: [53, 54)
-│   │ │ │   Span: [52, 54)
-│   │ │ │ Span: [48, 54)
+│   │ │ │       Text Range: [53, 54)
+│   │ │ │   Text Range: [52, 54)
+│   │ │ │ Text Range: [48, 54)
 │   │ │ ├─Whitespace
 │   │ │ │   Lexeme: " "
-│   │ │ │   Span: [54, 55)
+│   │ │ │   Text Range: [54, 55)
 │   │ │ ├─Plus
 │   │ │ │   Lexeme: "+"
-│   │ │ │   Span: [55, 56)
+│   │ │ │   Text Range: [55, 56)
 │   │ │ ├─Whitespace
 │   │ │ │   Lexeme: " "
-│   │ │ │   Span: [56, 57)
+│   │ │ │   Text Range: [56, 57)
 │   │ │ └─PathExpression
 │   │ │   └─Path
 │   │ │     ├─Path
@@ -177,36 +178,36 @@ File
 │   │ │     │ │ └─PathSegment
 │   │ │     │ │   └─Identifier
 │   │ │     │ │       Lexeme: "x"
-│   │ │     │ │       Span: [57, 58)
-│   │ │     │ │   Span: [57, 58)
-│   │ │     │ │ Span: [57, 58)
+│   │ │     │ │       Text Range: [57, 58)
+│   │ │     │ │   Text Range: [57, 58)
+│   │ │     │ │ Text Range: [57, 58)
 │   │ │     │ ├─ColonColon
 │   │ │     │ │   Lexeme: "::"
-│   │ │     │ │   Span: [58, 60)
+│   │ │     │ │   Text Range: [58, 60)
 │   │ │     │ └─PathSegment
 │   │ │     │   └─Identifier
 │   │ │     │       Lexeme: "y"
-│   │ │     │       Span: [60, 61)
-│   │ │     │   Span: [60, 61)
-│   │ │     │ Span: [57, 61)
+│   │ │     │       Text Range: [60, 61)
+│   │ │     │   Text Range: [60, 61)
+│   │ │     │ Text Range: [57, 61)
 │   │ │     ├─ColonColon
 │   │ │     │   Lexeme: "::"
-│   │ │     │   Span: [61, 63)
+│   │ │     │   Text Range: [61, 63)
 │   │ │     └─PathSegment
 │   │ │       └─Identifier
 │   │ │           Lexeme: "z"
-│   │ │           Span: [63, 64)
-│   │ │       Span: [63, 64)
-│   │ │     Span: [57, 64)
-│   │ │   Span: [57, 64)
-│   │ │ Span: [48, 64)
+│   │ │           Text Range: [63, 64)
+│   │ │       Text Range: [63, 64)
+│   │ │     Text Range: [57, 64)
+│   │ │   Text Range: [57, 64)
+│   │ │ Text Range: [48, 64)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [64, 65)
-│   │ Span: [48, 65)
+│   │     Text Range: [64, 65)
+│   │ Text Range: [48, 65)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [65, 70)
+│   │   Text Range: [65, 70)
 │   ├─ExpressionStatement
 │   │ ├─PathExpression
 │   │ │ └─Path
@@ -214,21 +215,21 @@ File
 │   │ │   │ └─PathSegment
 │   │ │   │   └─Identifier
 │   │ │   │       Lexeme: "a"
-│   │ │   │       Span: [70, 71)
-│   │ │   │   Span: [70, 71)
-│   │ │   │ Span: [70, 71)
+│   │ │   │       Text Range: [70, 71)
+│   │ │   │   Text Range: [70, 71)
+│   │ │   │ Text Range: [70, 71)
 │   │ │   └─ColonColon
 │   │ │       Lexeme: "::"
-│   │ │       Span: [71, 73)
-│   │ │   Span: [70, 73)
-│   │ │ Span: [70, 73)
+│   │ │       Text Range: [71, 73)
+│   │ │   Text Range: [70, 73)
+│   │ │ Text Range: [70, 73)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [73, 74)
-│   │ Span: [70, 74)
+│   │     Text Range: [73, 74)
+│   │ Text Range: [70, 74)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [74, 79)
+│   │   Text Range: [74, 79)
 │   ├─ExpressionStatement
 │   │ ├─PathExpression
 │   │ │ └─Path
@@ -237,63 +238,63 @@ File
 │   │ │   │ │ └─PathSegment
 │   │ │   │ │   └─Identifier
 │   │ │   │ │       Lexeme: "a"
-│   │ │   │ │       Span: [79, 80)
-│   │ │   │ │   Span: [79, 80)
-│   │ │   │ │ Span: [79, 80)
+│   │ │   │ │       Text Range: [79, 80)
+│   │ │   │ │   Text Range: [79, 80)
+│   │ │   │ │ Text Range: [79, 80)
 │   │ │   │ ├─ColonColon
 │   │ │   │ │   Lexeme: "::"
-│   │ │   │ │   Span: [80, 82)
+│   │ │   │ │   Text Range: [80, 82)
 │   │ │   │ └─PathSegment
 │   │ │   │   └─Identifier
 │   │ │   │       Lexeme: "b"
-│   │ │   │       Span: [82, 83)
-│   │ │   │   Span: [82, 83)
-│   │ │   │ Span: [79, 83)
+│   │ │   │       Text Range: [82, 83)
+│   │ │   │   Text Range: [82, 83)
+│   │ │   │ Text Range: [79, 83)
 │   │ │   └─ColonColon
 │   │ │       Lexeme: "::"
-│   │ │       Span: [83, 85)
-│   │ │   Span: [79, 85)
-│   │ │ Span: [79, 85)
+│   │ │       Text Range: [83, 85)
+│   │ │   Text Range: [79, 85)
+│   │ │ Text Range: [79, 85)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [85, 86)
-│   │ Span: [79, 86)
+│   │     Text Range: [85, 86)
+│   │ Text Range: [79, 86)
 │   ├─Whitespace
 │   │   Lexeme: "\n    "
-│   │   Span: [86, 91)
+│   │   Text Range: [86, 91)
 │   ├─Error
 │   │ └─ColonColon
 │   │     Lexeme: "::"
-│   │     Span: [91, 93)
-│   │ Span: [91, 93)
+│   │     Text Range: [91, 93)
+│   │ Text Range: [91, 93)
 │   ├─ExpressionStatement
 │   │ ├─PathExpression
 │   │ │ └─Path
 │   │ │   └─PathSegment
 │   │ │     └─Identifier
 │   │ │         Lexeme: "c"
-│   │ │         Span: [93, 94)
-│   │ │     Span: [93, 94)
-│   │ │   Span: [93, 94)
-│   │ │ Span: [93, 94)
+│   │ │         Text Range: [93, 94)
+│   │ │     Text Range: [93, 94)
+│   │ │   Text Range: [93, 94)
+│   │ │ Text Range: [93, 94)
 │   │ └─Semicolon
 │   │     Lexeme: ";"
-│   │     Span: [94, 95)
-│   │ Span: [93, 95)
+│   │     Text Range: [94, 95)
+│   │ Text Range: [93, 95)
 │   ├─Whitespace
 │   │   Lexeme: "\n"
-│   │   Span: [95, 96)
+│   │   Text Range: [95, 96)
 │   └─CloseBrace
 │       Lexeme: "}"
-│       Span: [96, 97)
-│   Span: [9, 97)
-│ Span: [0, 97)
+│       Text Range: [96, 97)
+│   Text Range: [9, 97)
+│ Text Range: [0, 97)
 └─Whitespace
     Lexeme: "\n"
-    Span: [97, 98)
-Span: [0, 98)
+    Text Range: [97, 98)
+Text Range: [0, 98)
 
 --- diagnostics ---
-UnexpectedToken { span: Some(Span { start: TextSize(73), end: TextSize(74) }), expected: "identifier", found: ";" }
-UnexpectedToken { span: Some(Span { start: TextSize(85), end: TextSize(86) }), expected: "identifier", found: ";" }
-UnexpectedToken { span: Some(Span { start: TextSize(91), end: TextSize(93) }), expected: "statement", found: "::" }
+UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(73), end: TextOffset(74) }), expected: "identifier", found: ";" }
+UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(85), end: TextOffset(86) }), expected: "identifier", found: ";" }
+UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(91), end: TextOffset(93) }), expected: "statement", found: "::" }
