@@ -1,7 +1,7 @@
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::ast_lowering::hir_node_store_builder::HirNodeStoreBuilder;
 use crate::core::semantic_analysis::ast_lowering::nodes::{
-    self, HirNodeSourceMap, TypeExpressionHandle,
+    self, HirNodeRanges, TypeExpressionHandle,
 };
 use crate::core::semantic_analysis::ast_lowering::{path_lowering, type_expression_lowering};
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
@@ -24,7 +24,7 @@ impl<'db> SignatureLowerer<'db> {
     pub(crate) fn lower_function(
         mut self,
         function: &ast::FunctionDefinition,
-    ) -> (nodes::Signature<'db>, HirNodeSourceMap) {
+    ) -> (nodes::Signature<'db>, HirNodeRanges) {
         let name = self.lower_name(function.name());
 
         let parameter_annotation_handles = function
@@ -43,7 +43,7 @@ impl<'db> SignatureLowerer<'db> {
             .return_type_annotation()
             .map(|annotation| self.lower_type_expression(&annotation));
 
-        let (store, source_map) = self.builder.finish();
+        let (store, ranges) = self.builder.finish();
         let signature = nodes::Signature {
             name,
             store,
@@ -52,26 +52,26 @@ impl<'db> SignatureLowerer<'db> {
                 return_type_annotation,
             }),
         };
-        (signature, source_map)
+        (signature, ranges)
     }
 
     pub(crate) fn lower_constant(
         mut self,
         constant: &ast::ConstantDefinition,
-    ) -> (nodes::Signature<'db>, HirNodeSourceMap) {
+    ) -> (nodes::Signature<'db>, HirNodeRanges) {
         let name = self.lower_name(constant.name());
 
         let annotation = constant
             .type_annotation()
             .map(|annotation| self.lower_type_expression(&annotation));
 
-        let (store, source_map) = self.builder.finish();
+        let (store, ranges) = self.builder.finish();
         let signature = nodes::Signature {
             name,
             store,
             kind: nodes::SignatureKind::Constant(nodes::ConstantSignature { annotation }),
         };
-        (signature, source_map)
+        (signature, ranges)
     }
 
     fn lower_name(&self, name: Option<RedToken>) -> Symbol<'db> {

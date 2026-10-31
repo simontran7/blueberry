@@ -1,6 +1,5 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
-assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/function.bb
 ---
@@ -199,7 +198,7 @@ File
 Text Range: [0, 96)
 
 --- diagnostics ---
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(50), end: TextOffset(51) }), expected: "parameter list", found: "{" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(68), end: TextOffset(72) }), expected: "function body", found: "func" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(81), end: TextOffset(85) }), expected: "parameter list", found: "func" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(81), end: TextOffset(85) }), expected: "function body", found: "func" }
+E0101 AbsoluteTextRange { start: TextOffset(50), end: TextOffset(51) } "expected `parameter list`, found `{`"
+E0101 AbsoluteTextRange { start: TextOffset(68), end: TextOffset(72) } "expected `function body`, found `func`"
+E0101 AbsoluteTextRange { start: TextOffset(81), end: TextOffset(85) } "expected `parameter list`, found `func`"
+E0101 AbsoluteTextRange { start: TextOffset(81), end: TextOffset(85) } "expected `function body`, found `func`"

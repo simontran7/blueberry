@@ -1,12 +1,13 @@
 use std::ops::Range;
 use std::sync::Arc;
 
+use crate::core::common::diagnostic::Diagnostic;
 use crate::core::lexical_analysis::token_stream::{TokenKind, TokenStream};
 use crate::core::syntactic_analysis::cst::GreenToken;
 use crate::core::syntactic_analysis::cst::SyntaxKind;
 use crate::core::syntactic_analysis::cst::{GreenChild, GreenNode};
 use crate::core::syntactic_analysis::parser::sink::{Event, Sink};
-use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
+use crate::core::syntactic_analysis::parser::syntax_diagnostic::UnresolvedSyntaxDiagnostic;
 
 /// Assembles the CST in one go, by replaying the parser's [`Sink`] events over the full
 /// [`TokenStream`], putting back the trivia the parser never saw.
@@ -14,7 +15,7 @@ pub(crate) struct CstAssembler<'src> {
     source: &'src str,
     tokens: &'src TokenStream,
     sink: Sink,
-    diagnostics: Vec<SyntaxDiagnostic>,
+    unresolved_diagnostics: Vec<UnresolvedSyntaxDiagnostic>,
 }
 
 struct TokenCursor<'src> {
@@ -28,20 +29,20 @@ impl<'src> CstAssembler<'src> {
         source: &'src str,
         tokens: &'src TokenStream,
         sink: Sink,
-        diagnostics: Vec<SyntaxDiagnostic>,
+        unresolved_diagnostics: Vec<UnresolvedSyntaxDiagnostic>,
     ) -> Self {
         Self {
             source,
             tokens,
             sink,
-            diagnostics,
+            unresolved_diagnostics,
         }
     }
 
-    pub(crate) fn assemble(mut self) -> (Arc<GreenNode>, Vec<SyntaxDiagnostic>) {
+    pub(crate) fn assemble(mut self) -> (Arc<GreenNode>, Vec<Diagnostic>) {
         let mut cursor = TokenCursor::new(self.source, self.tokens);
         let mut events = std::mem::replace(&mut self.sink, Sink::new()).into_events();
-        let mut diagnostics = std::mem::take(&mut self.diagnostics);
+        let mut diagnostics = Vec::with_capacity(self.unresolved_diagnostics.len());
         let mut stack: Vec<GreenNode> = Vec::new();
 
         assert!(matches!(events.pop(), Some(Event::CloseNode)));
@@ -100,7 +101,8 @@ impl<'src> CstAssembler<'src> {
                     cursor.add_token(parent);
                 }
                 Event::AddDiagnostic { index, token_index } => {
-                    diagnostics[index].resolve(self.tokens.range_at(token_index));
+                    let range = self.tokens.range_at(token_index);
+                    diagnostics.push(self.unresolved_diagnostics[index].resolve(range));
                 }
             }
         }

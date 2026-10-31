@@ -1,6 +1,6 @@
-- [ ] [dumper.rs](src/core/semantic_analysis/ast_lowering/dumper.rs): `HirBodyDumper`, which prints the snapshots
-- [ ] [semantic_diagnostic.rs](src/core/semantic_analysis/semantic_diagnostic.rs): the two enums, and `resolve`
-- [ ] `definition_diagnostics_of`, and the private helpers at the bottom it uses (`unknown_type_diagnostics`, `collect_definitions`)
-- [ ] `import_diagnostics_of`, `entry_point_diagnostics_of`
-- [ ] `all_definitions_of`
-- [ ] [compiler.rs](src/core/compiler.rs) and `compile` in batch
+- [ ] [semantic_diagnostic.rs](src/core/semantic_analysis/semantic_diagnostic.rs)
+- [ ] [dumper.rs](src/core/semantic_analysis/ast_lowering/dumper.rs)
+- [ ] understand the CLI: [cli.rs](src/cli.rs) and [arg_parser.rs](src/cli/arg_parser.rs)
+- [ ] understand the batch driver: [driver.rs](src/batch/driver.rs) and [diagnostic_render.rs](src/batch/diagnostic_render.rs)
+- [ ] understand the compiler: [compiler.rs](src/core/compiler.rs)
+- [ ] bring back the `main` checks (`E0601` missing, `E0580` wrong type) once `build` works

@@ -1,6 +1,5 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
-assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/path_expression.bb
 ---
@@ -295,6 +294,6 @@ File
 Text Range: [0, 98)
 
 --- diagnostics ---
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(73), end: TextOffset(74) }), expected: "identifier", found: ";" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(85), end: TextOffset(86) }), expected: "identifier", found: ";" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(91), end: TextOffset(93) }), expected: "statement", found: "::" }
+E0101 AbsoluteTextRange { start: TextOffset(73), end: TextOffset(74) } "expected `identifier`, found `;`"
+E0101 AbsoluteTextRange { start: TextOffset(85), end: TextOffset(86) } "expected `identifier`, found `;`"
+E0101 AbsoluteTextRange { start: TextOffset(91), end: TextOffset(93) } "expected `statement`, found `::`"

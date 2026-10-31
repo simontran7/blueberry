@@ -1,6 +1,5 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
-assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/tuple.bb
 ---
@@ -992,6 +991,6 @@ File
 Text Range: [0, 477)
 
 --- diagnostics ---
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(439), end: TextOffset(440) }), expected: "field name", found: ";" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(465), end: TextOffset(466) }), expected: ",", found: ";" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(465), end: TextOffset(466) }), expected: ")", found: ";" }
+E0101 AbsoluteTextRange { start: TextOffset(439), end: TextOffset(440) } "expected `field name`, found `;`"
+E0101 AbsoluteTextRange { start: TextOffset(465), end: TextOffset(466) } "expected `,`, found `;`"
+E0101 AbsoluteTextRange { start: TextOffset(465), end: TextOffset(466) } "expected `)`, found `;`"

@@ -1,6 +1,5 @@
 ---
 source: src/core/lexical_analysis/tokenizer.rs
-assertion_line: 192
 expression: dump
 input_file: src/core/lexical_analysis/snapshot_inputs/null_character.bb
 ---
@@ -13,4 +12,4 @@ Index    Kind            Text Range
 #3       `end of file`   [3, 3)         
 
 --- diagnostics ---
-UnknownToken { character: '\0', range: AbsoluteTextRange { start: TextOffset(1), end: TextOffset(2) } }
+E0102 AbsoluteTextRange { start: TextOffset(1), end: TextOffset(2) } "unknown start of token: `\0`"

@@ -34,7 +34,7 @@ pub(crate) enum Definition {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub(crate) enum Item {
+pub(crate) enum TopLevelItem {
     Definition(Definition),
     Import(ImportDeclaration),
 }
@@ -245,7 +245,7 @@ pub(crate) struct ParenthesizedType {
 }
 
 impl File {
-    pub(crate) fn items(&self) -> impl Iterator<Item = Item> {
+    pub(crate) fn items(&self) -> impl Iterator<Item = TopLevelItem> {
         children(self.red())
     }
 }
@@ -298,7 +298,7 @@ impl AstNode for Definition {
     }
 }
 
-impl AstNode for Item {
+impl AstNode for TopLevelItem {
     fn can_cast(kind: SyntaxKind) -> bool {
         Definition::can_cast(kind) || kind == SyntaxKind::ImportDeclaration
     }

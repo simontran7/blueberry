@@ -1,22 +1,21 @@
 use std::io;
 use std::path::Path as FilePath;
 
-pub(crate) use crate::core::common::diagnostic::{DiagnosticDescription, LabelSeverity};
+pub(crate) use crate::core::common::diagnostic::{Diagnostic, LabelKind};
 pub(crate) use crate::core::db::BlueberryDatabase;
 pub(crate) use crate::core::source_file_key::SourceFileKey;
 
-use crate::core::common::diagnostic::{Diagnostic, DiagnosticAccumulator};
 use crate::core::lexical_analysis::token_stream_dumper::TokenDumper;
-use crate::core::lexical_analysis::tokens_of;
+use crate::core::lexical_analysis::{lexical_diagnostics_of, tokens_of};
 use crate::core::mir_construction::mir_dumper::MirBodyDumper;
 use crate::core::module_map::{ModuleMap, ModulePath};
 use crate::core::semantic_analysis::ast_lowering::dumper::{DumpTypes, HirBodyDumper};
 use crate::core::semantic_analysis::{
-    all_definitions_of, definition_diagnostics_of, entry_point_diagnostics_of,
-    import_diagnostics_of, imports_of, module_file_of,
+    all_definitions_of, definition_diagnostics_of, import_diagnostics_of, imports_of,
+    module_file_of,
 };
 use crate::core::syntactic_analysis::cst::cst_dumper::CstDumper;
-use crate::core::syntactic_analysis::cst_of;
+use crate::core::syntactic_analysis::{cst_of, syntax_diagnostics_of};
 
 pub(crate) struct Compiler<'db> {
     db: &'db dyn crate::Db,
@@ -62,23 +61,15 @@ impl<'db> Compiler<'db> {
         file.contents(self.db)
     }
 
-    pub(crate) fn lexical_diagnostics(&self, file: SourceFileKey) -> Vec<DiagnosticDescription> {
-        tokens_of(self.db, file);
-        tokens_of::accumulated::<DiagnosticAccumulator>(self.db, file)
-            .into_iter()
-            .map(|accumulated| accumulated.0.describe())
-            .collect()
+    pub(crate) fn lexical_diagnostics(&self, file: SourceFileKey) -> Vec<Diagnostic> {
+        lexical_diagnostics_of(self.db, file).to_vec()
     }
 
-    pub(crate) fn syntax_diagnostics(&self, file: SourceFileKey) -> Vec<DiagnosticDescription> {
-        cst_of(self.db, file);
-        cst_of::accumulated::<DiagnosticAccumulator>(self.db, file)
-            .into_iter()
-            .map(|accumulated| accumulated.0.describe())
-            .collect()
+    pub(crate) fn syntax_diagnostics(&self, file: SourceFileKey) -> Vec<Diagnostic> {
+        syntax_diagnostics_of(self.db, file).to_vec()
     }
 
-    pub(crate) fn semantic_diagnostics(&self, file: SourceFileKey) -> Vec<DiagnosticDescription> {
+    pub(crate) fn semantic_diagnostics(&self, file: SourceFileKey) -> Vec<Diagnostic> {
         let definition_diagnostics =
             all_definitions_of(self.db, file)
                 .into_iter()
@@ -90,23 +81,15 @@ impl<'db> Compiler<'db> {
         import_diagnostics_of(self.db, file)
             .into_iter()
             .chain(definition_diagnostics)
-            .map(|diagnostic| Diagnostic::Semantic(diagnostic).describe())
-            .collect()
-    }
-
-    /// Returns the errors about `main`, for a program compiled from `file`.
-    pub(crate) fn entry_point_diagnostics(
-        &self,
-        file: SourceFileKey,
-    ) -> Vec<DiagnosticDescription> {
-        entry_point_diagnostics_of(self.db, file)
-            .into_iter()
-            .map(|diagnostic| Diagnostic::Semantic(diagnostic).describe())
             .collect()
     }
 
     pub(crate) fn dump_tokens(&self, file: SourceFileKey) -> String {
-        TokenDumper::new(file.contents(self.db), tokens_of(self.db, file).clone()).dump()
+        TokenDumper::new(
+            file.contents(self.db),
+            tokens_of(self.db, file).as_ref().clone(),
+        )
+        .dump()
     }
 
     pub(crate) fn dump_cst(&self, file: SourceFileKey) -> String {

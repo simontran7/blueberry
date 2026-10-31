@@ -278,7 +278,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
                 if ty.is_zero_sized(self.db) {
                     return None;
                 }
-                let block = self.current_block();
+                let block = self.cfg.current_block().unwrap();
                 Some(self.cfg.read_variable(binding_handle, ty, block))
             }
             Resolution::Constant(constant) => {
@@ -327,7 +327,7 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         let lowered_value_handle = lowered_value_handle?;
 
         let base_ty = self.semantics.expression_type(base_handle);
-        let block = self.current_block();
+        let block = self.cfg.current_block().unwrap();
         let base_value_handle = self.cfg.read_variable(binding_handle, base_ty, block);
         let new_base_handle =
             self.insert_field(base_value_handle, base_ty, &indices, lowered_value_handle);
@@ -692,13 +692,9 @@ impl<'a, 'db> MirLowerer<'a, 'db> {
         if let Some(lowered_value_handle) = lowered_value_handle
             && !self.cfg.is_filled_here()
         {
-            let block = self.current_block();
+            let block = self.cfg.current_block().unwrap();
             self.cfg
                 .write_variable(binding_handle, block, lowered_value_handle);
         }
-    }
-
-    fn current_block(&self) -> BlockHandle {
-        self.cfg.current_block().unwrap()
     }
 }

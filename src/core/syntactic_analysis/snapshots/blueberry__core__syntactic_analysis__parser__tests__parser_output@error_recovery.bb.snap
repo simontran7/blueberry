@@ -1,6 +1,5 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
-assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/error_recovery.bb
 ---
@@ -229,6 +228,6 @@ File
 Text Range: [0, 95)
 
 --- diagnostics ---
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(15), end: TextOffset(16) }), expected: "statement", found: ")" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(16), end: TextOffset(17) }), expected: "statement", found: ";" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(82), end: TextOffset(85) }), expected: ";", found: "let" }
+E0101 AbsoluteTextRange { start: TextOffset(15), end: TextOffset(16) } "expected `statement`, found `)`"
+E0101 AbsoluteTextRange { start: TextOffset(16), end: TextOffset(17) } "expected `statement`, found `;`"
+E0101 AbsoluteTextRange { start: TextOffset(82), end: TextOffset(85) } "expected `;`, found `let`"

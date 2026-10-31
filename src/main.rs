@@ -1,3 +1,3 @@
 fn main() {
-    blueberry::batch::main();
+    blueberry::cli::main();
 }

@@ -1,14 +1,14 @@
 use std::str::Chars;
 
+use crate::core::common::diagnostic::{Diagnostic, DiagnosticLabel};
 use crate::core::common::text_range::{AbsoluteTextRange, TextOffset};
-use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
 use crate::core::lexical_analysis::token_stream::{TokenKind, TokenStream};
 
 pub(crate) struct Tokenizer<'src> {
     source: &'src str,
     cursor: Chars<'src>,
     tokens: TokenStream,
-    diagnostics: Vec<LexicalDiagnostic>,
+    diagnostics: Vec<Diagnostic>,
 }
 
 impl<'src> Tokenizer<'src> {
@@ -21,7 +21,7 @@ impl<'src> Tokenizer<'src> {
         }
     }
 
-    pub(crate) fn tokenize(mut self) -> (TokenStream, Vec<LexicalDiagnostic>) {
+    pub(crate) fn tokenize(mut self) -> (TokenStream, Vec<Diagnostic>) {
         while !self.at_eof() {
             let (kind, end) = self.tokenize_one();
             self.tokens.add(kind, end);
@@ -128,13 +128,14 @@ impl<'src> Tokenizer<'src> {
                 TokenKind::Whitespace
             }
             _ => {
-                self.diagnostics.push(LexicalDiagnostic::UnknownToken {
-                    character: current,
-                    range: AbsoluteTextRange::new(
-                        TextOffset::new(start),
-                        TextOffset::new(self.offset()),
-                    ),
-                });
+                let range =
+                    AbsoluteTextRange::new(TextOffset::new(start), TextOffset::new(self.offset()));
+                self.diagnostics.push(Diagnostic::new(
+                    "E0102",
+                    &format!("unknown start of token: `{current}`"),
+                    range,
+                    vec![DiagnosticLabel::primary(range, "unrecognized character")],
+                ));
                 TokenKind::Error
             }
         };
@@ -185,7 +186,12 @@ mod tests {
             if !diagnostics.is_empty() {
                 dump.push_str("\n--- diagnostics ---\n");
                 for diagnostic in &diagnostics {
-                    writeln!(dump, "{diagnostic:?}").unwrap();
+                    writeln!(
+                        dump,
+                        "{} {:?} {:?}",
+                        diagnostic.code, diagnostic.range, diagnostic.message
+                    )
+                    .unwrap();
                 }
             }
 

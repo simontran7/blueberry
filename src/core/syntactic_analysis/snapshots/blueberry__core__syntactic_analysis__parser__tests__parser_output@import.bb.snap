@@ -1,6 +1,5 @@
 ---
 source: src/core/syntactic_analysis/parser.rs
-assertion_line: 734
 expression: dump
 input_file: src/core/syntactic_analysis/snapshot_inputs/import.bb
 ---
@@ -321,18 +320,18 @@ File
 Text Range: [0, 156)
 
 --- diagnostics ---
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(79), end: TextOffset(80) }), expected: "identifier", found: ";" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(93), end: TextOffset(94) }), expected: "identifier", found: ";" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(102), end: TextOffset(103) }), expected: "identifier", found: "integer" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(102), end: TextOffset(103) }), expected: ";", found: "integer" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(102), end: TextOffset(103) }), expected: "func", found: "integer" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(103), end: TextOffset(104) }), expected: "func", found: ";" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(113), end: TextOffset(114) }), expected: ";", found: "," }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(113), end: TextOffset(114) }), expected: "func", found: "," }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(115), end: TextOffset(116) }), expected: "func", found: "identifier" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(116), end: TextOffset(117) }), expected: "func", found: ";" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(127), end: TextOffset(129) }), expected: ";", found: "identifier" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(127), end: TextOffset(129) }), expected: "func", found: "identifier" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(130), end: TextOffset(131) }), expected: "func", found: "identifier" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(131), end: TextOffset(132) }), expected: "func", found: ";" }
-UnexpectedToken { range: Some(AbsoluteTextRange { start: TextOffset(144), end: TextOffset(148) }), expected: ";", found: "func" }
+E0101 AbsoluteTextRange { start: TextOffset(79), end: TextOffset(80) } "expected `identifier`, found `;`"
+E0101 AbsoluteTextRange { start: TextOffset(93), end: TextOffset(94) } "expected `identifier`, found `;`"
+E0101 AbsoluteTextRange { start: TextOffset(102), end: TextOffset(103) } "expected `identifier`, found `integer`"
+E0101 AbsoluteTextRange { start: TextOffset(102), end: TextOffset(103) } "expected `;`, found `integer`"
+E0101 AbsoluteTextRange { start: TextOffset(102), end: TextOffset(103) } "expected `func`, found `integer`"
+E0101 AbsoluteTextRange { start: TextOffset(103), end: TextOffset(104) } "expected `func`, found `;`"
+E0101 AbsoluteTextRange { start: TextOffset(113), end: TextOffset(114) } "expected `;`, found `,`"
+E0101 AbsoluteTextRange { start: TextOffset(113), end: TextOffset(114) } "expected `func`, found `,`"
+E0101 AbsoluteTextRange { start: TextOffset(115), end: TextOffset(116) } "expected `func`, found `identifier`"
+E0101 AbsoluteTextRange { start: TextOffset(116), end: TextOffset(117) } "expected `func`, found `;`"
+E0101 AbsoluteTextRange { start: TextOffset(127), end: TextOffset(129) } "expected `;`, found `identifier`"
+E0101 AbsoluteTextRange { start: TextOffset(127), end: TextOffset(129) } "expected `func`, found `identifier`"
+E0101 AbsoluteTextRange { start: TextOffset(130), end: TextOffset(131) } "expected `func`, found `identifier`"
+E0101 AbsoluteTextRange { start: TextOffset(131), end: TextOffset(132) } "expected `func`, found `;`"
+E0101 AbsoluteTextRange { start: TextOffset(144), end: TextOffset(148) } "expected `;`, found `func`"

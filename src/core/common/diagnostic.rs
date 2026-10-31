@@ -1,19 +1,7 @@
 use crate::core::common::text_range::AbsoluteTextRange;
-use crate::core::lexical_analysis::lexical_diagnostic::LexicalDiagnostic;
-use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
-use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
 
-#[salsa::accumulator]
-pub(crate) struct DiagnosticAccumulator(pub(crate) Diagnostic);
-
-#[derive(Debug, Clone)]
-pub(crate) enum Diagnostic {
-    Lexical(LexicalDiagnostic),
-    Syntax(SyntaxDiagnostic),
-    Semantic(SemanticDiagnostic),
-}
-
-pub(crate) struct DiagnosticDescription {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Diagnostic {
     pub(crate) code: &'static str,
     pub(crate) message: String,
     pub(crate) range: AbsoluteTextRange,
@@ -24,23 +12,59 @@ pub(crate) struct DiagnosticDescription {
     pub(crate) helps: Box<[String]>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct DiagnosticLabel {
     pub(crate) range: AbsoluteTextRange,
     pub(crate) message: Option<String>,
-    pub(crate) severity: LabelSeverity,
+    pub(crate) kind: LabelKind,
 }
 
-pub(crate) enum LabelSeverity {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LabelKind {
     Primary,
     Secondary,
 }
 
 impl Diagnostic {
-    pub(crate) fn describe(&self) -> DiagnosticDescription {
-        match self {
-            Self::Lexical(diagnostic) => diagnostic.describe(),
-            Self::Syntax(diagnostic) => diagnostic.describe(),
-            Self::Semantic(diagnostic) => diagnostic.describe(),
+    pub(crate) fn new(
+        code: &'static str,
+        message: &str,
+        range: AbsoluteTextRange,
+        labels: Vec<DiagnosticLabel>,
+    ) -> Self {
+        Self {
+            code,
+            message: message.to_string(),
+            range,
+            labels: labels.into_boxed_slice(),
+            notes: Box::new([]),
+            helps: Box::new([]),
+        }
+    }
+}
+
+impl DiagnosticLabel {
+    pub(crate) fn primary(range: AbsoluteTextRange, message: impl Into<String>) -> Self {
+        Self {
+            range,
+            message: Some(message.into()),
+            kind: LabelKind::Primary,
+        }
+    }
+
+    pub(crate) fn secondary(range: AbsoluteTextRange, message: impl Into<String>) -> Self {
+        Self {
+            range,
+            message: Some(message.into()),
+            kind: LabelKind::Secondary,
+        }
+    }
+
+    pub(crate) fn unlabeled(range: AbsoluteTextRange) -> Self {
+        Self {
+            range,
+            message: None,
+            kind: LabelKind::Primary,
         }
     }
 }

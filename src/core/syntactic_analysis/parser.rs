@@ -8,12 +8,12 @@ use crate::core::lexical_analysis::token_stream::{TokenKind, TokenStream};
 use crate::core::syntactic_analysis::cst::SyntaxKind;
 use crate::core::syntactic_analysis::parser::sink::{Event, Sink};
 use crate::core::syntactic_analysis::parser::source::Source;
-use crate::core::syntactic_analysis::parser::syntax_diagnostic::SyntaxDiagnostic;
+use crate::core::syntactic_analysis::parser::syntax_diagnostic::UnresolvedSyntaxDiagnostic;
 
 pub(crate) struct Parser {
     cursor: SourceCursor,
     sink: Sink,
-    diagnostics: Vec<SyntaxDiagnostic>,
+    diagnostics: Vec<UnresolvedSyntaxDiagnostic>,
 }
 
 struct SourceCursor {
@@ -66,7 +66,7 @@ impl Parser {
         }
     }
 
-    pub(crate) fn parse(mut self) -> (Sink, Vec<SyntaxDiagnostic>) {
+    pub(crate) fn parse(mut self) -> (Sink, Vec<UnresolvedSyntaxDiagnostic>) {
         let marker = self.open();
 
         while !self.cursor.at_eof() {
@@ -644,7 +644,7 @@ impl Parser {
 
     fn record_diagnostic(&mut self, expected: &str) {
         let index = self.diagnostics.len();
-        self.diagnostics.push(SyntaxDiagnostic::new(
+        self.diagnostics.push(UnresolvedSyntaxDiagnostic::new(
             expected.to_string(),
             self.cursor.peek().to_string(),
         ));
@@ -728,7 +728,12 @@ mod tests {
             if !diagnostics.is_empty() {
                 dump.push_str("\n--- diagnostics ---\n");
                 for diagnostic in &diagnostics {
-                    writeln!(dump, "{diagnostic:?}").unwrap();
+                    writeln!(
+                        dump,
+                        "{} {:?} {:?}",
+                        diagnostic.code, diagnostic.range, diagnostic.message
+                    )
+                    .unwrap();
                 }
             }
 

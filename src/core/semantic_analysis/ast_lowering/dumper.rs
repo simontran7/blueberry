@@ -1,12 +1,12 @@
 use std::fmt::Write;
 use std::sync::Arc;
 
+use crate::core::common::diagnostic::Diagnostic;
 use crate::core::common::text_range::{AbsoluteTextRange, TextOffset};
 use crate::core::semantic_analysis::ast_lowering::nodes::{
-    self, ExpressionHandle, HirNodeSourceMap, StatementHandle,
+    self, ExpressionHandle, HirNodeRanges, StatementHandle,
 };
 use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
-use crate::core::semantic_analysis::semantic_diagnostic::SemanticDiagnostic;
 use crate::core::semantic_analysis::type_checking::type_checker::BodySemantics;
 use crate::core::semantic_analysis::{
     all_definitions_of, block_definitions_of, body, definition_diagnostics_of,
@@ -33,7 +33,7 @@ pub(crate) enum DumpTypes {
 
 struct BodyTypes<'db> {
     semantics: Arc<BodySemantics<'db>>,
-    source_map: Arc<HirNodeSourceMap>,
+    ranges: Arc<HirNodeRanges>,
     anchor: TextOffset,
 }
 
@@ -81,7 +81,7 @@ impl<'db> HirBodyDumper<'db> {
                         .cloned()
                 }),
         );
-        diagnostics.sort_by_key(|diagnostic| diagnostic.describe().range.start());
+        diagnostics.sort_by_key(|diagnostic| diagnostic.range.start());
         let mut out = String::new();
         if !diagnostics.is_empty() {
             out.push_str("\ndiagnostics\n");
@@ -96,8 +96,8 @@ impl<'db> HirBodyDumper<'db> {
         let signature = signature::hir_of(self.db, definition);
         let body = body::hir_of(self.db, definition);
         let types = (self.types == DumpTypes::Include).then(|| BodyTypes {
-            semantics: body::types_of(self.db, definition).clone(),
-            source_map: body::source_map_of(self.db, definition),
+            semantics: body::semantics_of(self.db, definition).clone(),
+            ranges: body::ranges_of(self.db, definition),
             anchor: definition.anchor(self.db),
         });
         let types = types.as_ref();
@@ -298,8 +298,8 @@ impl<'db> HirBodyDumper<'db> {
                 .ranged(
                     &self.range(
                         types
-                            .source_map
-                            .expression_range(expression_handle, types.anchor),
+                            .ranges
+                            .expression_absolute_range(expression_handle, types.anchor),
                     ),
                 )
                 .typed(
@@ -367,25 +367,24 @@ impl<'db> HirBodyDumper<'db> {
         }
     }
 
-    fn diagnostic(&self, diagnostic: &SemanticDiagnostic) -> String {
-        let description = diagnostic.describe();
+    fn diagnostic(&self, diagnostic: &Diagnostic) -> String {
         let mut line = format!(
             "  {} {} '{}': {}",
-            description.code,
-            self.range(description.range),
-            self.text(description.range),
-            description.message
+            diagnostic.code,
+            self.range(diagnostic.range),
+            self.text(diagnostic.range),
+            diagnostic.message
         );
-        let main_label = description
+        let main_label = diagnostic
             .labels
             .iter()
-            .position(|label| label.range == description.range && label.message.is_some());
+            .position(|label| label.range == diagnostic.range && label.message.is_some());
         if let Some(index) = main_label {
-            let message = description.labels[index].message.as_ref().unwrap();
+            let message = diagnostic.labels[index].message.as_ref().unwrap();
             write!(line, " ({message})").unwrap();
         }
         line.push('\n');
-        for (index, label) in description.labels.iter().enumerate() {
+        for (index, label) in diagnostic.labels.iter().enumerate() {
             if Some(index) == main_label {
                 continue;
             }
@@ -399,10 +398,10 @@ impl<'db> HirBodyDumper<'db> {
                 .unwrap();
             }
         }
-        for note in &description.notes {
+        for note in &diagnostic.notes {
             writeln!(line, "    note: {note}").unwrap();
         }
-        for help in &description.helps {
+        for help in &diagnostic.helps {
             writeln!(line, "    help: {help}").unwrap();
         }
         line

@@ -1,47 +1,29 @@
-use crate::core::common::diagnostic::{DiagnosticDescription, DiagnosticLabel, LabelSeverity};
+use crate::core::common::diagnostic::{Diagnostic, DiagnosticLabel};
 use crate::core::common::text_range::AbsoluteTextRange;
 
-#[derive(Debug, Clone)]
-pub(crate) enum SyntaxDiagnostic {
-    UnexpectedToken {
-        range: Option<AbsoluteTextRange>,
-        expected: String,
-        found: String,
-    },
+/// A syntax error the parser found, whose range isn't known until the CST is assembled. This is because the parser
+/// never sees trivia, so it can't tell where a token is in the text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct UnresolvedSyntaxDiagnostic {
+    expected: String,
+    found: String,
 }
 
-impl SyntaxDiagnostic {
+impl UnresolvedSyntaxDiagnostic {
     pub(crate) fn new(expected: String, found: String) -> Self {
-        Self::UnexpectedToken {
-            range: None,
-            expected,
-            found,
-        }
+        Self { expected, found }
     }
 
-    pub(crate) fn describe(&self) -> DiagnosticDescription {
-        let Self::UnexpectedToken {
+    pub(crate) fn resolve(&self, range: AbsoluteTextRange) -> Diagnostic {
+        let Self { expected, found } = self;
+        Diagnostic::new(
+            "E0101",
+            &format!("expected `{expected}`, found `{found}`"),
             range,
-            expected,
-            found,
-        } = self;
-        let range = range.unwrap();
-        DiagnosticDescription {
-            code: "E0101",
-            message: format!("expected `{expected}`, found `{found}`"),
-            range,
-            labels: Box::new([DiagnosticLabel {
+            vec![DiagnosticLabel::primary(
                 range,
-                message: Some(format!("expected `{expected}`")),
-                severity: LabelSeverity::Primary,
-            }]),
-            notes: Box::new([]),
-            helps: Box::new([]),
-        }
-    }
-
-    pub(crate) fn resolve(&mut self, range: AbsoluteTextRange) {
-        let Self::UnexpectedToken { range: s, .. } = self;
-        *s = Some(range);
+                format!("expected `{expected}`"),
+            )],
+        )
     }
 }

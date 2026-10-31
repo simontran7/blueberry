@@ -62,7 +62,7 @@ pub(crate) struct HirNodeStore<'db> {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, salsa::SalsaValue)]
-pub(crate) struct HirNodeSourceMap {
+pub(crate) struct HirNodeRanges {
     pub(in crate::core::semantic_analysis::ast_lowering) expressions:
         SideHandleMap<ExpressionHandle, RelativeTextRange>,
     pub(in crate::core::semantic_analysis::ast_lowering) statements:
@@ -214,8 +214,8 @@ handle_impl!(pub(crate) TypeExpressionHandle);
 
 handle_impl!(pub(crate) LocalBindingHandle);
 
-impl HirNodeSourceMap {
-    pub(crate) fn local_binding_range(
+impl HirNodeRanges {
+    pub(crate) fn local_binding_absolute_range(
         &self,
         binding_handle: LocalBindingHandle,
         anchor: TextOffset,
@@ -223,7 +223,7 @@ impl HirNodeSourceMap {
         self.local_bindings[binding_handle].anchored_at(anchor)
     }
 
-    pub(crate) fn expression_range(
+    pub(crate) fn expression_absolute_range(
         &self,
         expression_handle: ExpressionHandle,
         anchor: TextOffset,
@@ -231,7 +231,7 @@ impl HirNodeSourceMap {
         self.expressions[expression_handle].anchored_at(anchor)
     }
 
-    pub(crate) fn type_expression_range(
+    pub(crate) fn type_expression_absolute_range(
         &self,
         type_expression_handle: TypeExpressionHandle,
         anchor: TextOffset,

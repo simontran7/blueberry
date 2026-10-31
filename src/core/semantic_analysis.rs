@@ -6,12 +6,9 @@ pub(crate) mod type_checking;
 
 use std::sync::Arc;
 
-use crate::core::common::text_range::{AbsoluteTextRange, TextOffset};
 use crate::core::module_map::{ModuleMap, ModulePath};
 
-use crate::core::semantic_analysis::ast_lowering::nodes::{
-    self, HirNodeSourceMap, HirNodeStore, TypeExpressionHandle,
-};
+use crate::core::semantic_analysis::ast_lowering::nodes;
 
 use crate::core::semantic_analysis::keys::{BlockKey, DefinitionSource};
 
@@ -19,11 +16,11 @@ use crate::core::semantic_analysis::name_resolution::definition_list::{
     Definition, DefinitionList,
 };
 
+use crate::core::common::diagnostic::Diagnostic;
 use crate::core::semantic_analysis::name_resolution::import_list::ImportList;
 use crate::core::semantic_analysis::name_resolution::scope_tree::ScopeTree;
-use crate::core::semantic_analysis::semantic_diagnostic::{OwnerSpans, SemanticDiagnostic};
+use crate::core::semantic_analysis::semantic_diagnostic::{unknown_type, unresolved_import};
 use crate::core::semantic_analysis::type_checking::type_expression_resolution::resolve_type_expression;
-use crate::core::semantic_analysis::type_checking::types::Ty;
 use crate::core::source_file_key::SourceFileKey;
 use crate::core::syntactic_analysis::cst::RedNode;
 use crate::core::syntactic_analysis::cst::ast::{self, AstNode, File};
@@ -34,7 +31,7 @@ pub(crate) mod signature {
     use std::sync::Arc;
 
     use crate::core::semantic_analysis::ast_lowering::nodes::{
-        HirNodeSourceMap, Signature, SignatureKind,
+        HirNodeRanges, Signature, SignatureKind,
     };
     use crate::core::semantic_analysis::ast_lowering::signature_lowerer::SignatureLowerer;
     use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
@@ -73,28 +70,28 @@ pub(crate) mod signature {
         db: &'db dyn crate::Db,
         definition: Definition<'db>,
     ) -> Arc<Signature<'db>> {
-        hir_and_source_map_of(db, definition).0.clone()
+        hir_and_ranges_of(db, definition).0.clone()
     }
 
     /// Returns where each node of `definition`'s signature comes from in the text.
-    pub(crate) fn source_map_of<'db>(
+    pub(crate) fn ranges_of<'db>(
         db: &'db dyn crate::Db,
         definition: Definition<'db>,
-    ) -> Arc<HirNodeSourceMap> {
-        hir_and_source_map_of(db, definition).1.clone()
+    ) -> Arc<HirNodeRanges> {
+        hir_and_ranges_of(db, definition).1.clone()
     }
 
     #[salsa::tracked]
-    fn hir_and_source_map_of<'db>(
+    fn hir_and_ranges_of<'db>(
         db: &'db dyn crate::Db,
         definition: Definition<'db>,
-    ) -> (Arc<Signature<'db>>, Arc<HirNodeSourceMap>) {
+    ) -> (Arc<Signature<'db>>, Arc<HirNodeRanges>) {
         let lowerer = SignatureLowerer::new(db, definition);
-        let (signature, source_map) = match definition {
+        let (signature, ranges) = match definition {
             Definition::Function(key) => lowerer.lower_function(&key.to_ast_node(db)),
             Definition::Constant(key) => lowerer.lower_constant(&key.to_ast_node(db)),
         };
-        (Arc::new(signature), Arc::new(source_map))
+        (Arc::new(signature), Arc::new(ranges))
     }
 }
 
@@ -103,7 +100,7 @@ pub(crate) mod body {
     use std::sync::Arc;
 
     use crate::core::semantic_analysis::ast_lowering::body_lowerer::BodyLowerer;
-    use crate::core::semantic_analysis::ast_lowering::nodes::{Body, HirNodeSourceMap};
+    use crate::core::semantic_analysis::ast_lowering::nodes::{Body, HirNodeRanges};
     use crate::core::semantic_analysis::name_resolution::definition_list::Definition;
     use crate::core::semantic_analysis::type_checking::type_checker::{
         BodySemantics, check_constant, check_function,
@@ -113,7 +110,7 @@ pub(crate) mod body {
     /// Returns the types of `definition`'s body: what each name in it refers to, and what type
     /// each expression has.
     #[salsa::tracked]
-    pub(crate) fn types_of<'db>(
+    pub(crate) fn semantics_of<'db>(
         db: &'db dyn crate::Db,
         definition: Definition<'db>,
     ) -> Arc<BodySemantics<'db>> {
@@ -132,28 +129,28 @@ pub(crate) mod body {
         db: &'db dyn crate::Db,
         definition: Definition<'db>,
     ) -> Arc<Body<'db>> {
-        hir_and_source_map_of(db, definition).0.clone()
+        hir_and_ranges_of(db, definition).0.clone()
     }
 
     /// Returns where each node of `definition`'s body comes from in the text.
-    pub(crate) fn source_map_of<'db>(
+    pub(crate) fn ranges_of<'db>(
         db: &'db dyn crate::Db,
         definition: Definition<'db>,
-    ) -> Arc<HirNodeSourceMap> {
-        hir_and_source_map_of(db, definition).1.clone()
+    ) -> Arc<HirNodeRanges> {
+        hir_and_ranges_of(db, definition).1.clone()
     }
 
     #[salsa::tracked]
-    fn hir_and_source_map_of<'db>(
+    fn hir_and_ranges_of<'db>(
         db: &'db dyn crate::Db,
         definition: Definition<'db>,
-    ) -> (Arc<Body<'db>>, Arc<HirNodeSourceMap>) {
+    ) -> (Arc<Body<'db>>, Arc<HirNodeRanges>) {
         let lowerer = BodyLowerer::new(db, definition.file(db), definition);
-        let (body, source_map) = match definition {
+        let (body, ranges) = match definition {
             Definition::Function(key) => lowerer.lower_function(&key.to_ast_node(db)),
             Definition::Constant(key) => lowerer.lower_constant(&key.to_ast_node(db)),
         };
-        (Arc::new(body), Arc::new(source_map))
+        (Arc::new(body), Arc::new(ranges))
     }
 }
 
@@ -182,8 +179,8 @@ pub(crate) fn top_level_definitions_of<'db>(
         file,
         DefinitionSource::TopLevel(file),
         root.items().filter_map(|item| match item {
-            ast::Item::Definition(definition) => Some(definition),
-            ast::Item::Import(_) => None,
+            ast::TopLevelItem::Definition(definition) => Some(definition),
+            ast::TopLevelItem::Import(_) => None,
         }),
     )
 }
@@ -201,6 +198,63 @@ pub(crate) fn block_definitions_of<'db>(
     )
 }
 
+fn collect_definitions<'db>(
+    db: &'db dyn crate::Db,
+    file: SourceFileKey,
+    source: DefinitionSource<'db>,
+    definitions: impl Iterator<Item = ast::Definition>,
+) -> Arc<DefinitionList<'db>> {
+    let mut definition_list = DefinitionList::new();
+    for definition in definitions {
+        let Some(name) = definition.name() else {
+            continue;
+        };
+        let name = ast_lowering::path_lowering::lower_name(db, &name);
+        definition_list.add_definition(db, file, source, name, definition);
+    }
+    Arc::new(definition_list)
+}
+
+/// Returns every definition in `file`, including nested ones, depth-first: each definition is
+/// followed by the ones nested inside it.
+///
+/// Used for diagnostics and MIR dumping.
+pub(crate) fn all_definitions_of<'db>(
+    db: &'db dyn crate::Db,
+    file: SourceFileKey,
+) -> Vec<Definition<'db>> {
+    fn visit<'db>(
+        db: &'db dyn crate::Db,
+        definition: Definition<'db>,
+        definitions: &mut Vec<Definition<'db>>,
+    ) {
+        definitions.push(definition);
+        for expression in body::hir_of(db, definition)
+            .store()
+            .expressions()
+            .map(|(_, expression)| expression)
+        {
+            if let nodes::Expression::Block {
+                block_key: Some(block_key),
+                ..
+            } = expression
+            {
+                for nested_definition in block_definitions_of(db, *block_key).definitions() {
+                    visit(db, *nested_definition, definitions);
+                }
+            }
+        }
+    }
+
+    let mut definitions = Vec::new();
+
+    for definition in top_level_definitions_of(db, file).definitions() {
+        visit(db, *definition, &mut definitions);
+    }
+
+    definitions
+}
+
 #[salsa::tracked]
 pub(crate) fn imports_of<'db>(db: &'db dyn crate::Db, file: SourceFileKey) -> Arc<ImportList<'db>> {
     let root_node = RedNode::new(cst_of(db, file).clone());
@@ -209,8 +263,8 @@ pub(crate) fn imports_of<'db>(db: &'db dyn crate::Db, file: SourceFileKey) -> Ar
     let paths = root_file
         .items()
         .filter_map(|item| match item {
-            ast::Item::Import(import_declaration) => import_declaration.path(),
-            ast::Item::Definition(_) => None,
+            ast::TopLevelItem::Import(import_declaration) => import_declaration.path(),
+            ast::TopLevelItem::Definition(_) => None,
         })
         .filter_map(|path| ast_lowering::path_lowering::lower_path(db, &path))
         .collect();
@@ -239,182 +293,59 @@ pub(crate) fn module_file_of<'db>(
 pub(crate) fn definition_diagnostics_of<'db>(
     db: &'db dyn crate::Db,
     definition: Definition<'db>,
-) -> Arc<[SemanticDiagnostic]> {
-    let file = definition.file(db);
+) -> Arc<[Diagnostic]> {
+    // fetch the signature
     let signature = signature::hir_of(db, definition);
+    let signature_ranges = signature::ranges_of(db, definition);
     let anchor = definition.anchor(db);
-    let mut diagnostics = unknown_type_diagnostics(
-        db,
-        signature.store(),
-        &signature::source_map_of(db, definition),
-        anchor,
-        signature.annotation_handles(),
-    );
 
-    let owner = match definition {
-        Definition::Function(key) => {
-            let node = key.to_ast_node(db);
-            OwnerSpans {
-                file,
-                anchor,
-                name: node.name().map(|name| name.range()),
-                return_type: node
-                    .return_type_annotation()
-                    .map(|annotation| annotation.red().range()),
-            }
+    // report unknown types in the signature
+    let mut diagnostics = Vec::new();
+    for annotation_handle in signature.annotation_handles() {
+        let type_expression = resolve_type_expression(db, signature.store(), annotation_handle);
+        for unknown_path in type_expression.unknown_paths {
+            diagnostics.push(unknown_type(
+                &unknown_path.path.display(db).to_string(),
+                signature_ranges.type_expression_absolute_range(unknown_path.handle, anchor),
+            ));
         }
-        Definition::Constant(key) => OwnerSpans {
-            file,
-            anchor,
-            name: key.to_ast_node(db).name().map(|name| name.range()),
-            return_type: None,
-        },
-    };
-    let body = body::hir_of(db, definition);
-    let source_map = body::source_map_of(db, definition);
-    let semantics = body::types_of(db, definition);
+    }
+
+    // resolve body semantic diagnostics
+    let hir = body::hir_of(db, definition);
+    let ranges = body::ranges_of(db, definition);
+    let semantics = body::semantics_of(db, definition);
     diagnostics.extend(
         semantics
             .diagnostics()
             .iter()
-            .map(|diagnostic| diagnostic.resolve(db, body, &source_map, semantics, &owner)),
+            .map(|diagnostic| diagnostic.resolve(db, hir, &ranges, semantics, definition)),
     );
+
     diagnostics.into()
 }
 
-pub(crate) fn import_diagnostics_of(
-    db: &dyn crate::Db,
-    file: SourceFileKey,
-) -> Vec<SemanticDiagnostic> {
-    let root = RedNode::new(cst_of(db, file).clone());
-    let root = File::cast(root).unwrap();
-    root.items()
+pub(crate) fn import_diagnostics_of(db: &dyn crate::Db, file: SourceFileKey) -> Vec<Diagnostic> {
+    let green_root = cst_of(db, file).clone();
+    let red_root = RedNode::new(green_root);
+    let ast_root = File::cast(red_root).unwrap();
+
+    ast_root
+        .items()
         .filter_map(|item| match item {
-            ast::Item::Import(import_declaration) => import_declaration.path(),
-            ast::Item::Definition(_) => None,
-        })
-        .filter_map(|path| {
-            let lowered = ast_lowering::path_lowering::lower_path(db, &path)?;
-            module_file_of(db, lowered)
-                .is_none()
-                .then(|| SemanticDiagnostic::UnresolvedImport {
-                    path: lowered
-                        .segments(db)
-                        .iter()
-                        .map(|segment| segment.text(db).to_string())
-                        .collect(),
-                    range: path.red().range(),
-                })
+            ast::TopLevelItem::Import(import_declaration) => import_declaration.path(),
+            ast::TopLevelItem::Definition(_) => None,
+        }) // retain only imports
+        .filter_map(|ast_path| {
+            let hir_path = ast_lowering::path_lowering::lower_path(db, &ast_path)?;
+            module_file_of(db, hir_path).is_none().then(|| {
+                let segments: Vec<String> = hir_path
+                    .segments(db)
+                    .iter()
+                    .map(|segment| segment.text(db).to_string())
+                    .collect();
+                unresolved_import(&segments, ast_path.red().range())
+            }) // produce a diagnostic if hir `path` is not found in the module map
         })
         .collect()
-}
-
-pub(crate) fn entry_point_diagnostics_of(
-    db: &dyn crate::Db,
-    file: SourceFileKey,
-) -> Vec<SemanticDiagnostic> {
-    let main = top_level_definitions_of(db, file)
-        .definitions()
-        .iter()
-        .copied()
-        .find(|definition| {
-            matches!(definition, Definition::Function(_)) && definition.name(db).text(db) == "main"
-        });
-    let Some(main) = main else {
-        let file_name = file.path(db).file_name().unwrap_or_default();
-        let end = TextOffset::new(file.contents(db).len());
-        return vec![SemanticDiagnostic::MainNotFound {
-            file: file_name.to_string_lossy().into_owned(),
-            range: AbsoluteTextRange::new(end, end),
-        }];
-    };
-
-    let ty = *signature::type_of(db, main);
-    let expected = Ty::function(db, Box::new([]), Ty::unit(db));
-    // a poisoned signature (e.g., with an unknown type) was already reported
-    if ty == expected || ty.is_poisoned(db) {
-        return Vec::new();
-    }
-    let Definition::Function(key) = main else {
-        unreachable!("`main` was found among the functions");
-    };
-    let range = key
-        .to_ast_node(db)
-        .name()
-        .map_or_else(|| main.range(db), |name| name.range());
-    vec![SemanticDiagnostic::MainWrongType {
-        expected: expected.display(db).to_string(),
-        found: ty.display(db).to_string(),
-        range,
-    }]
-}
-
-// ---- Finding Definitions ----
-pub(crate) fn all_definitions_of<'db>(
-    db: &'db dyn crate::Db,
-    file: SourceFileKey,
-) -> Vec<Definition<'db>> {
-    fn visit<'db>(
-        db: &'db dyn crate::Db,
-        definition: Definition<'db>,
-        definitions: &mut Vec<Definition<'db>>,
-    ) {
-        definitions.push(definition);
-        let body = body::hir_of(db, definition);
-        for expression in body.store().expressions().map(|(_, expression)| expression) {
-            if let nodes::Expression::Block {
-                block_key: Some(block_key),
-                ..
-            } = expression
-            {
-                for nested in block_definitions_of(db, *block_key).definitions() {
-                    visit(db, *nested, definitions);
-                }
-            }
-        }
-    }
-
-    let mut definitions = Vec::new();
-    for definition in top_level_definitions_of(db, file).definitions() {
-        visit(db, *definition, &mut definitions);
-    }
-    definitions
-}
-
-// ---- Helpers ----
-fn collect_definitions<'db>(
-    db: &'db dyn crate::Db,
-    file: SourceFileKey,
-    source: DefinitionSource<'db>,
-    definitions: impl Iterator<Item = ast::Definition>,
-) -> Arc<DefinitionList<'db>> {
-    let mut definition_list = DefinitionList::new();
-    for definition in definitions {
-        let Some(name) = definition.name() else {
-            continue;
-        };
-        let name = ast_lowering::path_lowering::lower_name(db, &name);
-        definition_list.add_definition(db, file, source, name, definition);
-    }
-    Arc::new(definition_list)
-}
-
-fn unknown_type_diagnostics<'db>(
-    db: &'db dyn crate::Db,
-    store: &HirNodeStore<'db>,
-    source_map: &HirNodeSourceMap,
-    anchor: TextOffset,
-    annotation_handles: impl IntoIterator<Item = TypeExpressionHandle>,
-) -> Vec<SemanticDiagnostic> {
-    let mut diagnostics = Vec::new();
-    for annotation_handle in annotation_handles {
-        let resolved = resolve_type_expression(db, store, annotation_handle);
-        for unknown_path in resolved.unknown_paths {
-            diagnostics.push(SemanticDiagnostic::UnknownType {
-                name: unknown_path.path.display(db).to_string(),
-                range: source_map.type_expression_range(unknown_path.handle, anchor),
-            });
-        }
-    }
-    diagnostics
 }

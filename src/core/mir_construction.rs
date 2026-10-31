@@ -17,7 +17,7 @@ pub(crate) fn mir_of<'db>(
     definition: Definition<'db>,
 ) -> Option<Arc<MirBody<'db>>> {
     let signature_type = *signature::type_of(db, definition);
-    let semantics = body::types_of(db, definition);
+    let semantics = body::semantics_of(db, definition);
     if signature_type.is_poisoned(db) || semantics.has_errors(db) {
         return None;
     }

@@ -18,6 +18,7 @@
 )]
 
 pub mod batch;
+pub mod cli;
 pub(crate) mod core;
 
 pub(crate) use salsa::Database as Db;

@@ -12,7 +12,9 @@ flowchart TD
     end
 
     subgraph syntax [Syntax]
+        tokens_and_diagnostics_of
         tokens_of
+        cst_and_diagnostics_of
         cst_of
     end
 
@@ -24,17 +26,17 @@ flowchart TD
     end
 
     subgraph definition [Per definition: a function or a constant]
-        signature_hir_and_source_map_of["signature::hir_and_source_map_of"]
+        signature_hir_and_ranges_of["signature::hir_and_ranges_of"]
         signature_hir_of["signature::hir_of"]
         signature_type_of["signature::type_of"]
-        body_hir_and_source_map_of["body::hir_and_source_map_of"]
+        body_hir_and_ranges_of["body::hir_and_ranges_of"]
         body_hir_of["body::hir_of"]
         scopes_of
-        body_types_of["body::types_of"]
+        body_semantics_of["body::semantics_of"]
         mir_of
     end
 
-    SourceFileKey --> tokens_of --> cst_of
+    SourceFileKey --> tokens_and_diagnostics_of --> tokens_of --> cst_and_diagnostics_of --> cst_of
 
     cst_of --> top_level_definitions_of
     cst_of --> block_definitions_of
@@ -43,13 +45,13 @@ flowchart TD
     ModuleMap --> module_file_of
     imports_of --> module_file_of
 
-    cst_of --> signature_hir_and_source_map_of --> signature_hir_of --> signature_type_of
-    cst_of --> body_hir_and_source_map_of --> body_hir_of --> scopes_of
+    cst_of --> signature_hir_and_ranges_of --> signature_hir_of --> signature_type_of
+    cst_of --> body_hir_and_ranges_of --> body_hir_of --> scopes_of
 
-    body_hir_of & scopes_of & signature_type_of -.-> body_types_of
-    top_level_definitions_of & block_definitions_of & module_file_of -.-> body_types_of
+    body_hir_of & scopes_of & signature_type_of -.-> body_semantics_of
+    top_level_definitions_of & block_definitions_of & module_file_of -.-> body_semantics_of
 
-    body_hir_of & signature_type_of & body_types_of --> mir_of
+    body_hir_of & signature_type_of & body_semantics_of --> mir_of
 ```
 
 1. [Lexical Analysis](architecture/lexical-analysis.md): source text to tokens 

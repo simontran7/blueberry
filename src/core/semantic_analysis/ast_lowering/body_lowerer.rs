@@ -1,7 +1,7 @@
 use crate::core::common::symbol::Symbol;
 use crate::core::semantic_analysis::ast_lowering::hir_node_store_builder::HirNodeStoreBuilder;
 use crate::core::semantic_analysis::ast_lowering::nodes::{
-    self, ExpressionHandle, HirNodeSourceMap, LocalBindingHandle, StatementHandle,
+    self, ExpressionHandle, HirNodeRanges, LocalBindingHandle, StatementHandle,
     TypeExpressionHandle,
 };
 use crate::core::semantic_analysis::ast_lowering::{path_lowering, type_expression_lowering};
@@ -215,7 +215,7 @@ impl<'db> BodyLowerer<'db> {
     pub(crate) fn lower_function(
         mut self,
         function: &ast::FunctionDefinition,
-    ) -> (nodes::Body<'db>, HirNodeSourceMap) {
+    ) -> (nodes::Body<'db>, HirNodeRanges) {
         let parameter_handles = self.lower_parameters(function.parameter_list());
         let root_handle = self.lower_optional_block(function.body(), function.red());
         self.finish(root_handle, parameter_handles)
@@ -224,7 +224,7 @@ impl<'db> BodyLowerer<'db> {
     pub(crate) fn lower_constant(
         mut self,
         constant: &ast::ConstantDefinition,
-    ) -> (nodes::Body<'db>, HirNodeSourceMap) {
+    ) -> (nodes::Body<'db>, HirNodeRanges) {
         let root_handle = self.lower_optional_expression(constant.value(), constant.red());
         self.finish(root_handle, Box::new([]))
     }
@@ -233,14 +233,14 @@ impl<'db> BodyLowerer<'db> {
         self,
         root_handle: ExpressionHandle,
         parameter_handles: Box<[LocalBindingHandle]>,
-    ) -> (nodes::Body<'db>, HirNodeSourceMap) {
-        let (store, source_map) = self.builder.finish();
+    ) -> (nodes::Body<'db>, HirNodeRanges) {
+        let (store, ranges) = self.builder.finish();
         let body = nodes::Body {
             store,
             root_handle,
             parameter_handles,
         };
-        (body, source_map)
+        (body, ranges)
     }
 
     fn lower_path(&self, path: &ast::Path) -> Option<nodes::Path<'db>> {

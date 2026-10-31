@@ -43,7 +43,7 @@ An annotation is a **type expression**: what the user wrote for a type, which de
 >
 > Resolving is part of type checking, not of AST lowering, since it needs to know what names mean: today, a name can only be a primitive, but once blueberry has user-defined types, `Point` will need to be looked up the same way as a value path.
 
-Type expressions nest (e.g., `(I32, (Bool, U64))`), so every type expression gets its own handle in a `HirNodeStore` (see [Bodies](#bodies)), and a tuple type expression refers to its elements by handle. A signature has its own store, and so does each body, and both are built by the same `HirNodeStoreBuilder`. It also records in a source map where each type expression came from, so that an unknown name inside a tuple (e.g., `Foo` in `(I32, Foo)`) is reported at the name itself.
+Type expressions nest (e.g., `(I32, (Bool, U64))`), so every type expression gets its own handle in a `HirNodeStore` (see [Bodies](#bodies)), and a tuple type expression refers to its elements by handle. A signature has its own store, and so does each body, and both are built by the same `HirNodeStoreBuilder`. It also records in a `HirNodeRanges` where each type expression came from, so that an unknown name inside a tuple (e.g., `Foo` in `(I32, Foo)`) is reported at the name itself.
 
 Resolving `(I32, Foo)` gives a `ResolvedTypeExpression`: the type `(I32, Error)`, and the handles of the paths that name no type (here, `Foo`). The caller turns each of those into an "unknown type" diagnostic. It's the same function for signatures and for a `let` in a body.
 
@@ -53,9 +53,9 @@ A signature is kept separate from its body, so that `f` can call `g` using only 
 
 This only works because blueberry requires every signature to be fully annotated, and so the header alone says what the type is.
 
-_In the code:_ `signature::hir_of(d)`, a `Signature` (either a `FunctionSignature` or a `ConstantSignature`, lowered by the `SignatureLowerer` in `ast_lowering/signature_lowerer.rs`), its source map `signature::source_map_of(d)`, and as a type, `signature::type_of(d)`; annotations are lowered into the HIR by `lower_type_expression` (`ast_lowering/type_expression_lowering.rs`), then turned into types by `resolve_type_expression` (`type_checking/type_expression_resolution.rs`)
+_In the code:_ `signature::hir_of(d)`, a `Signature` (either a `FunctionSignature` or a `ConstantSignature`, lowered by the `SignatureLowerer` in `ast_lowering/signature_lowerer.rs`), its ranges `signature::ranges_of(d)`, and as a type, `signature::type_of(d)`; annotations are lowered into the HIR by `lower_type_expression` (`ast_lowering/type_expression_lowering.rs`), then turned into types by `resolve_type_expression` (`type_checking/type_expression_resolution.rs`)
 
-Every query here and below takes a `Definition` (a function or a constant), rather than having one query per kind of definition: `Definition` is a salsa **supertype** (an enum of the two salsa keys, `FunctionKey` and `ConstantKey`), so a single query can be keyed by either, and only matches on the kind where the two genuinely differ (e.g., `body::types_of` checks a function body against its return type, and a constant body against its declared type).
+Every query here and below takes a `Definition` (a function or a constant), rather than having one query per kind of definition: `Definition` is a salsa **supertype** (an enum of the two salsa keys, `FunctionKey` and `ConstantKey`), so a single query can be keyed by either, and only matches on the kind where the two genuinely differ (e.g., `body::semantics_of` checks a function body against its return type, and a constant body against its declared type).
 
 ### Bodies
 
@@ -63,11 +63,11 @@ Every body is lowered into a **HIR** (a `Body`): a `HirNodeStore` holding flat t
 
 The store only holds nodes, and the children of those nodes (e.g., a tuple's elements). What an owner does with its nodes is kept on the owner: a body's `root_handle` and `parameter_handles`, a function signature's `parameter_annotation_handles` and `return_type_annotation`, and a constant signature's `annotation`.
 
-Alongside each body, a **source map** (a `HirNodeSourceMap`) is built, recording which syntax node each HIR node came from.
+Alongside each body, a **`HirNodeRanges`** is built, recording the text range each HIR node came from.
 
 The HIR itself stores no positions in the text. This way, an edit that only moves text (e.g. adding whitespace or a comment) leaves the HIR unchanged, so the HIR, and every result computed from it (scopes, types, MIR), stays cached.
 
-The source map's ranges are **relative** (a `RelativeTextRange`): each one is measured from the start of its definition (its **anchor**, `Definition::anchor`) rather than from the start of the file. Most edits happen outside any given definition, and an edit above a definition only moves its anchor, so its source map stays unchanged too. A range is turned back into a range of the file only when it's needed, e.g. when a diagnostic is reported, by adding the anchor's current position (`expression_range(handle, anchor)`, `type_expression_range(handle, anchor)`), which gives an `AbsoluteTextRange`. The two are separate types, so a relative range can't reach a diagnostic without being anchored first.
+These ranges are **relative** (a `RelativeTextRange`): each one is measured from the start of its definition (its **anchor**, `Definition::anchor`) rather than from the start of the file. Most edits happen outside any given definition, and an edit above a definition only moves its anchor, so its `HirNodeRanges` stays unchanged too. A range is turned back into a range of the file only when it's needed, e.g. when a diagnostic is reported, by adding the anchor's current position (`expression_absolute_range(handle, anchor)`, `type_expression_absolute_range(handle, anchor)`), which gives an `AbsoluteTextRange`. The two are separate types, so a relative range can't reach a diagnostic without being anchored first.
 
 For example, adding a line above `func b` shifts `b` in the file, but not `b`'s nodes relative to `b`:
 
@@ -79,13 +79,13 @@ func b() {                      func b() {          ← anchor moves: 13 → 26
 }                               }
 ```
 
-Lowering produces the HIR and its source map together (`body::hir_and_source_map_of`), but they're cached separately: `body::hir_of` returns only the HIR, so when an edit changes only the source map, salsa sees that `body::hir_of`'s result didn't change, and doesn't recompute anything that depends on it.
+Lowering produces the HIR and its ranges together (`body::hir_and_ranges_of`), but they're cached separately: `body::hir_of` returns only the HIR, so when an edit changes only the ranges, salsa sees that `body::hir_of`'s result didn't change, and doesn't recompute anything that depends on it.
 
-The source map is the bridge between the two:
-- **HIR to text**, for diagnostics: a diagnostic stores the handle of the node it's about (e.g. an `ExpressionHandle`), and its range is only looked up through the source map when it's reported
+The `HirNodeRanges` is the bridge between the two:
+- **HIR to text**, for diagnostics: a diagnostic stores the handle of the node it's about (e.g. an `ExpressionHandle`), and its range is only looked up through the `HirNodeRanges` when it's reported
 - **text to HIR**, for editor features such as hover or go-to-definition: the syntax node under the cursor is mapped back to its handle, whose type can then be looked up (not built yet)
 
-_In the code:_ `body::hir_of(d)`, `body::source_map_of(d)`
+_In the code:_ `body::hir_of(d)`, `body::ranges_of(d)`
 
 ## Name Collecting
 
@@ -144,7 +144,7 @@ main's body (HIR)
                                                                │
                          ┌─────────────────────────────────────┼──────────────────────────────┐
                          ▼                                     ▼                              ▼
-            signature::hir_of(is_ready)             body::hir_of(is_ready)      body::types_of(is_ready)
+            signature::hir_of(is_ready)             body::hir_of(is_ready)      body::semantics_of(is_ready)
           (name, parameters, return type)                 its own HIR                its own type check
 ```
 
@@ -598,7 +598,7 @@ const LIMIT: I64 = 5;   // 5 is checked with I64 → 5: I64
 const FLAG: Bool = 5;   // Bool isn't an integer type → 5: ?0; unify(Bool, ?0) → mismatch
 ```
 
-_In the code:_ `body::types_of(d)`
+_In the code:_ `body::semantics_of(d)`
 
 ### Finishing a Body
 
@@ -621,7 +621,7 @@ The diagnostic points at where the unknown came from. Each general variable reco
    │             ┬ type must be known at this point
 ```
 
-The origin is a HIR handle (a `LocalBindingHandle` or an `ExpressionHandle`), so `body::types_of` stays independent of positions: the range is only looked up, through the source map, when the diagnostic is resolved (see [Diagnostics](#diagnostics)).
+The origin is a HIR handle (a `LocalBindingHandle` or an `ExpressionHandle`), so `body::semantics_of` stays independent of positions: the range is only looked up, through the `HirNodeRanges`, when the diagnostic is resolved (see [Diagnostics](#diagnostics)).
 
 _In the code:_ `VariableOrigin`, `InferenceTable::zonk_and_poison`
 
@@ -684,10 +684,18 @@ The syntax error cases don't show up in `blueberry check` today, since the drive
 
 ### Diagnostics
 
+Semantic diagnostics come from three places:
+
+| Source | Covers | Where |
+|---|---|---|
+| Type checker | everything inside a body, including `let` annotations | `body::semantics_of`, then `resolve` |
+| `definition_diagnostics_of` | unknown types in signatures | `semantic_analysis.rs:288-296` |
+| `import_diagnostics_of` | imports that point nowhere | `semantic_analysis.rs:312` |
+
 While walking a body, the type checker records each problem as an `UnresolvedSemanticDiagnostic`, which points at HIR handles rather than positions in the text, so that the `BodySemantics` stays unchanged when text only moves. A type mismatch records the expected and found types, and a **cause**: why that type was required (e.g., an `if` and `else` disagreeing, or a missing `else`).
 
-Each expression is checked against its context exactly once (its parent either coerces it, or pours it into a funnel), so an expression never gets two mismatches.
+When a diagnostic is reported, it's **resolved** into a `Diagnostic` (via `.resolve(..)`), looking up its ranges through the `HirNodeRanges`. 
 
-When a diagnostic is reported, it's **resolved** into a `SemanticDiagnostic` (via `.resolve(..)`), looking up its ranges through the source map. A mismatch's cause decides its message, e.g. "`if` and `else` have incompatible types" rather than "mismatched types".
+Additionally, mismatches are annotated with a cause which decides its message, e.g. "`if` and `else` have incompatible types".
 
-The diagnostics of one definition (unknown types in its signature, and its body's resolved diagnostics) are given by `definition_diagnostics_of(definition)`.
+
